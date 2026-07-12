@@ -171,7 +171,7 @@
   <!-- START SCREEN -->
   <div class="overlay" id="start-overlay">
     <div class="panel">
-      <div class="eyebrow">Practice Mode &middot; Free</div>
+      <div class="eyebrow">Free to Play</div>
       <h1>ASTEROID <span>RUN</span></h1>
       <p>Dodge the asteroid field and alien fire. Survive as long as you can — your score climbs every second, and things get faster and busier the longer you last.</p>
       <ul class="rules-list">
@@ -179,7 +179,7 @@
         <li><span class="rule-icon">⌨</span><span><b>Keyboard:</b> Arrow keys or WASD to move.</span></li>
         <li><span class="rule-icon">☄</span><span><b>Rocks:</b> fall from above — don't let them touch you.</span></li>
         <li><span class="rule-icon">👾</span><span><b>Aliens:</b> sweep in from the sides and open fire — dodge the shots, and don't touch the ships either.</span></li>
-        <li><span class="rule-icon">🛸</span><span><b>Cruiser:</b> after about a minute, a bigger ship shows up and fires a laser — watch for the warning line and move away before it fires.</span></li>
+        <li><span class="rule-icon">🛸</span><span><b>Cruiser:</b> after about a minute, a bigger ship shows up and locks a cross-shaped laser onto <b>your</b> position — you have to actually move before it fires, not just stand still.</span></li>
       </ul>
       <button class="btn btn-primary" onclick="startGame()">Start Run</button>
     </div>
@@ -228,6 +228,11 @@
   let aliens = [];
   let bullets = [];
   let stars = [];
+  let particles = [];
+  let shakeMag = 0;
+  let shakeTimer = 0;
+  let dying = false;
+  let deathTimer = 0;
   let spawnTimer = 0;
   let alienSpawnTimer = 0;
   let cruiserSpawnTimer = 0;
@@ -235,6 +240,53 @@
   let lastTs = null;
   const moveKeys = { left: false, right: false, up: false, down: false };
   const KEY_SPEED = 980;
+
+  // ---------- Simple synth sound effects (no audio files needed) ----------
+  let audioCtx = null;
+  function getAudioCtx(){
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioCtx;
+  }
+  function playTone(freq, duration, type, startGain){
+    try{
+      const ctx2 = getAudioCtx();
+      const osc = ctx2.createOscillator();
+      const gain = ctx2.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(freq, ctx2.currentTime);
+      gain.gain.setValueAtTime(startGain || 0.12, ctx2.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx2.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx2.destination);
+      osc.start();
+      osc.stop(ctx2.currentTime + duration);
+    } catch(e){ /* audio not available, ignore */ }
+  }
+  function sfxAlienShoot(){ playTone(320, 0.08, 'square', 0.05); }
+  function sfxFighterBurst(){ playTone(420, 0.09, 'square', 0.06); }
+  function sfxCruiserWarn(){ playTone(200, 0.5, 'sawtooth', 0.05); }
+  function sfxCruiserFire(){ playTone(140, 0.3, 'sawtooth', 0.15); setTimeout(() => playTone(90, 0.35, 'sawtooth', 0.13), 50); }
+  function sfxCrash(){ playTone(180, 0.35, 'sawtooth', 0.16); setTimeout(() => playTone(90, 0.4, 'sawtooth', 0.14), 80); }
+
+  function spawnParticles(x, y, color, count){
+    for(let i = 0; i < count; i++){
+      const a = Math.random() * Math.PI * 2;
+      const speed = 60 + Math.random() * 160;
+      particles.push({
+        x, y,
+        vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+        life: 0, duration: 0.4 + Math.random() * 0.4,
+        color, r: 1.5 + Math.random() * 2.5
+      });
+    }
+  }
+
+  function triggerShake(mag, dur){
+    shakeMag = mag;
+    shakeTimer = dur;
+  }
 
   function resetGame(){
     resize();
@@ -245,6 +297,11 @@
     rocks = [];
     aliens = [];
     bullets = [];
+    particles = [];
+    shakeMag = 0;
+    shakeTimer = 0;
+    dying = false;
+    deathTimer = 0;
     spawnTimer = 0;
     alienSpawnTimer = 5.5;
     cruiserSpawnTimer = 58;
@@ -288,13 +345,14 @@
       y: 65,
       vx: (fromLeft ? 1 : -1) * 22,
       life: 0,
-      duration: 7,
+      duration: 8,
       exiting: false,
       hitR: 26,
       phase: 'idle',
-      phaseTimer: 1.1,
+      phaseTimer: 1.0,
       beamX: 0,
-      beamHalfWidth: 30
+      beamY: 0,
+      beamHalfWidth: 26
     });
   }
 
@@ -340,24 +398,37 @@
       // warning telegraph / active beam drawn first, in world space (not translated back)
       ctx.restore();
       if(a.phase === 'charging'){
-        const frac = 1 - Math.max(a.phaseTimer, 0) / 0.65;
+        const frac = 1 - Math.max(a.phaseTimer, 0) / 0.6;
         ctx.save();
         ctx.setLineDash([10, 8]);
-        ctx.strokeStyle = 'rgba(255,92,92,' + (0.35 + 0.4 * frac) + ')';
+        ctx.strokeStyle = 'rgba(255,92,92,' + (0.35 + 0.45 * frac) + ')';
         ctx.lineWidth = 2;
+        // vertical telegraph — where the column will strike
         ctx.beginPath();
-        ctx.moveTo(a.x, a.y + 14);
-        ctx.lineTo(a.x, H);
+        ctx.moveTo(a.beamX, 0);
+        ctx.lineTo(a.beamX, H);
+        ctx.stroke();
+        // horizontal telegraph — where the band will strike
+        ctx.beginPath();
+        ctx.moveTo(0, a.beamY);
+        ctx.lineTo(W, a.beamY);
         ctx.stroke();
         ctx.restore();
       } else if(a.phase === 'firing'){
         ctx.save();
-        const grad = ctx.createLinearGradient(a.beamX - a.beamHalfWidth, 0, a.beamX + a.beamHalfWidth, 0);
-        grad.addColorStop(0, 'rgba(255,92,92,0)');
-        grad.addColorStop(0.5, 'rgba(255,120,110,0.85)');
-        grad.addColorStop(1, 'rgba(255,92,92,0)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(a.beamX - a.beamHalfWidth, a.y + 14, a.beamHalfWidth * 2, H - a.y - 14);
+        const gradV = ctx.createLinearGradient(a.beamX - a.beamHalfWidth, 0, a.beamX + a.beamHalfWidth, 0);
+        gradV.addColorStop(0, 'rgba(255,92,92,0)');
+        gradV.addColorStop(0.5, 'rgba(255,120,110,0.88)');
+        gradV.addColorStop(1, 'rgba(255,92,92,0)');
+        ctx.fillStyle = gradV;
+        ctx.fillRect(a.beamX - a.beamHalfWidth, 0, a.beamHalfWidth * 2, H);
+
+        const gradH = ctx.createLinearGradient(0, a.beamY - a.beamHalfWidth, 0, a.beamY + a.beamHalfWidth);
+        gradH.addColorStop(0, 'rgba(255,92,92,0)');
+        gradH.addColorStop(0.5, 'rgba(255,120,110,0.88)');
+        gradH.addColorStop(1, 'rgba(255,92,92,0)');
+        ctx.fillStyle = gradH;
+        ctx.fillRect(0, a.beamY - a.beamHalfWidth, W, a.beamHalfWidth * 2);
         ctx.restore();
       }
       ctx.save();
@@ -491,7 +562,36 @@
     ctx.restore();
   }
 
+  function triggerCrash(x, y){
+    if(dying) return;
+    sfxCrash();
+    triggerShake(9, 0.4);
+    spawnParticles(x, y, '255,92,92', 20);
+    dying = true;
+    deathTimer = 0;
+  }
+
   function update(dt){
+    if(dying){
+      deathTimer += dt;
+      for(const p of particles){
+        p.life += dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.94; p.vy *= 0.94;
+      }
+      particles = particles.filter(p => p.life < p.duration);
+      if(shakeTimer > 0){
+        shakeTimer -= dt;
+        if(shakeTimer < 0) shakeTimer = 0;
+      }
+      if(deathTimer > 0.4){
+        dying = false;
+        finishGame();
+      }
+      return;
+    }
+
     elapsed += dt;
     score += dt * 12;
 
@@ -541,7 +641,7 @@
       const dx = rock.x - ship.x, dy = rock.y - ship.y;
       const dist = Math.sqrt(dx*dx + dy*dy);
       if(dist < rock.r * 0.82 + ship.r * 0.75){
-        endGame();
+        triggerCrash(ship.x, ship.y);
         return;
       }
     }
@@ -564,20 +664,25 @@
           a.phaseTimer -= dt;
           if(a.phase === 'idle' && a.phaseTimer <= 0){
             a.phase = 'charging';
-            a.phaseTimer = 0.65;
-            a.beamX = a.x;
+            a.phaseTimer = Math.max(0.6 - elapsed * 0.002, 0.4);
+            // aim at the player's actual position — you have to move to dodge this
+            a.beamX = ship.x;
+            a.beamY = ship.y;
+            sfxCruiserWarn();
           } else if(a.phase === 'charging' && a.phaseTimer <= 0){
             a.phase = 'firing';
             a.phaseTimer = 0.32;
+            sfxCruiserFire();
           } else if(a.phase === 'firing'){
-            const dx = ship.x - a.beamX;
-            if(Math.abs(dx) < a.beamHalfWidth + ship.r * 0.6 && ship.y > a.y){
-              endGame();
+            const inColumn = Math.abs(ship.x - a.beamX) < a.beamHalfWidth + ship.r * 0.6;
+            const inBand = Math.abs(ship.y - a.beamY) < a.beamHalfWidth + ship.r * 0.6;
+            if(inColumn || inBand){
+              triggerCrash(ship.x, ship.y);
               return;
             }
             if(a.phaseTimer <= 0){
               a.phase = 'idle';
-              a.phaseTimer = 1.3;
+              a.phaseTimer = 1.0;
             }
           }
         }
@@ -592,6 +697,7 @@
             bullets.push({ x: a.x, y: a.y + 8, vy: bulletVy * 0.94, vx: aimVx - 90, color:'rgba(255,92,182,0.9)', dotColor:'#FF5CB6' });
             bullets.push({ x: a.x, y: a.y + 8, vy: bulletVy * 0.94, vx: aimVx + 90, color:'rgba(255,92,182,0.9)', dotColor:'#FF5CB6' });
             a.fireTimer = fireInterval * 1.6;
+            sfxFighterBurst();
           } else {
             bullets.push({
               x: a.x,
@@ -600,6 +706,7 @@
               vx: (ship.x - a.x) * 0.35
             });
             a.fireTimer = fireInterval;
+            sfxAlienShoot();
           }
         }
       }
@@ -609,7 +716,7 @@
         const dx = a.x - ship.x, dy = a.y - ship.y;
         const dist = Math.sqrt(dx*dx + dy*dy);
         if(dist < (a.hitR || 20) + ship.r * 0.75){
-          endGame();
+          triggerCrash(ship.x, ship.y);
           return;
         }
       }
@@ -626,7 +733,7 @@
       const dx = b.x - ship.x, dy = b.y - ship.y;
       const dist = Math.sqrt(dx*dx + dy*dy);
       if(dist < ship.r * 0.7 + 5){
-        endGame();
+        triggerCrash(ship.x, ship.y);
         return;
       }
     }
@@ -635,10 +742,43 @@
       s.y += s.s * dt;
       if(s.y > H) s.y = 0;
     }
+
+    // particles
+    for(const p of particles){
+      p.life += dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.94; p.vy *= 0.94;
+    }
+    particles = particles.filter(p => p.life < p.duration);
+
+    // screen shake decay
+    if(shakeTimer > 0){
+      shakeTimer -= dt;
+      if(shakeTimer < 0) shakeTimer = 0;
+    }
+  }
+
+  function drawParticles(){
+    for(const p of particles){
+      const a = 1 - p.life / p.duration;
+      ctx.globalAlpha = Math.max(0, a);
+      ctx.fillStyle = 'rgba(' + p.color + ',1)';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
   }
 
   function render(){
     ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if(shakeTimer > 0){
+      const s = shakeMag * (shakeTimer / (shakeTimer + 0.001));
+      ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+    }
+
     ctx.fillStyle = 'rgba(244,246,250,0.7)';
     for(const s of stars){
       ctx.globalAlpha = 0.5;
@@ -652,6 +792,9 @@
     for(const a of aliens) drawAlien(a);
     for(const b of bullets) drawBullet(b);
     drawShip(ship.x, ship.y);
+    drawParticles();
+
+    ctx.restore();
 
     document.getElementById('hud-score').textContent = Math.floor(score);
   }
@@ -677,7 +820,7 @@
     requestAnimationFrame(loop);
   }
 
-  function endGame(){
+  function finishGame(){
     running = false;
     const finalScore = Math.floor(score);
     if(finalScore > best){

@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ARCADIA — Tank Clash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg-void:#0A0D12; --surface:#12161F; --surface-2:#181D28; --line:#242B38;
+    --amber:#FFB627; --cyan:#2DE1FC; --green:#34D399; --red:#FF5C5C; --pink:#FF5CB6;
+    --text:#F4F6FA; --muted:#8A93A6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; user-select:none;}
+  html, body{ background:var(--bg-void); color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif; height:100%; overflow:hidden; }
+  .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
+  .display{font-family:'Bebas Neue','Noto Sans KR',sans-serif;}
+
+  nav{
+    position:relative; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 4vw; border-bottom:1px solid var(--line);
+    background:rgba(10,13,18,0.95);
+  }
+  .logo{ display:flex; align-items:center; gap:10px; font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:20px; letter-spacing:0.03em; color:var(--text); text-decoration:none; }
+  .logo .dot{width:9px; height:9px; border-radius:2px; background:var(--amber); box-shadow:0 0 10px var(--amber);}
+  .back-link{color:var(--muted); text-decoration:none; font-size:13px; font-weight:600;}
+  .game-title{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:18px; letter-spacing:0.04em; color:var(--muted);}
+
+  #stage{ position:relative; width:100%; height:calc(100vh - 49px); display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ---- Top HUD: enemy ---- */
+  .side-hud{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 16px; background:var(--surface); border-bottom:1px solid var(--line);
+  }
+  .side-hud.bottom{ border-bottom:none; border-top:1px solid var(--line); }
+  .side-label{ display:flex; align-items:center; gap:8px; font-weight:800; font-size:13px; }
+  .side-label.enemy{ color:var(--red); }
+  .side-label.mine{ color:var(--cyan); }
+  .tank-count{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:12px; color:var(--muted); }
+  .mana-row{ display:flex; gap:3px; align-items:center; }
+  .mana-crystal{ width:11px; height:11px; border-radius:3px; transform:rotate(45deg); background:var(--surface-2); border:1.5px solid var(--line); }
+  .mana-crystal.filled{ background:var(--cyan); border-color:var(--cyan); box-shadow:0 0 5px rgba(45,225,252,0.7); }
+  .mana-crystal.filled.enemy-fill{ background:var(--red); border-color:var(--red); box-shadow:0 0 5px rgba(255,92,92,0.7); }
+  .mana-label{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:11px; color:var(--muted); margin-left:4px; }
+  .turn-count{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:12px; color:var(--muted); }
+
+  /* ---- Board ---- */
+  .board-wrap{ flex:1; display:flex; align-items:center; justify-content:center; padding:8px; overflow:auto; position:relative; }
+  #board{
+    display:grid; grid-template-columns:repeat(10, minmax(28px,52px)); grid-template-rows:repeat(6, minmax(28px,52px));
+    gap:3px; background:var(--surface-2); padding:6px; border-radius:10px; border:1px solid var(--line);
+  }
+  .tile{
+    position:relative; border-radius:5px; background:#1c2230;
+    display:flex; align-items:center; justify-content:center; font-size:18px;
+    cursor:default; transition:background 0.12s;
+  }
+  .tile.mine-zone{ background:rgba(45,225,252,0.06); }
+  .tile.enemy-zone{ background:rgba(255,92,92,0.05); }
+  .tile.obstacle{ background:#242030; }
+  .tile.fog{ background:#05070a; }
+  .tile.move-target{ cursor:pointer; box-shadow:inset 0 0 0 2px var(--cyan); }
+  .tile.fire-target{ cursor:pointer; box-shadow:inset 0 0 0 2px var(--red); }
+  .tile.skill-target{ cursor:pointer; box-shadow:inset 0 0 0 2px var(--pink); }
+  .cost-badge{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    display:flex; align-items:center; gap:2px;
+    padding:2px 5px 2px 3px; border-radius:7px; z-index:5;
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:13px; font-weight:800;
+    line-height:1; color:#0A0D12; box-shadow:0 0 10px rgba(0,0,0,0.5), 0 0 8px currentColor;
+    border:1.5px solid rgba(255,255,255,0.6);
+    animation:cost-pulse 1s ease-in-out infinite;
+  }
+  .cost-badge .cb-gem{ width:8px; height:8px; border-radius:2px; transform:rotate(45deg); background:rgba(10,13,18,0.55); flex-shrink:0; }
+  .cost-badge.cost-move{ background:var(--cyan); color:#062026; }
+  .cost-badge.cost-fire{ background:var(--red); color:#3A0000; }
+  @keyframes cost-pulse{ 0%,100%{ transform:translate(-50%,-50%) scale(1); } 50%{ transform:translate(-50%,-50%) scale(1.12); } }
+  .tile.selected-tank{ box-shadow:inset 0 0 0 2px var(--amber); }
+  .tile .hp-mini{
+    position:absolute; bottom:1px; left:2px; right:2px; height:3px; background:rgba(0,0,0,0.4); border-radius:2px; overflow:hidden;
+  }
+  .tile .hp-mini-fill{ height:100%; background:var(--green); }
+
+  /* ---- Roster ---- */
+  .roster{ display:flex; gap:8px; padding:8px 16px; overflow-x:auto; }
+  .roster-tank{
+    flex-shrink:0; width:64px; padding:6px; border-radius:8px; background:var(--surface-2); border:2px solid var(--line);
+    text-align:center; cursor:pointer; transition:border-color 0.12s, transform 0.12s;
+  }
+  .roster-tank.mine{ cursor:pointer; }
+  .roster-tank.mine:hover{ border-color:var(--muted); }
+  .roster-tank.dead{ opacity:0.3; cursor:not-allowed; }
+  .roster-tank.selected{ border-color:var(--amber); transform:translateY(-4px); }
+  .roster-tank .icon{ font-size:22px; height:34px; }
+  .roster-tank .name{ font-size:9px; font-weight:700; margin-top:2px; }
+  .roster-tank .hpbar{ height:4px; border-radius:2px; background:var(--surface); margin-top:4px; overflow:hidden; }
+  .roster-tank .hpbar-fill{ height:100%; background:var(--green); }
+  .roster-tank .costs{ font-size:8px; color:var(--muted); margin-top:2px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; }
+
+  #skill-btn{
+    margin:0 16px 6px; font-family:'Inter','Noto Sans KR',sans-serif; font-weight:800; font-size:13px;
+    padding:9px 14px; border-radius:8px; border:1.5px solid var(--pink); cursor:pointer;
+    background:rgba(255,92,182,0.1); color:var(--pink);
+  }
+  #skill-btn.active{ background:var(--pink); color:#2A0A1F; }
+  #skill-btn[disabled]{ opacity:0.4; cursor:not-allowed; }
+
+  #end-turn-btn{
+    margin:8px 16px 12px; font-family:'Inter','Noto Sans KR',sans-serif; font-weight:800; font-size:14px;
+    padding:12px; border-radius:10px; border:none; cursor:pointer; background:var(--amber); color:#1A1200;
+  }
+  #end-turn-btn[disabled]{ opacity:0.4; cursor:not-allowed; }
+
+  #action-hint{
+    text-align:center; font-size:12px; color:var(--muted); padding-bottom:4px; min-height:16px;
+  }
+
+  #combat-log{
+    position:absolute; top:52px; left:10px; max-width:200px; z-index:15; display:flex; flex-direction:column; gap:3px; pointer-events:none;
+  }
+  #combat-log .log-line{ font-size:10px; color:var(--muted); background:rgba(18,22,31,0.75); border-radius:5px; padding:2px 7px; }
+
+  #turn-banner{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:38px; letter-spacing:0.05em;
+    color:var(--cyan); text-shadow:0 0 20px rgba(45,225,252,0.6);
+    z-index:25; pointer-events:none; opacity:0; transition:opacity 0.3s;
+  }
+  #turn-banner.show{ opacity:1; }
+
+  #action-banner{
+    position:absolute; top:12%; left:50%; transform:translate(-50%,-10px);
+    z-index:26; pointer-events:none; opacity:0; transition:opacity 0.25s, transform 0.25s;
+    text-align:center; width:92%; max-width:560px;
+  }
+  #action-banner.show{ opacity:1; transform:translate(-50%,0); }
+  #action-banner .a-line{
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:clamp(20px,5vw,30px);
+    letter-spacing:0.02em; padding:10px 22px; border-radius:10px;
+    background:rgba(18,22,31,0.9); border:1px solid var(--line); display:inline-block;
+  }
+  #action-banner .a-dmg{ color:var(--red); }
+  #action-banner .a-move{ color:var(--cyan); }
+  #action-banner .a-miss{ color:var(--muted); }
+  #action-banner .a-kill{ color:var(--amber); }
+
+  #fx-layer{ position:absolute; inset:0; pointer-events:none; z-index:24; }
+  .fx-tank{ position:absolute; width:40px; height:40px; transform:translate(-50%,-50%); transition:left 0.32s ease, top 0.32s ease; }
+  .fx-projectile{ position:absolute; width:10px; height:10px; border-radius:50%; transform:translate(-50%,-50%); transition:left 0.3s linear, top 0.3s linear; }
+  .fx-flash{ position:absolute; width:36px; height:36px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; }
+
+  /* ---- Overlays ---- */
+  .overlay{ position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center; background:rgba(10,13,18,0.9); backdrop-filter:blur(4px); }
+  .overlay.hidden{ display:none; }
+  .panel{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:32px; max-width:440px; width:90%; text-align:center; box-shadow:0 40px 100px -20px rgba(0,0,0,0.7); max-height:86vh; overflow-y:auto; }
+  .panel .eyebrow{ display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--cyan); margin-bottom:12px; }
+  .panel h1{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:36px; margin-bottom:10px; }
+  .panel h1 span{ color:var(--amber); }
+  .panel p{ color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:16px; }
+  .rules-list{ text-align:left; list-style:none; margin-bottom:20px; }
+  .rules-list li{ display:flex; align-items:flex-start; gap:9px; color:var(--muted); font-size:12px; line-height:1.5; margin-bottom:8px; }
+  .rules-list li .rule-icon{ flex-shrink:0; width:19px; height:19px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; background:rgba(45,225,252,0.12); color:var(--cyan); }
+  .rules-list li b{ color:var(--text); }
+  .score-display{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:40px; font-weight:700; color:var(--amber); margin-bottom:4px; }
+  .score-label{ color:var(--muted); font-size:11px; margin-bottom:16px; letter-spacing:0.06em; text-transform:uppercase; }
+  .btn{ font-family:'Inter','Noto Sans KR',sans-serif; font-weight:700; font-size:14px; padding:12px 20px; border-radius:8px; border:none; cursor:pointer; width:100%; margin-bottom:9px; }
+  .btn-primary{ background:var(--amber); color:#1A1200; }
+  .btn-ghost{ background:transparent; color:var(--text); border:1px solid var(--line); }
+  .btn[disabled]{ opacity:0.6; cursor:not-allowed; }
+  .submit-msg{ font-size:11px; font-weight:600; margin-bottom:10px; min-height:14px; }
+  .submit-msg.error{ color:#FF8A8A; }
+  .submit-msg.success{ color:var(--green); }
+  .submit-msg .link-text{ color:var(--cyan); font-weight:700; text-decoration:underline; }
+
+  #board.shake{ animation:board-shake 0.35s ease; }
+  @keyframes board-shake{
+    0%,100%{ transform:translate(0,0); }
+    20%{ transform:translate(-4px,3px); }
+    40%{ transform:translate(4px,-3px); }
+    60%{ transform:translate(-3px,-2px); }
+    80%{ transform:translate(3px,2px); }
+  }
+
+  @media (max-width:480px){
+    #board{ grid-template-columns:repeat(10, minmax(22px,32px)); grid-template-rows:repeat(6, minmax(22px,32px)); gap:2px; }
+    .tile{ font-size:13px; }
+    .roster-tank{ width:52px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
+  <div class="game-title">TANK CLASH</div>
+  <a href="index.html" class="back-link">&larr; Exit</a>
+</nav>
+
+<div id="stage">
+  <div id="combat-log"></div>
+  <div id="turn-banner"></div>
+
+  <div class="side-hud">
+    <div class="side-label enemy">👾 ENEMY</div>
+    <div class="tank-count" id="enemy-count">3 tanks</div>
+    <div class="mana-row" id="enemy-mana-row"></div>
+    <div class="turn-count" id="turn-counter">Turn 1 / 30</div>
+  </div>
+
+  <div class="board-wrap"><div id="board"></div><div id="fx-layer"></div></div>
+
+  <div id="action-banner"></div>
+
+  <div id="action-hint">Select one of your tanks to move or fire.</div>
+  <button id="skill-btn" style="display:none;" onclick="handleSkillButton()"></button>
+
+  <div class="roster" id="player-roster"></div>
+
+  <div class="side-hud bottom">
+    <div class="side-label mine">🚀 YOU</div>
+    <div class="tank-count" id="player-count">3 tanks</div>
+    <div class="mana-row" id="player-mana-row"></div>
+  </div>
+
+  <button id="end-turn-btn" onclick="endPlayerTurn()">End Turn</button>
+
+  <div class="overlay" id="start-overlay">
+    <div class="panel">
+      <div class="eyebrow">1-Player &middot; vs AI</div>
+      <h1>TANK <span>CLASH</span></h1>
+      <p>Command 3 tanks against an AI squad. Destroy them all, or have the higher combined HP when turns run out.</p>
+      <ul class="rules-list">
+        <li><span class="rule-icon">💎</span><span><b>Shared mana:</b> your whole squad shares one pool. It grows +1 each of your turns, up to 10.</span></li>
+        <li><span class="rule-icon">🌫️</span><span><b>Fog of war:</b> the enemy zone is hidden. Landing a hit reveals that tile only for the rest of the turn.</span></li>
+        <li><span class="rule-icon">🎯</span><span><b>Move or fire:</b> select a tank, then click an adjacent tile to move, or any enemy-zone tile to fire.</span></li>
+        <li><span class="rule-icon">📏</span><span><b>Range bonus:</b> the closer your tank is to its target, the more damage it deals — up to +30%.</span></li>
+        <li><span class="rule-icon">⚡</span><span><b>Skills:</b> Scout can Scan the fog, Battle has a devastating Rail Cannon, Siege can brace for +50% damage (but can't move while braced).</span></li>
+      </ul>
+      <button class="btn btn-primary" onclick="startGame()">Deploy Squad</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="over-overlay">
+    <div class="panel">
+      <div class="eyebrow" id="over-eyebrow">Defeat</div>
+      <div class="score-display" id="final-score">0</div>
+      <div class="score-label">Final Score</div>
+      <div class="submit-msg" id="submit-msg"></div>
+      <button class="btn btn-primary" id="submit-btn" disabled>Submitting...</button>
+      <button class="btn btn-ghost" onclick="startGame()">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- Supabase ----------
+  const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
+
+  // ---------- Sound system (fully synthesized, no audio files) ----------
+  let audioCtx = null;
+  function getAudioCtx(){
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return audioCtx;
+  }
+
+  function playTone(freq, duration, type, startGain, endFreq){
+    try{
+      const ctx2 = getAudioCtx();
+      const osc = ctx2.createOscillator();
+      const gain = ctx2.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(freq, ctx2.currentTime);
+      if(endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, ctx2.currentTime + duration);
+      gain.gain.setValueAtTime(startGain || 0.14, ctx2.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx2.currentTime + duration);
+      osc.connect(gain); gain.connect(ctx2.destination);
+      osc.start(); osc.stop(ctx2.currentTime + duration);
+    } catch(e){}
+  }
+
+  function playNoise(duration, startGain, filterFreq, filterType){
+    try{
+      const ctx2 = getAudioCtx();
+      const bufferSize = Math.floor(ctx2.sampleRate * duration);
+      const buffer = ctx2.createBuffer(1, bufferSize, ctx2.sampleRate);
+      const data = buffer.getChannelData(0);
+      for(let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      const noise = ctx2.createBufferSource();
+      noise.buffer = buffer;
+      const filter = ctx2.createBiquadFilter();
+      filter.type = filterType || 'lowpass';
+      filter.frequency.value = filterFreq || 1200;
+      const gain = ctx2.createGain();
+      gain.gain.setValueAtTime(startGain || 0.2, ctx2.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx2.currentTime + duration);
+      noise.connect(filter); filter.connect(gain); gain.connect(ctx2.destination);
+      noise.start();
+    } catch(e){}
+  }
+
+  function sfxMove(){
+    playTone(150, 0.13, 'square', 0.06, 90);
+    playNoise(0.08, 0.05, 400);
+  }
+  // ---------- Real fire sound effects (uploaded audio files) ----------
+  const FIRE_AUDIO_FILES = {
+    scout: 'weapon_mortar_004.wav',
+    battle: 'explosion_med_011.wav',
+    siege: 'explosion_large_005.wav'
+  };
+  const fireAudioCache = {};
+  function getFireAudio(type){
+    if(!fireAudioCache[type]){
+      const a = new Audio(FIRE_AUDIO_FILES[type]);
+      a.preload = 'auto';
+      fireAudioCache[type] = a;
+    }
+    return fireAudioCache[type];
+  }
+  // warm up the cache so the first shot isn't delayed by a network fetch
+  Object.keys(FIRE_AUDIO_FILES).forEach(getFireAudio);
+
+  function sfxFire(type){
+    try{
+      const base = getFireAudio(type);
+      const clip = base.cloneNode(); // clone so overlapping shots don't cut each other off
+      clip.volume = type === 'siege' ? 0.85 : (type === 'battle' ? 0.7 : 0.6);
+      clip.play().catch(() => {});
+    } catch(e){}
+  }
+  function sfxHit(){
+    playNoise(0.15, 0.18, 1500);
+    playTone(220, 0.1, 'square', 0.1, 110);
+  }
+  function sfxKill(){
+    playNoise(0.55, 0.3, 700);
+    playTone(85, 0.5, 'sawtooth', 0.24, 40);
+    setTimeout(() => playNoise(0.3, 0.16, 1800), 90);
+  }
+  function sfxMiss(){
+    playTone(650, 0.16, 'sine', 0.05, 280);
+  }
+  function sfxScan(){
+    playTone(700, 0.09, 'sine', 0.08, 1100);
+    setTimeout(() => playTone(1100, 0.08, 'sine', 0.06, 1500), 90);
+  }
+
+  // ---------- Background ambience (looping engine hum) ----------
+  let bgNodes = null;
+  function startBgAmbience(){
+    stopBgAmbience();
+    try{
+      const ctx2 = getAudioCtx();
+      const o1 = ctx2.createOscillator(); o1.type = 'sine'; o1.frequency.value = 54;
+      const o2 = ctx2.createOscillator(); o2.type = 'sine'; o2.frequency.value = 58;
+      const lfo = ctx2.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.12;
+      const lfoGain = ctx2.createGain(); lfoGain.gain.value = 0.012;
+      const g = ctx2.createGain(); g.gain.value = 0.03;
+      lfo.connect(lfoGain); lfoGain.connect(g.gain);
+      o1.connect(g); o2.connect(g); g.connect(ctx2.destination);
+      o1.start(); o2.start(); lfo.start();
+      bgNodes = { o1, o2, lfo, g };
+    } catch(e){}
+  }
+  function stopBgAmbience(){
+    if(bgNodes){
+      try{ bgNodes.o1.stop(); bgNodes.o2.stop(); bgNodes.lfo.stop(); } catch(e){}
+      bgNodes = null;
+    }
+  }
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const GAME_ID = 'tank-clash';
+
+  function xpForLevel(level){ return 25 * level * (level - 1); }
+  function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
+  async function awardProgress(userId, username, xpEarned, coinsEarned){
+    try{
+      const { data: existing } = await sb.from('profiles').select('xp,coins').eq('user_id', userId).maybeSingle();
+      const prevXp = existing ? existing.xp : 0;
+      const prevCoins = existing ? existing.coins : 0;
+      const newXp = prevXp + xpEarned;
+      const newCoins = prevCoins + coinsEarned;
+      if(existing){
+        await sb.from('profiles').update({ xp: newXp, coins: newCoins, username, updated_at: new Date().toISOString() }).eq('user_id', userId);
+      } else {
+        await sb.from('profiles').insert({ user_id: userId, username, xp: newXp, coins: newCoins });
+      }
+      const prevLevel = levelFromXp(prevXp);
+      const newLevel = levelFromXp(newXp);
+      return { leveledUp: newLevel > prevLevel, newLevel };
+    } catch(e){ return null; }
+  }
+
+  // ---------- Board config ----------
+  const COLS = 10, ROWS = 6;
+  const OBSTACLE_COLS = [4, 5];
+  const PLAYER_COLS = [0, 1, 2, 3];
+  const ENEMY_COLS = [6, 7, 8, 9];
+  const MAX_TURNS = 30;
+
+  const TANK_TYPES = {
+    scout: { name:'Scout', icon:'🛵', hp:80, moveCost:1, fireCost:2, damage:25,
+      skill:{ key:'scan', name:'Scan', cost:3, desc:'Reveal any fog tile without firing.' } },
+    battle:{ name:'Battle', icon:'🚙', hp:120, moveCost:2, fireCost:3, damage:35,
+      skill:{ key:'railcannon', name:'Rail Cannon', cost:6, desc:'A single devastating shot — 80% bonus damage.' } },
+    siege: { name:'Siege', icon:'🚚', hp:160, moveCost:2, fireCost:4, damage:50,
+      skill:{ key:'siegemode', name:'Siege Mode', cost:3, desc:"+50% damage for this tank's next 3 turns — can't move while active." } }
+  };
+  const TYPE_ORDER = ['scout','battle','siege'];
+
+  // ---------- State ----------
+  let board; // board[row][col] = { occupant: tankObj|null, revealed:boolean }
+  let playerTanks, enemyTanks;
+  let turn, turnCount, gameOver, dying;
+  let selectedTankId = null;
+  let skillMode = null; // 'scan' | 'railcannon' when awaiting a skill target click
+  let uidCounter = 0;
+
+  function inBounds(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS; }
+  function isObstacle(r,c){ return OBSTACLE_COLS.includes(c); }
+  function isPlayerZone(c){ return PLAYER_COLS.includes(c); }
+  function isEnemyZone(c){ return ENEMY_COLS.includes(c); }
+
+  // ---------- Tank sprite (custom SVG, top-down mini tank) ----------
+  const TANK_PALETTE = {
+    scout:  { hull:'#2DE1FC', dark:'#0F5C6E', track:'#1B2230' },
+    battle: { hull:'#FFB627', dark:'#8A5C0A', track:'#1B2230' },
+    siege:  { hull:'#FF5C5C', dark:'#7A1F1F', track:'#1B2230' }
+  };
+  const TANK_SIZE = { scout: 0.72, battle: 0.85, siege: 1.0 };
+  const BARREL_LEN = { scout: 9, battle: 11, siege: 8 };
+  const BARREL_W = { scout: 2.6, battle: 3.4, siege: 5.2 };
+
+  function scoutInner(){
+    return `<svg viewBox="0 0 44 44" width="100%" height="100%">
+      <rect x="6" y="10" width="4" height="24" rx="2" fill="#12161F"/>
+      <rect x="34" y="10" width="4" height="24" rx="2" fill="#12161F"/>
+      <circle cx="8" cy="14" r="1.8" fill="#2a3244"/><circle cx="8" cy="22" r="1.8" fill="#2a3244"/><circle cx="8" cy="30" r="1.8" fill="#2a3244"/>
+      <circle cx="36" cy="14" r="1.8" fill="#2a3244"/><circle cx="36" cy="22" r="1.8" fill="#2a3244"/><circle cx="36" cy="30" r="1.8" fill="#2a3244"/>
+      <path d="M12 14 L30 11 L32 32 L12 32 Z" fill="#2DE1FC" stroke="#0F5C6E" stroke-width="1.5"/>
+      <line x1="15" y1="12" x2="12" y2="4" stroke="#0F5C6E" stroke-width="1.6"/><circle cx="12" cy="4" r="1.5" fill="#0F5C6E"/>
+      <circle cx="22" cy="23" r="5.4" fill="#0F5C6E"/><circle cx="23.3" cy="21.7" r="2.5" fill="#BFF6FF"/>
+      <rect x="30" y="21" width="11" height="2.6" fill="#0F5C6E"/>
+      <rect x="39" y="19.8" width="2.6" height="5" fill="#0F5C6E"/>
+      <path d="M12 32 L10 36 L16 36 L14 32 Z" fill="#0F5C6E"/>
+    </svg>`;
+  }
+
+  function battleInner(){
+    return `<svg viewBox="0 0 44 44" width="100%" height="100%">
+      <rect x="5" y="8" width="5" height="28" rx="2" fill="#12161F"/>
+      <rect x="34" y="8" width="5" height="28" rx="2" fill="#12161F"/>
+      <circle cx="7.5" cy="12" r="2.2" fill="#2a3244"/><circle cx="7.5" cy="22" r="2.2" fill="#2a3244"/><circle cx="7.5" cy="32" r="2.2" fill="#2a3244"/>
+      <circle cx="36.5" cy="12" r="2.2" fill="#2a3244"/><circle cx="36.5" cy="22" r="2.2" fill="#2a3244"/><circle cx="36.5" cy="32" r="2.2" fill="#2a3244"/>
+      <rect x="10" y="9" width="24" height="26" rx="4" fill="#FFB627" stroke="#8A5C0A" stroke-width="1.6"/>
+      <rect x="10" y="9" width="8" height="26" rx="4" fill="#E69F1A" opacity="0.55"/>
+      <rect x="16" y="4" width="3" height="6" fill="#8A5C0A"/><rect x="24" y="4" width="3" height="6" fill="#8A5C0A"/>
+      <circle cx="17.5" cy="3.5" r="1.5" fill="#8A5C0A" opacity="0.45"/><circle cx="25.5" cy="3.5" r="1.5" fill="#8A5C0A" opacity="0.45"/>
+      <rect x="14" y="18" width="16" height="9" rx="2" fill="#8A5C0A"/>
+      <rect x="16" y="20" width="12" height="5" rx="1" fill="#FFE7B0"/>
+      <rect x="30" y="20" width="12" height="4" fill="#8A5C0A"/>
+      <rect x="38" y="18.4" width="3" height="7.2" fill="#8A5C0A"/>
+    </svg>`;
+  }
+
+  function siegeInner(){
+    return `<svg viewBox="0 0 44 44" width="100%" height="100%">
+      <rect x="4" y="6" width="6" height="32" rx="2" fill="#12161F"/>
+      <rect x="34" y="6" width="6" height="32" rx="2" fill="#12161F"/>
+      <circle cx="7" cy="11" r="2.4" fill="#2a3244"/><circle cx="7" cy="20" r="2.4" fill="#2a3244"/><circle cx="7" cy="29" r="2.4" fill="#2a3244"/><circle cx="7" cy="34" r="1.8" fill="#2a3244"/>
+      <circle cx="37" cy="11" r="2.4" fill="#2a3244"/><circle cx="37" cy="20" r="2.4" fill="#2a3244"/><circle cx="37" cy="29" r="2.4" fill="#2a3244"/><circle cx="37" cy="34" r="1.8" fill="#2a3244"/>
+      <rect x="9" y="8" width="26" height="28" rx="3" fill="#FF5C5C" stroke="#7A1F1F" stroke-width="1.8"/>
+      <path d="M9 8 L22 8 L18 18 L9 18 Z" fill="#7A1F1F" opacity="0.6"/>
+      <rect x="11" y="30" width="6" height="6" rx="1.5" fill="#7A1F1F"/><rect x="27" y="30" width="6" height="6" rx="1.5" fill="#7A1F1F"/>
+      <line x1="30" y1="10" x2="30" y2="5" stroke="#7A1F1F" stroke-width="1.4"/><ellipse cx="30" cy="5" rx="3" ry="1.6" fill="#7A1F1F"/>
+      <path d="M15 20 L29 22 L28 27 L15 27 Z" fill="#7A1F1F"/>
+      <rect x="14" y="22.6" width="16" height="2.4" fill="#3A0D0D"/>
+      <rect x="26" y="24" width="6" height="2" fill="#5A1616"/>
+      <rect x="30" y="19" width="9" height="6" fill="#7A1F1F"/>
+      <rect x="37" y="17" width="4" height="10" fill="#7A1F1F"/>
+    </svg>`;
+  }
+
+  function tankSvg(type, isPlayer){
+    const scale = TANK_SIZE[type];
+    const inner = type === 'scout' ? scoutInner() : (type === 'battle' ? battleInner() : siegeInner());
+    return '<div style="width:100%; height:100%; transform:scaleX(' + (isPlayer ? 1 : -1) + ') scale(' + scale + ');">' + inner + '</div>';
+  }
+
+  // ---------- FX: floating action banner ----------
+  let bannerTimer = null;
+  function showAction(html, cls){
+    const el = document.getElementById('action-banner');
+    clearTimeout(bannerTimer);
+    el.innerHTML = '<span class="a-line ' + (cls || '') + '">' + html + '</span>';
+    el.classList.add('show');
+    bannerTimer = setTimeout(() => el.classList.remove('show'), 1400);
+  }
+
+  // ---------- FX: board-relative coordinates ----------
+  function tileCenter(r, c){
+    const boardEl = document.getElementById('board');
+    const wrapEl = document.getElementById('fx-layer');
+    const tileEl = boardEl.querySelector('[data-r="' + r + '"][data-c="' + c + '"]');
+    if(!tileEl) return { x: 0, y: 0 };
+    const tRect = tileEl.getBoundingClientRect();
+    const wRect = wrapEl.getBoundingClientRect();
+    return { x: tRect.left - wRect.left + tRect.width / 2, y: tRect.top - wRect.top + tRect.height / 2 };
+  }
+
+  function triggerBoardShake(mag, dur){
+    const boardEl = document.getElementById('board');
+    boardEl.classList.remove('shake');
+    void boardEl.offsetWidth; // restart animation
+    boardEl.classList.add('shake');
+    setTimeout(() => boardEl.classList.remove('shake'), (dur || 0.35) * 1000);
+  }
+
+  function fxFogShimmer(r, c){
+    const pos = tileCenter(r, c);
+    const layer = document.getElementById('fx-layer');
+    const el = document.createElement('div');
+    el.className = 'fx-flash';
+    el.style.left = pos.x + 'px'; el.style.top = pos.y + 'px';
+    el.style.background = 'radial-gradient(circle, rgba(255,92,92,0.35) 0%, rgba(0,0,0,0) 70%)';
+    el.style.width = '20px'; el.style.height = '20px';
+    el.style.opacity = '0.8';
+    el.style.transition = 'opacity 0.5s ease, width 0.5s ease, height 0.5s ease';
+    layer.appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.opacity = '0';
+      el.style.width = '44px'; el.style.height = '44px';
+    });
+    setTimeout(() => el.remove(), 550);
+  }
+
+  function fxFlash(x, y, color){
+    const layer = document.getElementById('fx-layer');
+    const el = document.createElement('div');
+    el.className = 'fx-flash';
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    el.style.background = 'radial-gradient(circle, ' + color + ' 0%, rgba(0,0,0,0) 70%)';
+    el.style.opacity = '0.9';
+    el.style.transition = 'opacity 0.35s ease, width 0.35s ease, height 0.35s ease';
+    layer.appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.opacity = '0';
+      el.style.width = '70px'; el.style.height = '70px';
+    });
+    setTimeout(() => el.remove(), 400);
+  }
+
+  function animateMove(fromR, fromC, toR, toC, type, isPlayer, onDone){
+    const layer = document.getElementById('fx-layer');
+    const start = tileCenter(fromR, fromC);
+    const end = tileCenter(toR, toC);
+    const ghost = document.createElement('div');
+    ghost.className = 'fx-tank';
+    ghost.innerHTML = tankSvg(type, isPlayer);
+    ghost.style.left = start.x + 'px'; ghost.style.top = start.y + 'px';
+    layer.appendChild(ghost);
+    requestAnimationFrame(() => {
+      ghost.style.left = end.x + 'px'; ghost.style.top = end.y + 'px';
+    });
+    setTimeout(() => { ghost.remove(); if(onDone) onDone(); }, 340);
+  }
+
+  function animateFire(fromR, fromC, toR, toC, type, hit, onDone){
+    const layer = document.getElementById('fx-layer');
+    const start = tileCenter(fromR, fromC);
+    const end = tileCenter(toR, toC);
+    const color = type === 'siege' ? '#FF5C5C' : (type === 'battle' ? '#FFB627' : '#2DE1FC');
+    fxFlash(start.x, start.y, color + 'aa');
+
+    const proj = document.createElement('div');
+    proj.className = 'fx-projectile';
+    const size = type === 'siege' ? 15 : (type === 'battle' ? 11 : 7);
+    proj.style.width = size + 'px'; proj.style.height = size + 'px';
+    proj.style.background = color;
+    proj.style.boxShadow = '0 0 8px ' + color;
+    proj.style.left = start.x + 'px'; proj.style.top = start.y + 'px';
+    layer.appendChild(proj);
+    requestAnimationFrame(() => {
+      proj.style.left = end.x + 'px'; proj.style.top = end.y + 'px';
+    });
+    setTimeout(() => {
+      proj.remove();
+      fxFlash(end.x, end.y, hit ? '#FF5C5C' : '#8A93A6');
+      if(onDone) onDone();
+    }, 300);
+  }
+
+  function makeTank(type, isPlayer, r, c){
+    uidCounter++;
+    const def = TANK_TYPES[type];
+    return { uid:'t'+uidCounter, type, isPlayer, name:def.name, icon:def.icon, hp:def.hp, maxHp:def.hp,
+      moveCost:def.moveCost, fireCost:def.fireCost, damage:def.damage, skill:def.skill,
+      siegeModeTurnsLeft:0, r, c, alive:true };
+  }
+
+  function resetGame(){
+    board = Array.from({length:ROWS}, () => Array.from({length:COLS}, () => ({ occupant:null, revealed:false })));
+    playerTanks = [];
+    enemyTanks = [];
+    uidCounter = 0;
+    gameOver = false;
+    dying = false;
+    selectedTankId = null;
+    skillMode = null;
+    turnCount = 1;
+    document.getElementById('combat-log').innerHTML = '';
+
+    const playerRows = [1,3,4];
+    TYPE_ORDER.forEach((type, i) => {
+      const t = makeTank(type, true, playerRows[i], 0);
+      playerTanks.push(t);
+      board[t.r][t.c].occupant = t;
+    });
+    const enemyRows = [1,3,4];
+    TYPE_ORDER.forEach((type, i) => {
+      const t = makeTank(type, false, enemyRows[i], COLS - 1);
+      enemyTanks.push(t);
+      board[t.r][t.c].occupant = t;
+    });
+
+    startPlayerTurn(true);
+  }
+
+  function log(msg){
+    const el = document.getElementById('combat-log');
+    const line = document.createElement('div');
+    line.className = 'log-line';
+    line.textContent = msg;
+    el.appendChild(line);
+    while(el.children.length > 5) el.removeChild(el.firstChild);
+  }
+
+  function showTurnBanner(text){
+    const el = document.getElementById('turn-banner');
+    el.textContent = text;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 800);
+  }
+
+  let playerMana = 0, playerMaxMana = 0;
+  let enemyMana = 0, enemyMaxMana = 0;
+
+  function startPlayerTurn(first){
+    if(gameOver) return;
+    turn = 'player';
+    if(!first) turnCount++;
+    playerMaxMana = Math.min(playerMaxMana + 1, 10);
+    playerMana = playerMaxMana;
+    // clear reveals from enemy tiles at the start of player's turn
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) board[r][c].revealed = false;
+    // count down Siege Mode buffs
+    if(!first){
+      for(const t of playerTanks){
+        if(t.siegeModeTurnsLeft > 0) t.siegeModeTurnsLeft--;
+      }
+    }
+    selectedTankId = null;
+    skillMode = null;
+    showTurnBanner('YOUR TURN');
+    document.getElementById('action-hint').textContent = 'Select one of your tanks to move or fire.';
+    render();
+    checkTurnLimit();
+  }
+
+  function checkTurnLimit(){
+    if(turnCount > MAX_TURNS && !gameOver){
+      const myHp = playerTanks.reduce((s,t)=>s+Math.max(0,t.hp),0);
+      const enHp = enemyTanks.reduce((s,t)=>s+Math.max(0,t.hp),0);
+      finishGame(myHp >= enHp ? 'win' : 'loss', true);
+    }
+  }
+
+  // ---------- Combat ----------
+  function distanceBonus(fromR, fromC, toR, toC){
+    const dist = Math.sqrt((fromR-toR)**2 + (fromC-toC)**2);
+    const maxDist = Math.sqrt(ROWS*ROWS + COLS*COLS);
+    const bonus = Math.max(0, Math.min(0.3, (maxDist - dist) / maxDist * 0.3 * 1.6));
+    return bonus;
+  }
+
+  function handleSkillButton(){
+    if(turn !== 'player' || gameOver || !selectedTankId) return;
+    const t = playerTanks.find(x => x.uid === selectedTankId && x.alive);
+    if(!t) return;
+    const sk = t.skill;
+
+    if(skillMode){ skillMode = null; render(); return; }
+    if(playerMana < sk.cost) return;
+
+    if(sk.key === 'siegemode'){
+      playerMana -= sk.cost;
+      t.siegeModeTurnsLeft = 3;
+      selectedTankId = null;
+      showAction('YOUR ' + t.name.toUpperCase() + ' ENTERS SIEGE MODE <span class="mono" style="font-size:0.55em; color:var(--muted);">(&minus;' + sk.cost + ' MP)</span>', 'a-kill');
+      log('Your ' + t.name + ' braces into siege mode (+50% damage, can\'t move for 3 turns).');
+      render();
+    } else {
+      skillMode = sk.key;
+      document.getElementById('action-hint').innerHTML = '<b style="color:var(--pink);">' + sk.name + ' armed</b> — click a highlighted tile in the fog.';
+      render();
+    }
+  }
+
+  function resolveSkill(r, c){
+    const attacker = playerTanks.find(x => x.uid === selectedTankId);
+    if(!attacker){ skillMode = null; render(); return; }
+    const sk = attacker.skill;
+    if(playerMana < sk.cost){ skillMode = null; render(); return; }
+
+    playerMana -= sk.cost;
+    const mode = skillMode;
+    skillMode = null;
+    selectedTankId = null;
+    document.getElementById('action-hint').textContent = 'Select one of your tanks to move or fire.';
+    const costTag = '<span class="mono" style="font-size:0.55em; color:var(--muted);"> (&minus;' + sk.cost + ' MP)</span>';
+
+    if(mode === 'scan'){
+      board[r][c].revealed = true;
+      sfxScan();
+      fxFogShimmer(r, c);
+      showAction('YOUR ' + attacker.name.toUpperCase() + ' SCANS THE FOG' + costTag, 'a-move');
+      log('Your ' + attacker.name + ' scans a tile in the fog.');
+      render();
+    } else if(mode === 'railcannon'){
+      const fromR = attacker.r, fromC = attacker.c;
+      const target = board[r][c].occupant;
+      const isHit = !!(target && !target.isPlayer);
+      sfxFire('siege');
+
+      animateFire(fromR, fromC, r, c, 'battle', isHit, () => {
+        if(isHit){
+          const bonus = distanceBonus(fromR, fromC, r, c);
+          const siegeMult = attacker.siegeModeTurnsLeft > 0 ? 1.5 : 1;
+          const dmg = Math.round(attacker.damage * 1.8 * (1 + bonus) * siegeMult);
+          target.hp -= dmg;
+          board[r][c].revealed = true;
+          log('Your ' + attacker.name + ' rail cannon hits ' + target.name + ' for ' + dmg + '!');
+          if(target.hp <= 0){
+            target.alive = false;
+            board[r][c].occupant = null;
+            sfxKill();
+            triggerBoardShake(9, 0.4);
+            showAction('RAIL CANNON DESTROYS ' + target.name.toUpperCase() + '!' + costTag, 'a-kill');
+            log(target.name + ' destroyed by rail cannon!');
+          } else {
+            sfxHit();
+            triggerBoardShake(5, 0.3);
+            showAction('RAIL CANNON HITS FOR ' + dmg + '!' + costTag, 'a-dmg');
+          }
+        } else {
+          board[r][c].revealed = true;
+          sfxMiss();
+          showAction('RAIL CANNON FIRES INTO THE FOG — MISS' + costTag, 'a-miss');
+          log('Your rail cannon shot fizzles into empty fog.');
+        }
+        checkVictory();
+        render();
+      });
+    }
+  }
+
+  function selectTank(uid){
+    if(turn !== 'player' || gameOver) return;
+    const t = playerTanks.find(x => x.uid === uid && x.alive);
+    if(!t) return;
+    selectedTankId = (selectedTankId === uid) ? null : uid;
+    if(selectedTankId){
+      document.getElementById('action-hint').innerHTML =
+        '<b style="color:var(--amber);">' + t.name + ' selected</b> — ' +
+        '<span style="color:var(--cyan);">Move ' + t.moveCost + ' MP</span> · ' +
+        '<span style="color:var(--red);">Fire ' + t.fireCost + ' MP</span> ' +
+        '<span class="mono" style="color:var(--muted);">(you have ' + playerMana + ' MP)</span>';
+    } else {
+      document.getElementById('action-hint').textContent = 'Select one of your tanks to move or fire.';
+    }
+    render();
+  }
+
+  function tileClick(r, c){
+    if(turn !== 'player' || gameOver) return;
+
+    if(skillMode){
+      if(isEnemyZone(c) && !isObstacle(r,c)){
+        resolveSkill(r, c);
+      } else {
+        skillMode = null;
+        document.getElementById('action-hint').textContent = 'Select one of your tanks to move or fire.';
+        render();
+      }
+      return;
+    }
+
+    // clicking any of your own tanks directly on the board selects it
+    const clickedOccupant = board[r][c].occupant;
+    if(clickedOccupant && clickedOccupant.isPlayer && clickedOccupant.alive){
+      selectTank(clickedOccupant.uid);
+      return;
+    }
+
+    if(!selectedTankId) return;
+    const attacker = playerTanks.find(x => x.uid === selectedTankId);
+    if(!attacker) return;
+
+    if(isPlayerZone(c)){
+      // move
+      const dist = Math.abs(attacker.r - r) + Math.abs(attacker.c - c);
+      if(dist !== 1) return;
+      if(board[r][c].occupant) return;
+      if(playerMana < attacker.moveCost) return;
+
+      const fromR = attacker.r, fromC = attacker.c;
+      playerMana -= attacker.moveCost;
+      selectedTankId = null;
+      document.getElementById('action-hint').textContent = 'Select one of your tanks to move or fire.';
+      board[fromR][fromC].occupant = null; // hidden during the slide; ghost sprite shows the move
+      sfxMove();
+      showAction('YOUR ' + attacker.name.toUpperCase() + ' MOVES <span class="mono" style="font-size:0.6em; color:var(--muted);">(&minus;' + attacker.moveCost + ' MP)</span>', 'a-move');
+      render();
+      animateMove(fromR, fromC, r, c, attacker.type, true, () => {
+        attacker.r = r; attacker.c = c;
+        board[r][c].occupant = attacker;
+        log('Your ' + attacker.name + ' moved.');
+        render();
+      });
+    } else if(isEnemyZone(c)){
+      if(playerMana < attacker.fireCost) return;
+      playerMana -= attacker.fireCost;
+      const target = board[r][c].occupant;
+      const isHit = !!(target && !target.isPlayer);
+      const fromR = attacker.r, fromC = attacker.c;
+      selectedTankId = null;
+      document.getElementById('action-hint').textContent = 'Select one of your tanks to move or fire.';
+      sfxFire(attacker.type);
+      render();
+
+      animateFire(fromR, fromC, r, c, attacker.type, isHit, () => {
+        if(isHit){
+          const bonus = distanceBonus(fromR, fromC, r, c);
+          const siegeMult = attacker.siegeModeTurnsLeft > 0 ? 1.5 : 1;
+          const dmg = Math.round(attacker.damage * (1 + bonus) * siegeMult);
+          target.hp -= dmg;
+          board[r][c].revealed = true;
+          log('Your ' + attacker.name + ' hits ' + target.name + ' for ' + dmg + '!');
+          const costTag = '<span class="mono" style="font-size:0.55em; color:var(--muted);"> (&minus;' + attacker.fireCost + ' MP)</span>';
+          if(target.hp <= 0){
+            target.alive = false;
+            board[r][c].occupant = null;
+            sfxKill();
+            triggerBoardShake(7, 0.35);
+            showAction('YOUR ' + attacker.name.toUpperCase() + ' DESTROYS ' + target.name.toUpperCase() + '!' + costTag, 'a-kill');
+            log(target.name + ' destroyed!');
+          } else {
+            sfxHit();
+            triggerBoardShake(3, 0.2);
+            showAction('YOUR ' + attacker.name.toUpperCase() + ' HITS FOR ' + dmg + '!' + costTag, 'a-dmg');
+          }
+        } else {
+          board[r][c].revealed = true;
+          sfxMiss();
+          showAction('YOUR ' + attacker.name.toUpperCase() + ' FIRES INTO THE FOG — MISS <span class="mono" style="font-size:0.55em; color:var(--muted);">(&minus;' + attacker.fireCost + ' MP)</span>', 'a-miss');
+          log('Your ' + attacker.name + ' fires into the fog... miss.');
+        }
+        checkVictory();
+        render();
+      });
+    }
+  }
+
+  function checkVictory(){
+    if(gameOver) return;
+    const enemyAlive = enemyTanks.some(t => t.alive);
+    const playerAlive = playerTanks.some(t => t.alive);
+    if(!enemyAlive){ finishGame('win', false); }
+    else if(!playerAlive){ finishGame('loss', false); }
+  }
+
+  function endPlayerTurn(){
+    if(turn !== 'player' || gameOver) return;
+    selectedTankId = null;
+    turn = 'ai';
+    render();
+    setTimeout(runAiTurn, 500);
+  }
+
+  // ---------- AI turn ----------
+  function runAiTurn(){
+    if(gameOver) return;
+    enemyMaxMana = Math.min(enemyMaxMana + 1, 10);
+    enemyMana = enemyMaxMana;
+    // clear every fog tile's reveal flag — not just occupied ones — so a tile
+    // that was revealed by a miss doesn't stay "seen through" forever
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+      if(isEnemyZone(c)) board[r][c].revealed = false;
+    }
+    showTurnBanner('ENEMY TURN');
+    render();
+
+    let guard = 0;
+    function step(){
+      if(gameOver) return;
+      guard++;
+      if(guard > 40){ finishAiTurn(); return; }
+
+      const aliveEnemies = enemyTanks.filter(t => t.alive);
+      if(aliveEnemies.length === 0){ finishAiTurn(); return; }
+
+      // try to fire with a random tank that can afford it
+      const canFire = aliveEnemies.filter(t => t.fireCost <= enemyMana);
+      const canMove = aliveEnemies.filter(t => t.moveCost <= enemyMana);
+
+      if(canFire.length > 0 && Math.random() < 0.75){
+        const attacker = canFire[Math.floor(Math.random() * canFire.length)];
+        const tr = Math.floor(Math.random() * ROWS);
+        const tc = PLAYER_COLS[Math.floor(Math.random() * PLAYER_COLS.length)];
+        enemyMana -= attacker.fireCost;
+        const target = board[tr][tc].occupant;
+        const isHit = !!(target && target.isPlayer);
+        const fromR = attacker.r, fromC = attacker.c;
+        sfxFire(attacker.type);
+
+        animateFire(fromR, fromC, tr, tc, attacker.type, isHit, () => {
+          const costTag = '<span class="mono" style="font-size:0.55em; color:var(--muted);"> (&minus;' + attacker.fireCost + ' MP)</span>';
+          if(isHit){
+            const bonus = distanceBonus(fromR, fromC, tr, tc);
+            const dmg = Math.round(attacker.damage * (1 + bonus));
+            target.hp -= dmg;
+            log('Enemy ' + attacker.name + ' hits your ' + target.name + ' for ' + dmg + '!');
+            if(target.hp <= 0){
+              target.alive = false;
+              board[tr][tc].occupant = null;
+              sfxKill();
+              triggerBoardShake(7, 0.35);
+              showAction('ENEMY ' + attacker.name.toUpperCase() + ' DESTROYS YOUR ' + target.name.toUpperCase() + '!' + costTag, 'a-kill');
+              log('Your ' + target.name + ' was destroyed!');
+            } else {
+              sfxHit();
+              triggerBoardShake(3, 0.2);
+              showAction('ENEMY ' + attacker.name.toUpperCase() + ' HITS YOU FOR ' + dmg + '!' + costTag, 'a-dmg');
+            }
+          } else {
+            sfxMiss();
+            showAction('ENEMY ' + attacker.name.toUpperCase() + ' FIRES BLINDLY — MISS' + costTag, 'a-miss');
+            log('Enemy ' + attacker.name + ' fires blindly... miss.');
+          }
+          checkVictory();
+          render();
+          if(gameOver) return;
+          setTimeout(step, 500);
+        });
+        return;
+      }
+
+      if(canMove.length > 0){
+        const attacker = canMove[Math.floor(Math.random() * canMove.length)];
+        // move toward the player zone (decrease column), staying in bounds/enemy zone/empty
+        const dirs = [[0,-1],[1,0],[-1,0],[0,1]];
+        let moved = false;
+        for(const [dr,dc] of dirs){
+          const nr = attacker.r + dr, nc = attacker.c + dc;
+          if(inBounds(nr,nc) && isEnemyZone(nc) && !board[nr][nc].occupant){
+            const fromR = attacker.r, fromC = attacker.c;
+            enemyMana -= attacker.moveCost;
+            sfxMove();
+            // no visual effect at all here — even a "shimmer" at the two tiles would
+            // pinpoint exactly where a tank moved from/to, which still leaks position
+            showAction('ENEMY TANK REPOSITIONS IN THE FOG (−' + attacker.moveCost + ' MP)', 'a-move');
+            board[fromR][fromC].occupant = null;
+            attacker.r = nr; attacker.c = nc;
+            board[nr][nc].occupant = attacker;
+            log('Enemy tank shifted position in the fog.');
+            render();
+            setTimeout(step, 500);
+            moved = true;
+            break;
+          }
+        }
+        if(moved) return;
+      }
+
+      finishAiTurn();
+    }
+    step();
+  }
+
+  function finishAiTurn(){
+    if(gameOver) return;
+    render();
+    setTimeout(() => { if(!gameOver) startPlayerTurn(false); }, 400);
+  }
+
+  // ---------- Rendering ----------
+  function manaCrystals(mana, max, isEnemy){
+    let html = '';
+    for(let i = 0; i < max; i++){
+      html += '<div class="mana-crystal' + (i < mana ? (' filled' + (isEnemy ? ' enemy-fill' : '')) : '') + '"></div>';
+    }
+    html += '<span class="mana-label">' + mana + '/' + max + '</span>';
+    return html;
+  }
+
+  function render(){
+    document.getElementById('player-mana-row').innerHTML = manaCrystals(playerMana, playerMaxMana, false);
+    document.getElementById('enemy-mana-row').innerHTML = manaCrystals(enemyMana, enemyMaxMana, true);
+    document.getElementById('turn-counter').textContent = 'Turn ' + Math.min(turnCount, MAX_TURNS) + ' / ' + MAX_TURNS;
+    document.getElementById('player-count').textContent = playerTanks.filter(t=>t.alive).length + ' tanks';
+    document.getElementById('enemy-count').textContent = enemyTanks.filter(t=>t.alive).length + ' tanks';
+
+    const skillBtn = document.getElementById('skill-btn');
+    const selectedForSkill = selectedTankId ? playerTanks.find(t => t.uid === selectedTankId) : null;
+    if(selectedForSkill && turn === 'player' && !gameOver){
+      const sk = selectedForSkill.skill;
+      skillBtn.style.display = 'block';
+      skillBtn.disabled = playerMana < sk.cost;
+      skillBtn.classList.toggle('active', !!skillMode);
+      skillBtn.textContent = (skillMode ? 'Cancel ' : '⚡ ') + sk.name + ' (' + sk.cost + ' MP)';
+    } else {
+      skillBtn.style.display = 'none';
+      skillBtn.classList.remove('active');
+    }
+    document.getElementById('end-turn-btn').disabled = (turn !== 'player' || gameOver);
+
+    const selected = selectedTankId ? playerTanks.find(t => t.uid === selectedTankId) : null;
+
+    const boardEl = document.getElementById('board');
+    let html = '';
+    for(let r = 0; r < ROWS; r++){
+      for(let c = 0; c < COLS; c++){
+        const cell = board[r][c];
+        let cls = 'tile';
+        if(isObstacle(r,c)) cls += ' obstacle';
+        else if(isPlayerZone(c)) cls += ' mine-zone';
+        else cls += ' enemy-zone';
+
+        let content = '';
+        const occ = cell.occupant;
+
+        if(isEnemyZone(c) && !isObstacle(r,c)){
+          const showTank = occ && !occ.isPlayer && cell.revealed;
+          if(!showTank) cls += ' fog';
+          if(showTank){
+            content = '<div style="width:80%; height:80%;">' + tankSvg(occ.type, occ.isPlayer) + '</div><div class="hp-mini"><div class="hp-mini-fill" style="width:' + Math.max(0,(occ.hp/occ.maxHp*100)) + '%;"></div></div>';
+          }
+        } else if(occ){
+          content = '<div style="width:80%; height:80%;">' + tankSvg(occ.type, occ.isPlayer) + '</div><div class="hp-mini"><div class="hp-mini-fill" style="width:' + Math.max(0,(occ.hp/occ.maxHp*100)) + '%;"></div></div>';
+        }
+
+        if(selected){
+          if(occ && occ.uid === selected.uid) cls += ' selected-tank';
+          if(skillMode){
+            if(isEnemyZone(c) && !isObstacle(r,c)) cls += ' skill-target';
+          } else if(isPlayerZone(c) && !isObstacle(r,c)){
+            const dist = Math.abs(selected.r - r) + Math.abs(selected.c - c);
+            if(dist === 1 && !occ && playerMana >= selected.moveCost && selected.siegeModeTurnsLeft === 0){
+              cls += ' move-target';
+              content += '<div class="cost-badge cost-move"><span class="cb-gem"></span>' + selected.moveCost + '</div>';
+            }
+          } else if(isEnemyZone(c) && playerMana >= selected.fireCost){
+            cls += ' fire-target';
+            content += '<div class="cost-badge cost-fire"><span class="cb-gem"></span>' + selected.fireCost + '</div>';
+          }
+        }
+
+        const onclick = (turn === 'player' && !gameOver) ? 'onclick="tileClick(' + r + ',' + c + ')"' : '';
+        html += '<div class="' + cls + '" data-r="' + r + '" data-c="' + c + '" ' + onclick + '>' + content + '</div>';
+      }
+    }
+    boardEl.innerHTML = html;
+
+    document.getElementById('player-roster').innerHTML = playerTanks.map(t => {
+      const deadCls = t.alive ? '' : ' dead';
+      const selCls = (selectedTankId === t.uid) ? ' selected' : '';
+      const onclick = t.alive ? 'onclick="selectTank(\'' + t.uid + '\')"' : '';
+      const siegeTag = t.siegeModeTurnsLeft > 0
+        ? '<div style="font-size:8px; color:var(--pink); font-weight:800;">⚡SIEGE x' + t.siegeModeTurnsLeft + '</div>'
+        : '';
+      return '<div class="roster-tank mine' + deadCls + selCls + '" ' + onclick + '>' +
+        '<div class="icon" style="width:100%; height:34px;">' + tankSvg(t.type, true) + '</div>' +
+        '<div class="name">' + t.name + '</div>' +
+        siegeTag +
+        '<div class="hpbar"><div class="hpbar-fill" style="width:' + Math.max(0,(t.hp/t.maxHp*100)) + '%;"></div></div>' +
+        '<div class="costs">Mv' + t.moveCost + ' / Fr' + t.fireCost + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // ---------- Game over / scoring ----------
+  function finishGame(result, byTurnLimit){
+    if(gameOver) return;
+    gameOver = true;
+    stopBgAmbience();
+    let score;
+    const myHp = playerTanks.reduce((s,t)=>s+Math.max(0,t.hp),0);
+    if(result === 'win'){
+      score = 1500 + myHp * 6 + Math.max(0, (MAX_TURNS - turnCount)) * 12;
+      document.getElementById('over-eyebrow').textContent = byTurnLimit ? 'Victory (Turn Limit)' : 'Victory';
+      document.getElementById('over-eyebrow').style.color = 'var(--green)';
+    } else {
+      const enemiesKilled = enemyTanks.filter(t => !t.alive).length;
+      score = Math.max(0, enemiesKilled * 200 + myHp * 3 + turnCount * 5);
+      document.getElementById('over-eyebrow').textContent = 'Defeat';
+      document.getElementById('over-eyebrow').style.color = 'var(--red)';
+    }
+    score = Math.floor(score);
+
+    document.getElementById('final-score').textContent = score;
+    document.getElementById('submit-msg').className = 'submit-msg';
+    document.getElementById('submit-msg').textContent = '';
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('submit-btn').textContent = 'Submitting...';
+    document.getElementById('over-overlay').classList.remove('hidden');
+
+    submitScore(score, result);
+  }
+
+  async function submitScore(finalScore, result){
+    const btn = document.getElementById('submit-btn');
+    const msg = document.getElementById('submit-msg');
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      msg.className = 'submit-msg error';
+      msg.innerHTML = 'Score not saved — <a href="auth.html" class="link-text">log in</a> to appear on the leaderboard.';
+      btn.disabled = false;
+      btn.textContent = 'Submit to Leaderboard';
+      btn.onclick = () => submitScore(finalScore, result);
+      return;
+    }
+
+    const user = sessionData.session.user;
+    const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+
+    const { error } = await sb.from('scores').insert({
+      user_id: user.id, username: username, game: GAME_ID, score: finalScore
+    });
+
+    if(error){
+      msg.className = 'submit-msg error';
+      msg.textContent = 'Could not save your score. Tap to retry.';
+      btn.disabled = false;
+      btn.textContent = 'Retry Submit';
+      btn.onclick = () => submitScore(finalScore, result);
+    } else {
+      const xpEarned = result === 'win' ? 90 : 25;
+      const coinsEarned = result === 'win' ? 45 : 12;
+      const progress = await awardProgress(user.id, username, xpEarned, coinsEarned);
+      msg.className = 'submit-msg success';
+      msg.textContent = 'Score saved! +' + xpEarned + ' XP, +' + coinsEarned + ' coins' + (progress && progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
+      btn.disabled = true;
+      btn.textContent = 'Saved ✓';
+    }
+  }
+
+  function startGame(){
+    document.getElementById('start-overlay').classList.add('hidden');
+    document.getElementById('over-overlay').classList.add('hidden');
+    playerMana = 0; playerMaxMana = 0;
+    enemyMana = 0; enemyMaxMana = 0;
+    resetGame();
+    startBgAmbience();
+  }
+</script>
+</body>
+</html>

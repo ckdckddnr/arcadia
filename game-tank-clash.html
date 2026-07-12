@@ -51,7 +51,7 @@
   /* ---- Board ---- */
   .board-wrap{ flex:1; display:flex; align-items:center; justify-content:center; padding:8px; overflow:auto; position:relative; }
   #board{
-    display:grid; grid-template-columns:repeat(10, minmax(28px,52px)); grid-template-rows:repeat(6, minmax(28px,52px));
+    display:grid; grid-template-columns:repeat(12, minmax(24px,46px)); grid-template-rows:repeat(6, minmax(28px,52px));
     gap:3px; background:var(--surface-2); padding:6px; border-radius:10px; border:1px solid var(--line);
   }
   .tile{
@@ -120,9 +120,16 @@
   }
 
   #combat-log{
-    position:absolute; top:52px; left:10px; max-width:200px; z-index:15; display:flex; flex-direction:column; gap:3px; pointer-events:none;
+    position:absolute; top:52px; left:10px; max-width:280px; z-index:15; display:flex; flex-direction:column; gap:5px; pointer-events:none;
   }
-  #combat-log .log-line{ font-size:10px; color:var(--muted); background:rgba(18,22,31,0.75); border-radius:5px; padding:2px 7px; }
+  #combat-log .log-line{
+    font-size:14px; font-weight:700; border-radius:7px; padding:6px 12px;
+    background:rgba(18,22,31,0.88); border-left:3px solid var(--line);
+    box-shadow:0 3px 10px rgba(0,0,0,0.35);
+  }
+  #combat-log .log-line.log-you{ color:var(--cyan); border-left-color:var(--cyan); }
+  #combat-log .log-line.log-enemy{ color:var(--red); border-left-color:var(--red); }
+  #combat-log .log-line.log-neutral{ color:var(--muted); border-left-color:var(--muted); }
 
   #turn-banner{
     position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -186,7 +193,7 @@
   }
 
   @media (max-width:480px){
-    #board{ grid-template-columns:repeat(10, minmax(22px,32px)); grid-template-rows:repeat(6, minmax(22px,32px)); gap:2px; }
+    #board{ grid-template-columns:repeat(12, minmax(18px,26px)); grid-template-rows:repeat(6, minmax(22px,32px)); gap:2px; }
     .tile{ font-size:13px; }
     .roster-tank{ width:52px; }
   }
@@ -232,13 +239,13 @@
     <div class="panel">
       <div class="eyebrow">1-Player &middot; vs AI</div>
       <h1>TANK <span>CLASH</span></h1>
-      <p>Command 3 tanks against an AI squad. Destroy them all, or have the higher combined HP when turns run out.</p>
+      <p>Command 4 tanks against an AI squad. Destroy them all, or have the higher combined HP when turns run out.</p>
       <ul class="rules-list">
         <li><span class="rule-icon">💎</span><span><b>Shared mana:</b> your whole squad shares one pool. It grows +1 each of your turns, up to 10.</span></li>
         <li><span class="rule-icon">🌫️</span><span><b>Fog of war:</b> the enemy zone is hidden. Landing a hit reveals that tile only for the rest of the turn.</span></li>
         <li><span class="rule-icon">🎯</span><span><b>Move or fire:</b> select a tank, then click an adjacent tile to move, or any enemy-zone tile to fire.</span></li>
         <li><span class="rule-icon">📏</span><span><b>Range bonus:</b> the closer your tank is to its target, the more damage it deals — up to +30%.</span></li>
-        <li><span class="rule-icon">⚡</span><span><b>Skills:</b> Scout can Scan the fog, Battle has a devastating Rail Cannon, Siege can brace for +50% damage (but can't move while braced).</span></li>
+        <li><span class="rule-icon">⚡</span><span><b>Skills:</b> Scout's Scan reveals a random enemy tank, Battle's Rail Cannon hits hard, Siege can brace for +50% damage (can't move while braced), and Support can Rally an ally for +30% damage.</span></li>
       </ul>
       <button class="btn btn-primary" onclick="startGame()">Deploy Squad</button>
     </div>
@@ -311,7 +318,8 @@
   const FIRE_AUDIO_FILES = {
     scout: 'weapon_mortar_004.wav',
     battle: 'explosion_med_011.wav',
-    siege: 'explosion_large_005.wav'
+    siege: 'explosion_large_005.wav',
+    support: 'weapon_mortar_004.wav'
   };
   const fireAudioCache = {};
   function getFireAudio(type){
@@ -397,10 +405,10 @@
   }
 
   // ---------- Board config ----------
-  const COLS = 10, ROWS = 6;
-  const OBSTACLE_COLS = [4, 5];
-  const PLAYER_COLS = [0, 1, 2, 3];
-  const ENEMY_COLS = [6, 7, 8, 9];
+  const COLS = 12, ROWS = 6;
+  const OBSTACLE_COLS = [5, 6];
+  const PLAYER_COLS = [0, 1, 2, 3, 4];
+  const ENEMY_COLS = [7, 8, 9, 10, 11];
   const MAX_TURNS = 30;
 
   const TANK_TYPES = {
@@ -409,9 +417,11 @@
     battle:{ name:'Battle', icon:'🚙', hp:120, moveCost:2, fireCost:3, damage:35,
       skill:{ key:'railcannon', name:'Rail Cannon', cost:6, desc:'A single devastating shot — 80% bonus damage.' } },
     siege: { name:'Siege', icon:'🚚', hp:160, moveCost:2, fireCost:4, damage:50,
-      skill:{ key:'siegemode', name:'Siege Mode', cost:3, desc:"+50% damage for this tank's next 3 turns — can't move while active." } }
+      skill:{ key:'siegemode', name:'Siege Mode', cost:3, desc:"+50% damage for this tank's next 3 turns — can't move while active." } },
+    support:{ name:'Support', icon:'🚐', hp:100, moveCost:2, fireCost:3, damage:22,
+      skill:{ key:'buff', name:'Rally', cost:4, desc:"Boost an ally tank's damage by +30% for 3 turns." } }
   };
-  const TYPE_ORDER = ['scout','battle','siege'];
+  const TYPE_ORDER = ['scout','battle','siege','support'];
 
   // ---------- State ----------
   let board; // board[row][col] = { occupant: tankObj|null, revealed:boolean }
@@ -432,9 +442,9 @@
     battle: { hull:'#FFB627', dark:'#8A5C0A', track:'#1B2230' },
     siege:  { hull:'#FF5C5C', dark:'#7A1F1F', track:'#1B2230' }
   };
-  const TANK_SIZE = { scout: 0.72, battle: 0.85, siege: 1.0 };
-  const BARREL_LEN = { scout: 9, battle: 11, siege: 8 };
-  const BARREL_W = { scout: 2.6, battle: 3.4, siege: 5.2 };
+  const TANK_SIZE = { scout: 0.72, battle: 0.85, siege: 1.0, support: 0.8 };
+  const BARREL_LEN = { scout: 9, battle: 11, siege: 8, support: 9 };
+  const BARREL_W = { scout: 2.6, battle: 3.4, siege: 5.2, support: 2.6 };
 
   function scoutInner(){
     return `<svg viewBox="0 0 44 44" width="100%" height="100%">
@@ -486,9 +496,25 @@
     </svg>`;
   }
 
+  function supportInner(){
+    return `<svg viewBox="0 0 44 44" width="100%" height="100%">
+      <rect x="6" y="9" width="4" height="26" rx="2" fill="#12161F"/>
+      <rect x="34" y="9" width="4" height="26" rx="2" fill="#12161F"/>
+      <circle cx="8" cy="13" r="1.9" fill="#2a3244"/><circle cx="8" cy="22" r="1.9" fill="#2a3244"/><circle cx="8" cy="31" r="1.9" fill="#2a3244"/>
+      <circle cx="36" cy="13" r="1.9" fill="#2a3244"/><circle cx="36" cy="22" r="1.9" fill="#2a3244"/><circle cx="36" cy="31" r="1.9" fill="#2a3244"/>
+      <rect x="10" y="10" width="24" height="24" rx="4" fill="#34D399" stroke="#166B4C" stroke-width="1.6"/>
+      <line x1="16" y1="10" x2="14" y2="4" stroke="#166B4C" stroke-width="1.4"/><circle cx="14" cy="4" r="1.4" fill="#166B4C"/>
+      <line x1="28" y1="10" x2="30" y2="4" stroke="#166B4C" stroke-width="1.4"/><circle cx="30" cy="4" r="1.4" fill="#166B4C"/>
+      <circle cx="22" cy="27" r="4.2" fill="#166B4C"/><circle cx="23" cy="26" r="1.9" fill="#BFF6E3"/>
+      <rect x="18.5" y="14.5" width="7" height="2.4" fill="#166B4C"/><rect x="21" y="12" width="2.4" height="7" fill="#166B4C"/>
+      <rect x="30" y="21.4" width="9" height="2.4" fill="#166B4C"/>
+    </svg>`;
+  }
+
   function tankSvg(type, isPlayer){
     const scale = TANK_SIZE[type];
-    const inner = type === 'scout' ? scoutInner() : (type === 'battle' ? battleInner() : siegeInner());
+    const innerMap = { scout: scoutInner, battle: battleInner, siege: siegeInner, support: supportInner };
+    const inner = innerMap[type]();
     return '<div style="width:100%; height:100%; transform:scaleX(' + (isPlayer ? 1 : -1) + ') scale(' + scale + ');">' + inner + '</div>';
   }
 
@@ -600,7 +626,7 @@
     const def = TANK_TYPES[type];
     return { uid:'t'+uidCounter, type, isPlayer, name:def.name, icon:def.icon, hp:def.hp, maxHp:def.hp,
       moveCost:def.moveCost, fireCost:def.fireCost, damage:def.damage, skill:def.skill,
-      siegeModeTurnsLeft:0, r, c, alive:true };
+      siegeModeTurnsLeft:0, buffTurnsLeft:0, buffMultiplier:1, r, c, alive:true };
   }
 
   function resetGame(){
@@ -615,13 +641,13 @@
     turnCount = 1;
     document.getElementById('combat-log').innerHTML = '';
 
-    const playerRows = [1,3,4];
+    const playerRows = [0,2,3,5];
     TYPE_ORDER.forEach((type, i) => {
       const t = makeTank(type, true, playerRows[i], 0);
       playerTanks.push(t);
       board[t.r][t.c].occupant = t;
     });
-    const enemyRows = [1,3,4];
+    const enemyRows = [0,2,3,5];
     TYPE_ORDER.forEach((type, i) => {
       const t = makeTank(type, false, enemyRows[i], COLS - 1);
       enemyTanks.push(t);
@@ -634,7 +660,10 @@
   function log(msg){
     const el = document.getElementById('combat-log');
     const line = document.createElement('div');
-    line.className = 'log-line';
+    let kind = 'log-neutral';
+    if(/^your /i.test(msg)) kind = 'log-you';
+    else if(/^enemy /i.test(msg)) kind = 'log-enemy';
+    line.className = 'log-line ' + kind;
     line.textContent = msg;
     el.appendChild(line);
     while(el.children.length > 5) el.removeChild(el.firstChild);
@@ -662,6 +691,7 @@
     if(!first){
       for(const t of playerTanks){
         if(t.siegeModeTurnsLeft > 0) t.siegeModeTurnsLeft--;
+        if(t.buffTurnsLeft > 0) t.buffTurnsLeft--;
       }
     }
     selectedTankId = null;
@@ -704,9 +734,23 @@
       showAction('YOUR ' + t.name.toUpperCase() + ' ENTERS SIEGE MODE <span class="mono" style="font-size:0.55em; color:var(--muted);">(&minus;' + sk.cost + ' MP)</span>', 'a-kill');
       log('Your ' + t.name + ' braces into siege mode (+50% damage, can\'t move for 3 turns).');
       render();
+    } else if(sk.key === 'scan'){
+      const aliveEnemies = enemyTanks.filter(e => e.alive);
+      if(aliveEnemies.length === 0) return;
+      playerMana -= sk.cost;
+      selectedTankId = null;
+      const target = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
+      board[target.r][target.c].revealed = true;
+      sfxScan();
+      showAction('YOUR SCOUT SCANS AND REVEALS ' + target.name.toUpperCase() + '! <span class="mono" style="font-size:0.55em; color:var(--muted);">(&minus;' + sk.cost + ' MP)</span>', 'a-move');
+      log('Your Scout scans and locates an enemy ' + target.name + '.');
+      render();
     } else {
       skillMode = sk.key;
-      document.getElementById('action-hint').innerHTML = '<b style="color:var(--pink);">' + sk.name + ' armed</b> — click a highlighted tile in the fog.';
+      const hint = sk.key === 'buff'
+        ? '<b style="color:var(--pink);">' + sk.name + ' armed</b> — click one of your own tanks to boost it.'
+        : '<b style="color:var(--pink);">' + sk.name + ' armed</b> — click a highlighted tile in the fog.';
+      document.getElementById('action-hint').innerHTML = hint;
       render();
     }
   }
@@ -724,12 +768,13 @@
     document.getElementById('action-hint').textContent = 'Select one of your tanks to move or fire.';
     const costTag = '<span class="mono" style="font-size:0.55em; color:var(--muted);"> (&minus;' + sk.cost + ' MP)</span>';
 
-    if(mode === 'scan'){
-      board[r][c].revealed = true;
+    if(mode === 'buff'){
+      const ally = board[r][c].occupant;
+      ally.buffTurnsLeft = 3;
+      ally.buffMultiplier = 1.3;
       sfxScan();
-      fxFogShimmer(r, c);
-      showAction('YOUR ' + attacker.name.toUpperCase() + ' SCANS THE FOG' + costTag, 'a-move');
-      log('Your ' + attacker.name + ' scans a tile in the fog.');
+      showAction('YOUR ' + attacker.name.toUpperCase() + ' RALLIES ' + ally.name.toUpperCase() + '! (+30% DMG)' + costTag, 'a-move');
+      log('Your ' + attacker.name + ' rallies ' + ally.name + ' — +30% damage for 3 turns.');
       render();
     } else if(mode === 'railcannon'){
       const fromR = attacker.r, fromC = attacker.c;
@@ -741,7 +786,8 @@
         if(isHit){
           const bonus = distanceBonus(fromR, fromC, r, c);
           const siegeMult = attacker.siegeModeTurnsLeft > 0 ? 1.5 : 1;
-          const dmg = Math.round(attacker.damage * 1.8 * (1 + bonus) * siegeMult);
+          const buffMult = attacker.buffTurnsLeft > 0 ? attacker.buffMultiplier : 1;
+          const dmg = Math.round(attacker.damage * 1.8 * (1 + bonus) * siegeMult * buffMult);
           target.hp -= dmg;
           board[r][c].revealed = true;
           log('Your ' + attacker.name + ' rail cannon hits ' + target.name + ' for ' + dmg + '!');
@@ -751,7 +797,7 @@
             sfxKill();
             triggerBoardShake(9, 0.4);
             showAction('RAIL CANNON DESTROYS ' + target.name.toUpperCase() + '!' + costTag, 'a-kill');
-            log(target.name + ' destroyed by rail cannon!');
+            log('Enemy ' + target.name + ' destroyed by rail cannon!');
           } else {
             sfxHit();
             triggerBoardShake(5, 0.3);
@@ -790,7 +836,16 @@
     if(turn !== 'player' || gameOver) return;
 
     if(skillMode){
-      if(isEnemyZone(c) && !isObstacle(r,c)){
+      if(skillMode === 'buff'){
+        const occAtTile = board[r][c].occupant;
+        if(isPlayerZone(c) && occAtTile && occAtTile.isPlayer && occAtTile.alive){
+          resolveSkill(r, c);
+        } else {
+          skillMode = null;
+          document.getElementById('action-hint').textContent = 'Select one of your tanks to move or fire.';
+          render();
+        }
+      } else if(isEnemyZone(c) && !isObstacle(r,c)){
         resolveSkill(r, c);
       } else {
         skillMode = null;
@@ -847,7 +902,8 @@
         if(isHit){
           const bonus = distanceBonus(fromR, fromC, r, c);
           const siegeMult = attacker.siegeModeTurnsLeft > 0 ? 1.5 : 1;
-          const dmg = Math.round(attacker.damage * (1 + bonus) * siegeMult);
+          const buffMult = attacker.buffTurnsLeft > 0 ? attacker.buffMultiplier : 1;
+          const dmg = Math.round(attacker.damage * (1 + bonus) * siegeMult * buffMult);
           target.hp -= dmg;
           board[r][c].revealed = true;
           log('Your ' + attacker.name + ' hits ' + target.name + ' for ' + dmg + '!');
@@ -858,7 +914,7 @@
             sfxKill();
             triggerBoardShake(7, 0.35);
             showAction('YOUR ' + attacker.name.toUpperCase() + ' DESTROYS ' + target.name.toUpperCase() + '!' + costTag, 'a-kill');
-            log(target.name + ' destroyed!');
+            log('Enemy ' + target.name + ' destroyed!');
           } else {
             sfxHit();
             triggerBoardShake(3, 0.2);
@@ -1083,10 +1139,13 @@
       const siegeTag = t.siegeModeTurnsLeft > 0
         ? '<div style="font-size:8px; color:var(--pink); font-weight:800;">⚡SIEGE x' + t.siegeModeTurnsLeft + '</div>'
         : '';
+      const buffTag = t.buffTurnsLeft > 0
+        ? '<div style="font-size:8px; color:var(--green); font-weight:800;">💪RALLY x' + t.buffTurnsLeft + '</div>'
+        : '';
       return '<div class="roster-tank mine' + deadCls + selCls + '" ' + onclick + '>' +
         '<div class="icon" style="width:100%; height:34px;">' + tankSvg(t.type, true) + '</div>' +
         '<div class="name">' + t.name + '</div>' +
-        siegeTag +
+        siegeTag + buffTag +
         '<div class="hpbar"><div class="hpbar-fill" style="width:' + Math.max(0,(t.hp/t.maxHp*100)) + '%;"></div></div>' +
         '<div class="costs">Mv' + t.moveCost + ' / Fr' + t.fireCost + '</div>' +
       '</div>';

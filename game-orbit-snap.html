@@ -160,6 +160,8 @@
         <li><span class="rule-icon">🎯</span><span><b>The gate:</b> a glowing arc appears on your orbit. Launch while your ship is inside it to aim true.</span></li>
         <li><span class="rule-icon">🪐</span><span><b>Docking:</b> hit the next planet to snap into a new orbit around it and keep going.</span></li>
         <li><span class="rule-icon">⭐</span><span><b>Perfect zone:</b> the gold band inside the gate is worth way more — nail it dead-center for a big bonus.</span></li>
+        <li><span class="rule-icon">⏱</span><span><b>Two laps only:</b> the orbit ring glows red as your time runs out — launch before then or it's over.</span></li>
+        <li><span class="rule-icon">🗺️</span><span><b>Plan ahead:</b> you can see the next several planets in your path, dimmed in the distance.</span></li>
         <li><span class="rule-icon">💥</span><span><b>Miss the gate</b> and you'll fly off in the wrong direction — one mistake ends the run.</span></li>
       </ul>
       <button class="btn btn-primary" onclick="startGame()">Start Run</button>
@@ -235,11 +237,13 @@
   let stars = [];
   let planet = { x: 0, y: 0, r: 26 };       // current planet (ship orbits this)
   let target = { x: 0, y: 0, r: 20 };       // next planet to dock with
+  let targetQueue = [];                     // target plus 6 upcoming previews
   let orbitRadius = 70;
   let angle = 0;
-  let angularSpeed = 2.2; // rad/s
+  let angularSpeed = 3.4; // rad/s
   let idealAngle = 0;
-  let tolerance = 0.34;
+  let tolerance = 0.41;
+  let lapAngle = 0; // resets each time we start orbiting a new planet — must launch before this hits 2π
   let state = 'orbit'; // 'orbit' | 'flying'
   let ship = { x: 0, y: 0, vx: 0, vy: 0 };
   let trail = [];
@@ -300,6 +304,18 @@
     shakeTimer = dur;
   }
 
+  function triggerLapTimeout(){
+    if(dying) return;
+    sfxCrash();
+    triggerShake(8, 0.4);
+    const sx = planet.x + orbitRadius * Math.cos(angle);
+    const sy = planet.y + orbitRadius * Math.sin(angle);
+    spawnParticles(sx, sy, '255,92,92', 16);
+    spawnPopup(sx, sy - 30, 'TOO SLOW!', '#FF5C5C');
+    dying = true;
+    deathTimer = 0;
+  }
+
   function normalizeAngleDiff(a){
     while(a > Math.PI) a -= Math.PI * 2;
     while(a < -Math.PI) a += Math.PI * 2;
@@ -329,20 +345,35 @@
     return ((bestAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
   }
 
-  function pickNewTarget(){
+  function generateTargetFrom(fromX, fromY){
     const minDist = orbitRadius + 140;
     const maxDist = Math.min(W, H) * 0.42 + elapsed * 1.2;
     let tx, ty, tries = 0;
     do {
       const a = Math.random() * Math.PI * 2;
       const d = minDist + Math.random() * Math.max(40, maxDist - minDist);
-      tx = planet.x + Math.cos(a) * d;
-      ty = planet.y + Math.sin(a) * d;
+      tx = fromX + Math.cos(a) * d;
+      ty = fromY + Math.sin(a) * d;
       tries++;
     } while((tx < 50 || tx > W - 50 || ty < 90 || ty > H - 50) && tries < 30);
     tx = Math.max(50, Math.min(W - 50, tx));
     ty = Math.max(90, Math.min(H - 50, ty));
-    target = { x: tx, y: ty, r: 16 + Math.random() * 10 };
+    return { x: tx, y: ty, r: 16 + Math.random() * 10 };
+  }
+
+  const QUEUE_SIZE = 7; // active target + up-to-6 upcoming previews
+
+  function fillQueue(){
+    while(targetQueue.length < QUEUE_SIZE){
+      const from = targetQueue.length > 0 ? targetQueue[targetQueue.length - 1] : planet;
+      targetQueue.push(generateTargetFrom(from.x, from.y));
+    }
+  }
+
+  function pickNewTarget(){
+    if(targetQueue.length > 0) targetQueue.shift();
+    fillQueue();
+    target = targetQueue[0];
     idealAngle = computeIdealAngle();
   }
 
@@ -352,10 +383,11 @@
     score = 0;
     docks = 0;
     angle = Math.random() * Math.PI * 2;
-    angularSpeed = 2.2;
+    angularSpeed = 3.4;
     orbitRadius = 70;
-    tolerance = 0.34;
+    tolerance = 0.41;
     state = 'orbit';
+    lapAngle = 0;
     trail = [];
     particles = [];
     popups = [];
@@ -364,6 +396,7 @@
     dying = false;
     deathTimer = 0;
     planet = { x: W / 2, y: H / 2, r: 26 };
+    targetQueue = [];
     pickNewTarget();
     stars = Array.from({length: 90}, () => ({
       x: Math.random() * W, y: Math.random() * H,
@@ -434,10 +467,16 @@
     }
 
     if(state === 'orbit'){
-      angularSpeed = 2.2 + elapsed * 0.022 + docks * 0.045;
-      tolerance = Math.max(0.34 - elapsed * 0.005 - docks * 0.008, 0.15);
+      angularSpeed = 3.4 + elapsed * 0.03 + docks * 0.05;
+      tolerance = Math.max(0.41 - elapsed * 0.005 - docks * 0.008, 0.18);
       angle += angularSpeed * dt;
       if(angle > Math.PI * 2) angle -= Math.PI * 2;
+
+      lapAngle += angularSpeed * dt;
+      if(lapAngle >= Math.PI * 4){
+        triggerLapTimeout();
+        return;
+      }
     } else if(state === 'flying' || state === 'crashing'){
       ship.x += ship.vx * dt;
       ship.y += ship.vy * dt;
@@ -464,6 +503,7 @@
           angle = Math.atan2(ship.y - planet.y, ship.x - planet.x);
           pickNewTarget();
           state = 'orbit';
+          lapAngle = 0;
         }
       }
 
@@ -542,9 +582,50 @@
     drawPlanet(target, { light:'rgba(255,120,190,0.9)', dark:'rgba(120,30,80,0.9)', stroke:'rgba(255,92,182,0.9)' });
   }
 
-  function drawOrbitAndGate(){
+  function drawUpcomingPreviews(){
+    if(targetQueue.length < 2) return;
     ctx.save();
-    ctx.strokeStyle = 'rgba(138,147,166,0.35)';
+    // faint route line connecting the whole chain
+    ctx.setLineDash([3, 7]);
+    ctx.strokeStyle = 'rgba(255,92,182,0.18)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(target.x, target.y);
+    for(let i = 1; i < targetQueue.length; i++){
+      ctx.lineTo(targetQueue[i].x, targetQueue[i].y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    for(let i = 1; i < targetQueue.length; i++){
+      const p = targetQueue[i];
+      const fade = 1 - (i - 1) / (targetQueue.length - 1) * 0.55; // farther-out previews dim a bit more
+      ctx.save();
+      ctx.globalAlpha = 0.4 * fade;
+      ctx.fillStyle = 'rgba(255,120,190,0.5)';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,92,182,0.6)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      ctx.font = "bold 10px 'IBM Plex Mono', monospace";
+      ctx.fillStyle = 'rgba(244,246,250,0.8)';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(i + 1), p.x, p.y + 3);
+      ctx.restore();
+    }
+  }
+
+  function drawOrbitAndGate(){
+    const lapFrac = Math.min(1, lapAngle / (Math.PI * 4));
+    ctx.save();
+    if(lapFrac > 0.7){
+      const warnT = (lapFrac - 0.7) / 0.3;
+      ctx.strokeStyle = 'rgba(' + Math.round(138 + (255-138)*warnT) + ',' + Math.round(147 - 55*warnT) + ',' + Math.round(166 - 74*warnT) + ',' + (0.35 + 0.35*warnT) + ')';
+    } else {
+      ctx.strokeStyle = 'rgba(138,147,166,0.35)';
+    }
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.arc(planet.x, planet.y, orbitRadius, 0, Math.PI * 2);
@@ -639,6 +720,7 @@
     }
 
     drawStars();
+    drawUpcomingPreviews();
     drawTargetMarker();
     drawOrbitAndGate();
 
@@ -736,8 +818,8 @@
       btn.textContent = 'Retry Submit';
       btn.onclick = submitScore;
     } else {
-      const xpEarned = Math.max(5, Math.floor(finalScore / 20));
-      const coinsEarned = Math.max(2, Math.floor(finalScore / 50));
+      const xpEarned = Math.max(5, Math.floor(finalScore / 55));
+      const coinsEarned = Math.max(2, Math.floor(finalScore / 130));
       const progress = await awardProgress(user.id, username, xpEarned, coinsEarned);
 
       msg.className = 'submit-msg success';

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ARCADIA — Play. Rank. Get Paid.</title>
+<title>ARCADIA — Play Free. Compete. Climb the Rankings.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -213,6 +213,8 @@
     padding:22px; transition:border-color 0.2s, transform 0.2s;
   }
   .game-card:hover{border-color:var(--cyan); transform:translateY(-3px);}
+  .game-card.soon{opacity:0.5;}
+  .game-card.soon:hover{border-color:var(--line); transform:none;}
   .game-thumb{
     height:120px; border-radius:8px; margin-bottom:16px;
     display:flex; align-items:center; justify-content:center;
@@ -234,6 +236,8 @@
     transition:background 0.2s;
   }
   .play-btn:hover{background:rgba(45,225,252,0.1);}
+  .play-btn:disabled{opacity:0.5; cursor:not-allowed; border-color:var(--line); color:var(--muted);}
+  .play-btn:disabled:hover{background:transparent;}
 
   /* HOW IT WORKS */
   .how{padding:100px 5vw; background:var(--surface); border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
@@ -314,15 +318,15 @@
 <section class="hero">
   <div>
     <div class="eyebrow">Live rankings in progress</div>
-    <h1>Compete on skill.<br>Get paid <span>by rank.</span></h1>
-    <p class="sub">Enter for a small fee, finish in the top 10, and split the prize pool. Every match is against real players — never bots.</p>
+    <h1>Compete on skill.<br>Climb the <span>daily rankings.</span></h1>
+    <p class="sub">Every game is free to play. Jump into a match, post your best score, and see where you land on today's leaderboard — always against real players, never bots.</p>
     <div class="hero-ctas">
-      <a href="game-asteroid-run.html" class="btn btn-primary btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Try Your First Game Free</a>
+      <a href="game-asteroid-run.html" class="btn btn-primary btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Play Free Now</a>
       <a href="rankings.html" class="btn btn-ghost btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">See Rankings</a>
     </div>
     <div class="trust-row">
       <div><b>12,480+</b> active players</div>
-      <div><b>$2.1M+</b> paid out</div>
+      <div><b>100%</b> free to play</div>
       <div><b>100%</b> real player matches</div>
     </div>
   </div>
@@ -387,28 +391,58 @@
       <div class="game-footer"><span class="entry-fee">Free to play</span><a href="game-asteroid-run.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
     </div>
     <div class="game-card">
+      <div class="game-thumb" style="background:linear-gradient(135deg,#1a1230,#0e1f2c); padding:0; overflow:hidden;">
+        <svg viewBox="0 0 400 120" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <circle cx="30" cy="20" r="1.1" fill="#F4F6FA" opacity="0.6"/>
+          <circle cx="90" cy="36" r="0.9" fill="#F4F6FA" opacity="0.5"/>
+          <circle cx="360" cy="20" r="1.1" fill="#F4F6FA" opacity="0.6"/>
+          <circle cx="320" cy="90" r="0.9" fill="#F4F6FA" opacity="0.5"/>
+          <circle cx="40" cy="95" r="1" fill="#F4F6FA" opacity="0.5"/>
+
+          <!-- orbit ring + gate -->
+          <circle cx="160" cy="60" r="42" fill="none" stroke="rgba(138,147,166,0.35)" stroke-width="1.5"/>
+          <path d="M 190 84 A 42 42 0 0 0 197 45" fill="none" stroke="#34D399" stroke-width="5" stroke-linecap="round"/>
+
+          <!-- current planet -->
+          <circle cx="160" cy="60" r="18" fill="rgba(255,200,100,0.95)" stroke="rgba(255,182,39,0.9)" stroke-width="1.5"/>
+
+          <!-- target planet -->
+          <circle cx="330" cy="40" r="24" stroke-dasharray="5 5" fill="none" stroke="rgba(255,92,182,0.7)" stroke-width="2"/>
+          <circle cx="330" cy="40" r="13" fill="rgba(255,120,190,0.9)" stroke="rgba(255,92,182,0.9)" stroke-width="1.5"/>
+
+          <!-- ship at gate -->
+          <g transform="translate(197,45) rotate(20)">
+            <path d="M0 -10 L8 9 L0 5 L-8 9 Z" fill="rgba(45,225,252,0.95)" stroke="#F4F6FA" stroke-width="1.2"/>
+          </g>
+        </svg>
+      </div>
+      <div class="game-title">Orbit Snap <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>
+      <div class="game-meta"><span>One-button precision</span><span class="players">● Practice mode</span></div>
+      <div class="game-footer"><span class="entry-fee">Free to play</span><a href="game-orbit-snap.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
+    </div>
+    <div class="game-card soon">
       <div class="game-thumb thumb-1">RUNNER DASH</div>
       <div class="game-title">Runner Dash</div>
-      <div class="game-meta"><span>Avg. round 45s</span><span class="players">● 342 online</span></div>
-      <div class="game-footer"><span class="entry-fee">Entry $0.50</span><button class="play-btn">Play</button></div>
+      <div class="game-meta"><span>Coming soon</span></div>
+      <div class="game-footer"><span class="entry-fee">In development</span><button class="play-btn" disabled>Play</button></div>
     </div>
-    <div class="game-card">
+    <div class="game-card soon">
       <div class="game-thumb thumb-2">BLOCK MATCH</div>
       <div class="game-title">Block Match</div>
-      <div class="game-meta"><span>Avg. round 90s</span><span class="players">● 218 online</span></div>
-      <div class="game-footer"><span class="entry-fee">Entry $1.00</span><button class="play-btn">Play</button></div>
+      <div class="game-meta"><span>Coming soon</span></div>
+      <div class="game-footer"><span class="entry-fee">In development</span><button class="play-btn" disabled>Play</button></div>
     </div>
-    <div class="game-card">
+    <div class="game-card soon">
       <div class="game-thumb thumb-3">TURRET DEFENSE</div>
       <div class="game-title">Turret Defense</div>
-      <div class="game-meta"><span>Avg. round 2m</span><span class="players">● 156 online</span></div>
-      <div class="game-footer"><span class="entry-fee">Entry $2.00</span><button class="play-btn">Play</button></div>
+      <div class="game-meta"><span>Coming soon</span></div>
+      <div class="game-footer"><span class="entry-fee">In development</span><button class="play-btn" disabled>Play</button></div>
     </div>
-    <div class="game-card">
+    <div class="game-card soon">
       <div class="game-thumb thumb-4">QUICK QUIZ</div>
       <div class="game-title">Quick Quiz</div>
-      <div class="game-meta"><span>Avg. round 60s</span><span class="players">● 401 online</span></div>
-      <div class="game-footer"><span class="entry-fee">Entry $0.25</span><button class="play-btn">Play</button></div>
+      <div class="game-meta"><span>Coming soon</span></div>
+      <div class="game-footer"><span class="entry-fee">In development</span><button class="play-btn" disabled>Play</button></div>
     </div>
   </div>
 </section>
@@ -421,18 +455,18 @@
   <div class="how-steps">
     <div class="how-step">
       <div class="how-icon i1">01</div>
-      <h3>Pay the entry fee</h3>
-      <p>Pick a game and a bracket, then pay a small entry fee to join. Practice mode is free if you want to warm up first.</p>
+      <h3>Pick a game</h3>
+      <p>Every game in the library is free to play, no account required just to try it out.</p>
     </div>
     <div class="how-step">
       <div class="how-icon i2">02</div>
       <h3>Compete on skill</h3>
-      <p>Face other real players under the same conditions. You're never matched against bots.</p>
+      <p>Face off against real players under the same conditions. You're never matched against bots.</p>
     </div>
     <div class="how-step">
       <div class="how-icon i3">03</div>
-      <h3>Get paid by rank</h3>
-      <p>Finish in the top 10 and you'll get a share of the prize pool, split by rank. Withdraw instantly.</p>
+      <h3>Climb the leaderboard</h3>
+      <p>Sign up free to save your scores and see where you rank against everyone else today.</p>
     </div>
   </div>
 </section>
@@ -440,13 +474,13 @@
 <section class="final-cta" id="rankings">
   <div class="eyebrow" style="justify-content:center;">Get Started</div>
   <h2>Today's leaderboard has<br>a spot with your name on it.</h2>
-  <p>Signing up is free. You only pay when you enter a game.</p>
+  <p>Signing up is free, and every game is free to play.</p>
   <a href="auth.html" class="btn btn-primary btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Sign Up Free</a>
 </section>
 
 <footer>
   <div class="logo">ARCADIA</div>
-  <div>Must be 18+ · Not available in all states · <a href="terms.html" style="color:var(--muted);">Terms</a> · <a href="privacy.html" style="color:var(--muted);">Privacy</a> · © 2026</div>
+  <div>Free to play · <a href="terms.html" style="color:var(--muted);">Terms</a> · <a href="privacy.html" style="color:var(--muted);">Privacy</a> · © 2026</div>
 </footer>
 
 <script>

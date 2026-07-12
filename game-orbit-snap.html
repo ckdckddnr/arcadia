@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ARCADIA — Orbit Snap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg-void:#0A0D12; --surface:#12161F; --surface-2:#181D28; --line:#242B38;
+    --amber:#FFB627; --cyan:#2DE1FC; --green:#34D399; --red:#FF5C5C; --pink:#FF5CB6;
+    --text:#F4F6FA; --muted:#8A93A6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html, body{
+    background:var(--bg-void); color:var(--text);
+    font-family:'Inter','Noto Sans KR',sans-serif;
+    height:100%; overflow:hidden;
+  }
+  .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
+  .display{font-family:'Bebas Neue','Noto Sans KR',sans-serif;}
+
+  nav{
+    position:relative; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 5vw;
+    border-bottom:1px solid var(--line);
+    background:rgba(10,13,18,0.92);
+  }
+  .logo{
+    display:flex; align-items:center; gap:10px;
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif;
+    font-size:22px; letter-spacing:0.03em;
+    color:var(--text); text-decoration:none;
+  }
+  .logo .dot{width:9px; height:9px; border-radius:2px; background:var(--amber); box-shadow:0 0 10px var(--amber);}
+  .back-link{color:var(--muted); text-decoration:none; font-size:14px; font-weight:600;}
+  .back-link:hover{color:var(--text);}
+  .game-title{
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:20px; letter-spacing:0.04em; color:var(--muted);
+  }
+
+  #game-stage{ position:relative; width:100%; height:calc(100vh - 57px); }
+  #game-canvas{ display:block; width:100%; height:100%; touch-action:none; cursor:pointer; }
+
+  .hud{
+    position:absolute; top:16px; left:0; right:0;
+    display:flex; justify-content:space-between;
+    padding:0 24px; z-index:10; pointer-events:none;
+  }
+  .hud-box{
+    background:rgba(18,22,31,0.75); border:1px solid var(--line); border-radius:8px;
+    padding:8px 16px; backdrop-filter:blur(6px);
+  }
+  .hud-label{font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:2px;}
+  .hud-value{font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:20px; font-weight:700; color:var(--cyan);}
+  .hud-value.docks{color:var(--pink);}
+  .hud-value.best{color:var(--amber);}
+
+  .overlay{
+    position:absolute; inset:0; z-index:30;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(10,13,18,0.82); backdrop-filter:blur(4px);
+  }
+  .overlay.hidden{display:none;}
+  .panel{
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:40px; max-width:440px; width:90%; text-align:center;
+    box-shadow:0 40px 100px -20px rgba(0,0,0,0.7);
+  }
+  .panel .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--cyan); margin-bottom:14px;
+  }
+  .panel h1{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:40px; margin-bottom:12px;}
+  .panel h1 span{color:var(--amber);}
+  .panel p{color:var(--muted); font-size:15px; line-height:1.6; margin-bottom:20px;}
+
+  .rules-list{text-align:left; list-style:none; margin-bottom:26px;}
+  .rules-list li{
+    display:flex; align-items:flex-start; gap:10px;
+    color:var(--muted); font-size:14px; line-height:1.5; margin-bottom:10px;
+  }
+  .rules-list li .rule-icon{
+    flex-shrink:0; width:22px; height:22px; border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:700;
+    background:rgba(45,225,252,0.12); color:var(--cyan);
+  }
+  .rules-list li b{color:var(--text);}
+
+  .score-display{
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:52px; font-weight:700;
+    color:var(--amber); margin-bottom:6px;
+  }
+  .score-label{color:var(--muted); font-size:13px; margin-bottom:8px; letter-spacing:0.06em; text-transform:uppercase;}
+  .docks-label{color:var(--muted); font-size:14px; margin-bottom:24px;}
+  .docks-label b{color:var(--pink); font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
+
+  .btn{
+    font-family:'Inter','Noto Sans KR',sans-serif; font-weight:700; font-size:15px;
+    padding:13px 22px; border-radius:8px; border:none; cursor:pointer;
+    width:100%; margin-bottom:10px; transition:transform 0.15s ease;
+  }
+  .btn-primary{background:var(--amber); color:#1A1200;}
+  .btn-primary:hover{transform:translateY(-1px);}
+  .btn-ghost{background:transparent; color:var(--text); border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--muted);}
+  .btn[disabled]{opacity:0.6; cursor:not-allowed;}
+
+  .submit-msg{font-size:13px; font-weight:600; margin-bottom:14px; min-height:18px;}
+  .submit-msg.error{color:#FF8A8A;}
+  .submit-msg.success{color:var(--green);}
+  .submit-msg .link-text{color:var(--cyan); font-weight:700; text-decoration:underline;}
+
+  .controls-hint{
+    position:absolute; bottom:18px; left:0; right:0; text-align:center;
+    color:var(--muted); font-size:13px; z-index:10; pointer-events:none;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
+  <div class="game-title">ORBIT SNAP</div>
+  <a href="index.html" class="back-link">&larr; Exit</a>
+</nav>
+
+<div id="game-stage">
+  <canvas id="game-canvas"></canvas>
+
+  <div class="hud">
+    <div class="hud-box">
+      <div class="hud-label">Score</div>
+      <div class="hud-value" id="hud-score">0</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">Docks</div>
+      <div class="hud-value docks" id="hud-docks">0</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">Best (this device)</div>
+      <div class="hud-value best" id="hud-best">0</div>
+    </div>
+  </div>
+
+  <div class="controls-hint" id="controls-hint">Tap / click / spacebar — launch when the gate glows</div>
+
+  <div class="overlay" id="start-overlay">
+    <div class="panel">
+      <div class="eyebrow">Free to Play</div>
+      <h1>ORBIT <span>SNAP</span></h1>
+      <p>Your ship orbits automatically. Time your launch to slingshot into the next planet.</p>
+      <ul class="rules-list">
+        <li><span class="rule-icon">🖱</span><span><b>One button:</b> tap, click, or press space — that's the whole control scheme.</span></li>
+        <li><span class="rule-icon">🎯</span><span><b>The gate:</b> a glowing arc appears on your orbit. Launch while your ship is inside it to aim true.</span></li>
+        <li><span class="rule-icon">🪐</span><span><b>Docking:</b> hit the next planet to snap into a new orbit around it and keep going.</span></li>
+        <li><span class="rule-icon">💥</span><span><b>Miss the gate</b> and you'll fly off in the wrong direction — one mistake ends the run.</span></li>
+      </ul>
+      <button class="btn btn-primary" onclick="startGame()">Start Run</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="over-overlay">
+    <div class="panel">
+      <div class="eyebrow" style="color:var(--red);">Lost In Space</div>
+      <div class="score-display" id="final-score">0</div>
+      <div class="score-label">Final Score</div>
+      <div class="docks-label">Successful docks: <b id="final-docks">0</b></div>
+      <div class="submit-msg" id="submit-msg"></div>
+      <button class="btn btn-primary" id="submit-btn" disabled>Submitting...</button>
+      <button class="btn btn-ghost" onclick="startGame()">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- Supabase ----------
+  const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const GAME_ID = 'orbit-snap';
+
+  // ---------- Canvas setup ----------
+  const canvas = document.getElementById('game-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+
+  function resize(){
+    const stage = document.getElementById('game-stage');
+    W = canvas.width = stage.clientWidth;
+    H = canvas.height = stage.clientHeight;
+  }
+  window.addEventListener('resize', resize);
+
+  // ---------- Game state ----------
+  let running = false;
+  let score = 0;
+  let docks = 0;
+  let elapsed = 0;
+  let lastTs = null;
+  let best = parseInt(localStorage.getItem('arcadia-orbitsnap-best') || '0', 10);
+  document.getElementById('hud-best').textContent = best;
+
+  let stars = [];
+  let planet = { x: 0, y: 0, r: 26 };       // current planet (ship orbits this)
+  let target = { x: 0, y: 0, r: 20 };       // next planet to dock with
+  let orbitRadius = 70;
+  let angle = 0;
+  let angularSpeed = 2.2; // rad/s
+  let idealAngle = 0;
+  let tolerance = 0.34;
+  let state = 'orbit'; // 'orbit' | 'flying'
+  let ship = { x: 0, y: 0, vx: 0, vy: 0 };
+  let trail = [];
+
+  function normalizeAngleDiff(a){
+    while(a > Math.PI) a -= Math.PI * 2;
+    while(a < -Math.PI) a += Math.PI * 2;
+    return a;
+  }
+
+  function computeIdealAngle(){
+    const dx = target.x - planet.x, dy = target.y - planet.y;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    const r = Math.min(orbitRadius, d - 5);
+    const phi = Math.atan2(dy, dx);
+    const alpha = Math.acos(Math.max(-1, Math.min(1, r / d)));
+    const candidates = [phi + alpha, phi - alpha];
+
+    let bestAngle = candidates[0], bestDot = -Infinity;
+    for(const a of candidates){
+      const sx = planet.x + orbitRadius * Math.cos(a);
+      const sy = planet.y + orbitRadius * Math.sin(a);
+      const toTargetX = target.x - sx, toTargetY = target.y - sy;
+      const tl = Math.sqrt(toTargetX*toTargetX + toTargetY*toTargetY) || 1;
+      const dirX = toTargetX / tl, dirY = toTargetY / tl;
+      // velocity direction for CCW motion (angle increasing)
+      const velX = -Math.sin(a), velY = Math.cos(a);
+      const dot = velX * dirX + velY * dirY;
+      if(dot > bestDot){ bestDot = dot; bestAngle = a; }
+    }
+    return ((bestAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  }
+
+  function pickNewTarget(){
+    const minDist = orbitRadius + 140;
+    const maxDist = Math.min(W, H) * 0.42 + elapsed * 1.2;
+    let tx, ty, tries = 0;
+    do {
+      const a = Math.random() * Math.PI * 2;
+      const d = minDist + Math.random() * Math.max(40, maxDist - minDist);
+      tx = planet.x + Math.cos(a) * d;
+      ty = planet.y + Math.sin(a) * d;
+      tries++;
+    } while((tx < 50 || tx > W - 50 || ty < 90 || ty > H - 50) && tries < 30);
+    tx = Math.max(50, Math.min(W - 50, tx));
+    ty = Math.max(90, Math.min(H - 50, ty));
+    target = { x: tx, y: ty, r: 16 + Math.random() * 10 };
+    idealAngle = computeIdealAngle();
+  }
+
+  function resetGame(){
+    resize();
+    elapsed = 0;
+    score = 0;
+    docks = 0;
+    angle = Math.random() * Math.PI * 2;
+    angularSpeed = 2.2;
+    orbitRadius = 70;
+    tolerance = 0.34;
+    state = 'orbit';
+    trail = [];
+    planet = { x: W / 2, y: H / 2, r: 26 };
+    pickNewTarget();
+    stars = Array.from({length: 90}, () => ({
+      x: Math.random() * W, y: Math.random() * H,
+      r: Math.random() * 1.2 + 0.3, phase: Math.random() * Math.PI * 2
+    }));
+  }
+
+  function attemptLaunch(){
+    if(!running || state !== 'orbit') return;
+
+    const diff = Math.abs(normalizeAngleDiff(angle - idealAngle));
+    const shipX = planet.x + orbitRadius * Math.cos(angle);
+    const shipY = planet.y + orbitRadius * Math.sin(angle);
+
+    if(diff <= tolerance){
+      // success: snap to the precise ideal direction toward the target
+      const dx = target.x - shipX, dy = target.y - shipY;
+      const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+      const speed = 420 + docks * 10;
+      ship.x = shipX; ship.y = shipY;
+      ship.vx = (dx / dist) * speed;
+      ship.vy = (dy / dist) * speed;
+      trail = [{x: shipX, y: shipY}];
+      state = 'flying';
+    } else {
+      // failure: launch along the actual current tangent direction — usually misses everything
+      const speed = 420 + docks * 10;
+      ship.x = shipX; ship.y = shipY;
+      ship.vx = -Math.sin(angle) * speed;
+      ship.vy = Math.cos(angle) * speed;
+      trail = [{x: shipX, y: shipY}];
+      state = 'crashing'; // this launch cannot dock — it just plays out until it flies off-screen
+    }
+  }
+
+  function update(dt){
+    elapsed += dt;
+    score += dt * 10;
+
+    for(const s of stars){
+      s.phase += dt;
+    }
+
+    if(state === 'orbit'){
+      angularSpeed = 2.2 + elapsed * 0.022 + docks * 0.045;
+      tolerance = Math.max(0.34 - elapsed * 0.005 - docks * 0.008, 0.15);
+      angle += angularSpeed * dt;
+      if(angle > Math.PI * 2) angle -= Math.PI * 2;
+    } else if(state === 'flying' || state === 'crashing'){
+      ship.x += ship.vx * dt;
+      ship.y += ship.vy * dt;
+      trail.push({x: ship.x, y: ship.y});
+      if(trail.length > 26) trail.shift();
+
+      if(state === 'flying'){
+        const dx = target.x - ship.x, dy = target.y - ship.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if(dist < target.r + 10){
+          // docked!
+          docks++;
+          score += 150 + docks * 8;
+          planet = { x: target.x, y: target.y, r: 18 + Math.random() * 12 };
+          orbitRadius = 55 + Math.random() * 40;
+          angle = Math.atan2(ship.y - planet.y, ship.x - planet.x);
+          pickNewTarget();
+          state = 'orbit';
+        }
+      }
+
+      const margin = 60;
+      if(ship.x < -margin || ship.x > W + margin || ship.y < -margin || ship.y > H + margin){
+        endGame();
+        return;
+      }
+    }
+  }
+
+  function drawStars(){
+    for(const s of stars){
+      const tw = 0.35 + 0.35 * Math.sin(s.phase * 1.5);
+      ctx.globalAlpha = Math.max(0, tw);
+      ctx.fillStyle = '#F4F6FA';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPlanet(p, color){
+    const grad = ctx.createRadialGradient(p.x - p.r*0.3, p.y - p.r*0.3, p.r*0.1, p.x, p.y, p.r);
+    grad.addColorStop(0, color.light);
+    grad.addColorStop(1, color.dark);
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = color.stroke;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  function drawTargetMarker(){
+    const pulse = 0.6 + 0.4 * Math.sin(elapsed * 4);
+    ctx.save();
+    ctx.setLineDash([6, 6]);
+    ctx.strokeStyle = 'rgba(255,92,182,' + (0.5 + 0.3 * pulse) + ')';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(target.x, target.y, target.r + 8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    drawPlanet(target, { light:'rgba(255,120,190,0.9)', dark:'rgba(120,30,80,0.9)', stroke:'rgba(255,92,182,0.9)' });
+  }
+
+  function drawOrbitAndGate(){
+    ctx.save();
+    ctx.strokeStyle = 'rgba(138,147,166,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(planet.x, planet.y, orbitRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const inGate = Math.abs(normalizeAngleDiff(angle - idealAngle)) <= tolerance;
+    ctx.strokeStyle = inGate ? 'rgba(52,211,153,0.95)' : 'rgba(45,225,252,0.55)';
+    ctx.lineWidth = inGate ? 6 : 4;
+    ctx.beginPath();
+    ctx.arc(planet.x, planet.y, orbitRadius, idealAngle - tolerance, idealAngle + tolerance);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawShip(x, y, dirAngle){
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(dirAngle + Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(0, -13);
+    ctx.lineTo(10, 12);
+    ctx.lineTo(0, 7);
+    ctx.lineTo(-10, 12);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(45,225,252,0.95)';
+    ctx.fill();
+    ctx.strokeStyle = '#F4F6FA';
+    ctx.lineWidth = 1.3;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawTrail(){
+    if(trail.length < 2) return;
+    ctx.save();
+    for(let i = 1; i < trail.length; i++){
+      const a = i / trail.length;
+      ctx.strokeStyle = 'rgba(255,182,39,' + (a * 0.5) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(trail[i-1].x, trail[i-1].y);
+      ctx.lineTo(trail[i].x, trail[i].y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function render(){
+    ctx.clearRect(0, 0, W, H);
+    drawStars();
+    drawTargetMarker();
+    drawOrbitAndGate();
+
+    if(state === 'orbit'){
+      const sx = planet.x + orbitRadius * Math.cos(angle);
+      const sy = planet.y + orbitRadius * Math.sin(angle);
+      drawPlanet(planet, { light:'rgba(255,200,100,0.95)', dark:'rgba(120,70,10,0.95)', stroke:'rgba(255,182,39,0.9)' });
+      drawShip(sx, sy, angle);
+    } else {
+      drawPlanet(planet, { light:'rgba(255,200,100,0.95)', dark:'rgba(120,70,10,0.95)', stroke:'rgba(255,182,39,0.9)' });
+      drawTrail();
+      const dirAngle = Math.atan2(ship.vy, ship.vx);
+      drawShip(ship.x, ship.y, dirAngle);
+    }
+
+    document.getElementById('hud-score').textContent = Math.floor(score);
+    document.getElementById('hud-docks').textContent = docks;
+  }
+
+  function loop(ts){
+    if(!running) return;
+    if(lastTs === null) lastTs = ts;
+    const dt = Math.min((ts - lastTs) / 1000, 0.05);
+    lastTs = ts;
+    update(dt);
+    if(running){
+      render();
+      requestAnimationFrame(loop);
+    }
+  }
+
+  function startGame(){
+    document.getElementById('start-overlay').classList.add('hidden');
+    document.getElementById('over-overlay').classList.add('hidden');
+    resetGame();
+    running = true;
+    lastTs = null;
+    requestAnimationFrame(loop);
+  }
+
+  function endGame(){
+    running = false;
+    const finalScore = Math.floor(score);
+    if(finalScore > best){
+      best = finalScore;
+      localStorage.setItem('arcadia-orbitsnap-best', String(best));
+      document.getElementById('hud-best').textContent = best;
+    }
+    document.getElementById('final-score').textContent = finalScore;
+    document.getElementById('final-docks').textContent = docks;
+    document.getElementById('submit-msg').className = 'submit-msg';
+    document.getElementById('submit-msg').textContent = '';
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('submit-btn').textContent = 'Submitting...';
+    document.getElementById('over-overlay').classList.remove('hidden');
+
+    submitScore();
+  }
+
+  async function submitScore(){
+    const finalScore = parseInt(document.getElementById('final-score').textContent, 10);
+    const btn = document.getElementById('submit-btn');
+    const msg = document.getElementById('submit-msg');
+
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      msg.className = 'submit-msg error';
+      msg.innerHTML = 'Score not saved — <a href="auth.html" class="link-text">log in</a> to appear on the leaderboard.';
+      btn.disabled = false;
+      btn.textContent = 'Submit to Leaderboard';
+      return;
+    }
+
+    const user = sessionData.session.user;
+    const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+
+    const { error } = await sb.from('scores').insert({
+      user_id: user.id,
+      username: username,
+      game: GAME_ID,
+      score: finalScore
+    });
+
+    if(error){
+      msg.className = 'submit-msg error';
+      msg.textContent = 'Could not save your score. Tap to retry.';
+      btn.disabled = false;
+      btn.textContent = 'Retry Submit';
+      btn.onclick = submitScore;
+    } else {
+      msg.className = 'submit-msg success';
+      msg.textContent = 'Score saved to today\'s leaderboard!';
+      btn.disabled = true;
+      btn.textContent = 'Saved ✓';
+    }
+  }
+
+  // ---------- Input: one button, works everywhere ----------
+  canvas.addEventListener('click', attemptLaunch);
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    attemptLaunch();
+  }, { passive: false });
+  window.addEventListener('keydown', e => {
+    if(e.code === 'Space'){
+      e.preventDefault();
+      attemptLaunch();
+    }
+  });
+
+  resize();
+  resetGame();
+  render();
+</script>
+</body>
+</html>

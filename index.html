@@ -71,6 +71,39 @@
     letter-spacing:0.01em; transition:color 0.2s;
   }
   .nav-links a:hover{color:var(--cyan);}
+
+  .hamburger-btn{
+    display:none;
+    background:transparent; border:1px solid var(--line); border-radius:8px;
+    color:var(--text); font-size:20px; padding:8px 12px; cursor:pointer;
+    line-height:1;
+  }
+  .hamburger-btn:hover{border-color:var(--muted);}
+
+  .mobile-menu-overlay{
+    display:none;
+    position:fixed; inset:0; z-index:100;
+    background:rgba(10,13,18,0.98);
+    backdrop-filter:blur(6px);
+    flex-direction:column;
+    padding:20px 24px 40px;
+  }
+  .mobile-menu-overlay.open{display:flex;}
+  .mobile-menu-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding-bottom:20px; border-bottom:1px solid var(--line); margin-bottom:12px;
+  }
+  .mobile-menu-links{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:34px; flex:1;
+  }
+  .mobile-menu-links a{
+    color:var(--text); text-decoration:none;
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif;
+    font-size:34px; letter-spacing:0.02em;
+  }
+  .mobile-menu-auth{display:flex; flex-direction:column; gap:12px; padding-top:20px;}
+  .mobile-menu-auth .btn{width:100%; text-align:center;}
   .btn{
     font-family:'Inter','Noto Sans KR',sans-serif; font-weight:700; font-size:17px;
     padding:11px 22px; border-radius:6px; border:none; cursor:pointer;
@@ -236,6 +269,7 @@
     .hero{grid-template-columns:1fr; padding-top:60px;}
     .how-steps{grid-template-columns:1fr;}
     .nav-links{display:none;}
+    .hamburger-btn{display:inline-flex; align-items:center; justify-content:center;}
     .trust-row{flex-wrap:wrap; row-gap:8px;}
   }
 
@@ -254,11 +288,28 @@
     <a href="rankings.html">Rankings</a>
     <a href="#how">How It Works</a>
   </div>
+  <button class="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Open menu">☰</button>
   <div style="display:flex; gap:10px; align-items:center;" id="nav-auth-area">
     <a href="auth.html" class="btn btn-ghost" style="text-decoration:none; display:inline-flex; align-items:center;">Log In</a>
     <a href="auth.html" class="btn btn-primary" style="text-decoration:none; display:inline-flex; align-items:center;">Sign Up Free</a>
   </div>
 </nav>
+
+<div class="mobile-menu-overlay" id="mobile-menu-overlay">
+  <div class="mobile-menu-head">
+    <div class="logo"><div class="dot"></div>ARCADIA</div>
+    <button class="hamburger-btn" style="display:inline-flex;" onclick="toggleMobileMenu()" aria-label="Close menu">✕</button>
+  </div>
+  <div class="mobile-menu-links">
+    <a href="#games" onclick="toggleMobileMenu()">Games</a>
+    <a href="rankings.html">Rankings</a>
+    <a href="#how" onclick="toggleMobileMenu()">How It Works</a>
+  </div>
+  <div class="mobile-menu-auth" id="mobile-menu-auth">
+    <a href="auth.html" class="btn btn-ghost" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Log In</a>
+    <a href="auth.html" class="btn btn-primary" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Sign Up Free</a>
+  </div>
+</div>
 
 <section class="hero">
   <div>
@@ -601,6 +652,11 @@
   }
   window.logout = logout;
 
+  function toggleMobileMenu(){
+    document.getElementById('mobile-menu-overlay').classList.toggle('open');
+  }
+  window.toggleMobileMenu = toggleMobileMenu;
+
   (async () => {
     const { data } = await sb.auth.getSession();
     if(data.session){
@@ -609,6 +665,11 @@
       const area = document.getElementById('nav-auth-area');
       area.innerHTML =
         '<a href="profile.html" class="mono" style="color:var(--cyan); font-size:17px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center;">' + username + '</a>' +
+        '<button class="btn btn-ghost" onclick="logout()">Log Out</button>';
+
+      const mobileArea = document.getElementById('mobile-menu-auth');
+      mobileArea.innerHTML =
+        '<a href="profile.html" class="mono" style="color:var(--cyan); font-size:17px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; padding:12px;">' + username + '</a>' +
         '<button class="btn btn-ghost" onclick="logout()">Log Out</button>';
     }
   })();

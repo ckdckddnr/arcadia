@@ -50,6 +50,33 @@
   .back-link{color:var(--muted); text-decoration:none; font-size:15px; font-weight:600;}
   .back-link:hover{color:var(--text);}
 
+  .hamburger-btn{
+    display:none;
+    background:transparent; border:1px solid var(--line); border-radius:8px;
+    color:var(--text); font-size:20px; padding:8px 12px; cursor:pointer; line-height:1;
+  }
+  .mobile-menu-overlay{
+    display:none;
+    position:fixed; inset:0; z-index:100;
+    background:rgba(10,13,18,0.98); backdrop-filter:blur(6px);
+    flex-direction:column; padding:20px 24px 40px;
+  }
+  .mobile-menu-overlay.open{display:flex;}
+  .mobile-menu-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding-bottom:20px; border-bottom:1px solid var(--line); margin-bottom:12px;
+  }
+  .mobile-menu-links{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:34px; flex:1;}
+  .mobile-menu-links a{
+    color:var(--text); text-decoration:none;
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:34px;
+  }
+
+  @media (max-width:700px){
+    .nav-links{display:none;}
+    .hamburger-btn{display:inline-flex; align-items:center; justify-content:center;}
+  }
+
   main{max-width:800px; margin:0 auto; padding:56px 5vw 100px;}
 
   .page-head{
@@ -145,8 +172,22 @@
     <a href="rankings.html">Rankings</a>
     <a href="index.html#how">How It Works</a>
   </div>
+  <button class="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Open menu">☰</button>
   <a href="index.html" class="back-link">&larr; Back to home</a>
 </nav>
+
+<div class="mobile-menu-overlay" id="mobile-menu-overlay">
+  <div class="mobile-menu-head">
+    <div class="logo"><div class="dot"></div>ARCADIA</div>
+    <button class="hamburger-btn" style="display:inline-flex;" onclick="toggleMobileMenu()" aria-label="Close menu">✕</button>
+  </div>
+  <div class="mobile-menu-links">
+    <a href="index.html#games">Games</a>
+    <a href="rankings.html">Rankings</a>
+    <a href="index.html#how">How It Works</a>
+    <a href="index.html">Home</a>
+  </div>
+</div>
 
 <main>
   <div class="page-head">
@@ -210,6 +251,10 @@
     const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
     document.getElementById('countdown').textContent = h + ':' + m + ':' + s;
   }
+  function toggleMobileMenu(){
+    document.getElementById('mobile-menu-overlay').classList.toggle('open');
+  }
+
   updateCountdown();
   setInterval(updateCountdown, 1000);
 

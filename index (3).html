@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCADIA — Play. Rank. Get Paid.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-void:#0A0D12;
+    --surface:#12161F;
+    --surface-2:#181D28;
+    --line:#242B38;
+    --amber:#FFB627;
+    --cyan:#2DE1FC;
+    --green:#34D399;
+    --red:#FF5C5C;
+    --text:#F4F6FA;
+    --muted:#8A93A6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg-void);
+    color:var(--text);
+    font-family:'Inter','Noto Sans KR',sans-serif;
+    overflow-x:hidden;
+  }
+  .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
+  .display{font-family:'Bebas Neue','Noto Sans KR',sans-serif; letter-spacing:0.02em;}
+
+  /* subtle arena floor texture */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:
+      radial-gradient(circle at 20% 10%, rgba(45,225,252,0.06), transparent 40%),
+      radial-gradient(circle at 80% 0%, rgba(255,182,39,0.07), transparent 40%);
+    pointer-events:none;
+    z-index:0;
+  }
+
+  /* animated live-match particle background */
+  #bg-canvas{
+    position:fixed; inset:0;
+    width:100%; height:100%;
+    z-index:0;
+    display:block;
+  }
+
+  /* NAV */
+  nav{
+    position:sticky; top:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 5vw;
+    background:rgba(10,13,18,0.85);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .logo{
+    display:flex; align-items:center; gap:10px;
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif;
+    font-size:26px; letter-spacing:0.03em;
+  }
+  .logo .dot{width:10px; height:10px; border-radius:2px; background:var(--amber); box-shadow:0 0 12px var(--amber);}
+  .nav-links{display:flex; gap:36px; align-items:center;}
+  .nav-links a{
+    color:var(--text); text-decoration:none; font-size:17px; font-weight:700;
+    letter-spacing:0.01em; transition:color 0.2s;
+  }
+  .nav-links a:hover{color:var(--cyan);}
+  .btn{
+    font-family:'Inter','Noto Sans KR',sans-serif; font-weight:700; font-size:17px;
+    padding:11px 22px; border-radius:6px; border:none; cursor:pointer;
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn:focus-visible{outline:2px solid var(--cyan); outline-offset:2px;}
+  .btn-primary{background:var(--amber); color:#1A1200;}
+  .btn-primary:hover{transform:translateY(-1px); box-shadow:0 6px 20px rgba(255,182,39,0.35);}
+  .btn-ghost{background:transparent; color:var(--text); border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--muted);}
+
+  section{position:relative; z-index:1; padding:0 5vw;}
+
+  /* HERO */
+  .hero{
+    padding:90px 5vw 60px;
+    display:grid; grid-template-columns:1.1fr 0.9fr; gap:60px; align-items:center;
+  }
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:14px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--cyan); margin-bottom:18px;
+  }
+  .eyebrow::before{
+    content:""; width:7px; height:7px; border-radius:50%; background:var(--cyan);
+    box-shadow:0 0 8px var(--cyan);
+    animation:pulse 1.6s infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:0.3;}}
+  h1{
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif;
+    font-size:clamp(48px,6.2vw,84px);
+    line-height:0.98;
+    letter-spacing:0.01em;
+    margin-bottom:22px;
+  }
+  h1 span{color:var(--amber);}
+  .hero p.sub{
+    color:var(--muted); font-size:20px; line-height:1.6; max-width:480px; margin-bottom:32px;
+  }
+  .hero-ctas{display:flex; gap:14px; margin-bottom:36px;}
+  .btn-lg{padding:15px 28px; font-size:18px;}
+  .trust-row{display:flex; gap:28px; color:var(--muted); font-size:16px;}
+  .trust-row b{color:var(--text); font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:600;}
+
+  /* SCOREBOARD SIGNATURE ELEMENT */
+  .scoreboard{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 30px 80px -20px rgba(0,0,0,0.6);
+  }
+  .scoreboard-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:16px 20px;
+    background:var(--surface-2);
+    border-bottom:1px solid var(--line);
+  }
+  .scoreboard-head .label{
+    font-size:13px; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); font-weight:700;
+  }
+  .live-tag{
+    display:flex; align-items:center; gap:6px;
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:13px; color:var(--green); font-weight:600;
+  }
+  .live-tag::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--green); animation:pulse 1.4s infinite;}
+  .score-row{
+    display:grid; grid-template-columns:34px 1fr auto auto;
+    align-items:center; gap:14px;
+    padding:14px 20px;
+    border-bottom:1px solid var(--line);
+    font-size:17px;
+  }
+  .score-row:last-child{border-bottom:none;}
+  .rank-badge{
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:600; font-size:16px;
+    color:var(--muted); text-align:center;
+  }
+  .score-row.gold .rank-badge{color:var(--amber);}
+  .player-name{font-weight:600;}
+  .player-name .tag{color:var(--muted); font-weight:400; font-size:14px; margin-left:6px;}
+  .score-val{font-family:'IBM Plex Mono','Noto Sans KR',monospace; color:var(--cyan); font-size:16px;}
+  .prize-val{
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:600; font-size:16px; color:var(--green);
+    min-width:60px; text-align:right;
+  }
+  .scoreboard-foot{
+    padding:12px 20px; text-align:center; font-size:14px; color:var(--muted);
+    background:var(--surface-2); border-top:1px solid var(--line);
+  }
+
+  /* SECTION HEADERS */
+  .section-head{max-width:600px; margin:0 auto 44px; text-align:center;}
+  .section-head .eyebrow{justify-content:center;}
+  .section-head h2{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:clamp(32px,4vw,46px); margin-bottom:12px;}
+  .section-head p{color:var(--muted); font-size:19px;}
+
+  /* GAMES */
+  .games{padding:100px 5vw;}
+  .game-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+    gap:20px; max-width:1200px; margin:0 auto;
+  }
+  .game-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:22px; transition:border-color 0.2s, transform 0.2s;
+  }
+  .game-card:hover{border-color:var(--cyan); transform:translateY(-3px);}
+  .game-thumb{
+    height:120px; border-radius:8px; margin-bottom:16px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:18px; color:rgba(255,255,255,0.5);
+    letter-spacing:0.06em;
+  }
+  .thumb-1{background:linear-gradient(135deg,#2a2118,#3a2a12);}
+  .thumb-2{background:linear-gradient(135deg,#122a2e,#0e1f2c);}
+  .thumb-3{background:linear-gradient(135deg,#251a2c,#1a1230);}
+  .thumb-4{background:linear-gradient(135deg,#1a2a1e,#122318);}
+  .game-title{font-weight:700; font-size:19px; margin-bottom:6px;}
+  .game-meta{display:flex; justify-content:space-between; color:var(--muted); font-size:16px; margin-bottom:16px;}
+  .game-meta .players{color:var(--green);}
+  .game-footer{display:flex; justify-content:space-between; align-items:center;}
+  .entry-fee{font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:16px; color:var(--amber); font-weight:600;}
+  .play-btn{
+    font-size:14px; font-weight:700; padding:8px 16px; border-radius:6px;
+    background:transparent; border:1px solid var(--cyan); color:var(--cyan); cursor:pointer;
+    transition:background 0.2s;
+  }
+  .play-btn:hover{background:rgba(45,225,252,0.1);}
+
+  /* HOW IT WORKS */
+  .how{padding:100px 5vw; background:var(--surface); border-top:1px solid var(--line); border-bottom:1px solid var(--line);}
+  .how-steps{
+    max-width:1000px; margin:0 auto;
+    display:grid; grid-template-columns:repeat(3,1fr); gap:32px;
+  }
+  .how-step{text-align:left;}
+  .how-icon{
+    width:44px; height:44px; border-radius:8px; margin-bottom:18px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:700; font-size:19px;
+  }
+  .how-icon.i1{background:rgba(255,182,39,0.12); color:var(--amber);}
+  .how-icon.i2{background:rgba(45,225,252,0.12); color:var(--cyan);}
+  .how-icon.i3{background:rgba(52,211,153,0.12); color:var(--green);}
+  .how-step h3{font-size:22px; margin-bottom:8px; font-weight:700;}
+  .how-step p{color:var(--muted); font-size:17px; line-height:1.6;}
+
+  /* FOOTER CTA */
+  .final-cta{padding:110px 5vw; text-align:center;}
+  .final-cta h2{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:clamp(36px,5vw,58px); margin-bottom:18px;}
+  .final-cta p{color:var(--muted); margin-bottom:32px;}
+
+  footer{
+    padding:40px 5vw; border-top:1px solid var(--line);
+    display:flex; justify-content:space-between; align-items:center;
+    color:var(--muted); font-size:16px;
+  }
+  footer .logo{font-size:22px;}
+
+  @media (max-width:860px){
+    .hero{grid-template-columns:1fr; padding-top:60px;}
+    .how-steps{grid-template-columns:1fr;}
+    .nav-links{display:none;}
+    .trust-row{flex-wrap:wrap; row-gap:8px;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .eyebrow::before, .live-tag::before{animation:none;}
+  }
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+
+<nav>
+  <div class="logo"><div class="dot"></div>ARCADIA</div>
+  <div class="nav-links">
+    <a href="#games">Games</a>
+    <a href="#rankings">Rankings</a>
+    <a href="#how">How It Works</a>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <button class="btn btn-ghost">Log In</button>
+    <button class="btn btn-primary">Sign Up Free</button>
+  </div>
+</nav>
+
+<section class="hero">
+  <div>
+    <div class="eyebrow">Live rankings in progress</div>
+    <h1>Compete on skill.<br>Get paid <span>by rank.</span></h1>
+    <p class="sub">Enter for a small fee, finish in the top 10, and split the prize pool. Every match is against real players — never bots.</p>
+    <div class="hero-ctas">
+      <button class="btn btn-primary btn-lg">Try Your First Game Free</button>
+      <button class="btn btn-ghost btn-lg">See Rankings</button>
+    </div>
+    <div class="trust-row">
+      <div><b>12,480+</b> active players</div>
+      <div><b>$2.1M+</b> paid out</div>
+      <div><b>100%</b> real player matches</div>
+    </div>
+  </div>
+
+  <div class="scoreboard">
+    <div class="scoreboard-head">
+      <span class="label">Weekly Leaderboard · Runner Dash</span>
+      <span class="live-tag">LIVE</span>
+    </div>
+    <div class="score-row gold">
+      <span class="rank-badge">01</span>
+      <span class="player-name">kayla_speed<span class="tag">#98% accuracy</span></span>
+      <span class="score-val">14,220</span>
+      <span class="prize-val">$48.00</span>
+    </div>
+    <div class="score-row gold">
+      <span class="rank-badge">02</span>
+      <span class="player-name">m.rivera<span class="tag">#95% accuracy</span></span>
+      <span class="score-val">13,870</span>
+      <span class="prize-val">$29.00</span>
+    </div>
+    <div class="score-row gold">
+      <span class="rank-badge">03</span>
+      <span class="player-name">nightowl22</span>
+      <span class="score-val">13,410</span>
+      <span class="prize-val">$15.00</span>
+    </div>
+    <div class="score-row">
+      <span class="rank-badge">04</span>
+      <span class="player-name">devon.k</span>
+      <span class="score-val">12,955</span>
+      <span class="prize-val">$8.00</span>
+    </div>
+    <div class="score-row">
+      <span class="rank-badge">05</span>
+      <span class="player-name">sunny_arc</span>
+      <span class="score-val">12,690</span>
+      <span class="prize-val">$5.00</span>
+    </div>
+    <div class="scoreboard-foot">Top 10 get paid · Season ends in 3 hours</div>
+  </div>
+</section>
+
+<section class="games" id="games">
+  <div class="section-head">
+    <div class="eyebrow">Game Library</div>
+    <h2>Pick a game to compete in</h2>
+    <p>Start with a low-stakes game and work your way up as your skill improves.</p>
+  </div>
+  <div class="game-grid">
+    <div class="game-card">
+      <div class="game-thumb thumb-1">RUNNER DASH</div>
+      <div class="game-title">Runner Dash</div>
+      <div class="game-meta"><span>Avg. round 45s</span><span class="players">● 342 online</span></div>
+      <div class="game-footer"><span class="entry-fee">Entry $0.50</span><button class="play-btn">Play</button></div>
+    </div>
+    <div class="game-card">
+      <div class="game-thumb thumb-2">BLOCK MATCH</div>
+      <div class="game-title">Block Match</div>
+      <div class="game-meta"><span>Avg. round 90s</span><span class="players">● 218 online</span></div>
+      <div class="game-footer"><span class="entry-fee">Entry $1.00</span><button class="play-btn">Play</button></div>
+    </div>
+    <div class="game-card">
+      <div class="game-thumb thumb-3">TURRET DEFENSE</div>
+      <div class="game-title">Turret Defense</div>
+      <div class="game-meta"><span>Avg. round 2m</span><span class="players">● 156 online</span></div>
+      <div class="game-footer"><span class="entry-fee">Entry $2.00</span><button class="play-btn">Play</button></div>
+    </div>
+    <div class="game-card">
+      <div class="game-thumb thumb-4">QUICK QUIZ</div>
+      <div class="game-title">Quick Quiz</div>
+      <div class="game-meta"><span>Avg. round 60s</span><span class="players">● 401 online</span></div>
+      <div class="game-footer"><span class="entry-fee">Entry $0.25</span><button class="play-btn">Play</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="how" id="how">
+  <div class="section-head">
+    <div class="eyebrow">How It Works</div>
+    <h2>Three steps, that's it</h2>
+  </div>
+  <div class="how-steps">
+    <div class="how-step">
+      <div class="how-icon i1">01</div>
+      <h3>Pay the entry fee</h3>
+      <p>Pick a game and a bracket, then pay a small entry fee to join. Practice mode is free if you want to warm up first.</p>
+    </div>
+    <div class="how-step">
+      <div class="how-icon i2">02</div>
+      <h3>Compete on skill</h3>
+      <p>Face other real players under the same conditions. You're never matched against bots.</p>
+    </div>
+    <div class="how-step">
+      <div class="how-icon i3">03</div>
+      <h3>Get paid by rank</h3>
+      <p>Finish in the top 10 and you'll get a share of the prize pool, split by rank. Withdraw instantly.</p>
+    </div>
+  </div>
+</section>
+
+<section class="final-cta" id="rankings">
+  <div class="eyebrow" style="justify-content:center;">Get Started</div>
+  <h2>Today's leaderboard has<br>a spot with your name on it.</h2>
+  <p>Signing up is free. You only pay when you enter a game.</p>
+  <button class="btn btn-primary btn-lg">Sign Up Free</button>
+</section>
+
+<footer>
+  <div class="logo">ARCADIA</div>
+  <div>Must be 18+ · Not available in all states · © 2026</div>
+</footer>
+
+<script>
+(function(){
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let w, h, stars, t = 0, lastTs = null;
+
+  const STAR_COUNT = 110;
+  const ORB = { xr: 0.86, yr: 0.16, baseR: 130 };
+
+  function resize(){
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+
+  function makeStars(){
+    stars = Array.from({length: STAR_COUNT}, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      r: Math.random() * 1.3 + 0.4,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.4 + Math.random() * 0.6
+    }));
+  }
+
+  function drawOrb(cx, cy, baseR, time){
+    const pulse = 1 + Math.sin(time * 0.5) * 0.05;
+    const r = baseR * pulse;
+
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.6);
+    glow.addColorStop(0, 'rgba(45,225,252,0.16)');
+    glow.addColorStop(0.4, 'rgba(255,182,39,0.08)');
+    glow.addColorStop(1, 'rgba(45,225,252,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 2.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    const body = ctx.createRadialGradient(cx - r*0.3, cy - r*0.3, r*0.1, cx, cy, r);
+    body.addColorStop(0, 'rgba(45,225,252,0.35)');
+    body.addColorStop(0.6, 'rgba(20,40,55,0.4)');
+    body.addColorStop(1, 'rgba(10,13,18,0.1)');
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-0.28 + Math.sin(time * 0.08) * 0.03);
+    ctx.scale(1, 0.32);
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.55, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,182,39,0.28)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 1.75, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255,182,39,0.12)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // distant silhouette capital ship (stylized wedge, not a copy of any specific design)
+  function drawShip(x, y, scale, flip, glowColor){
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(scale * flip, scale);
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(46, -16);
+    ctx.lineTo(150, -32);
+    ctx.lineTo(230, -36);
+    ctx.lineTo(230, 36);
+    ctx.lineTo(150, 32);
+    ctx.lineTo(46, 16);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(18,22,31,0.85)';
+    ctx.fill();
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    // bridge tower
+    ctx.fillStyle = 'rgba(18,22,31,0.9)';
+    ctx.fillRect(178, -14, 26, 20);
+    ctx.strokeRect(178, -14, 26, 20);
+
+    // engine glow
+    const eg = ctx.createRadialGradient(228, 0, 0, 228, 0, 20);
+    eg.addColorStop(0, glowColor);
+    eg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = eg;
+    ctx.beginPath();
+    ctx.arc(228, 0, 20, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  const shipA = { x:-350, y:0, dir:1, speed:16, scale:1.15, yr:0.24, color:'rgba(45,225,252,0.55)' };
+  const shipB = { x:0, y:0, dir:-1, speed:24, scale:0.62, yr:0.66, color:'rgba(255,182,39,0.55)' };
+  let bolts = [];
+  let nextBoltAt = 5 + Math.random() * 5;
+
+  function shipTip(ship, dt){
+    // approximate hull front point in world space for laser origin
+    const nose = ship.dir > 0 ? -0 : 0;
+    return { x: ship.x + (ship.dir > 0 ? 230*ship.scale : -230*ship.scale), y: ship.y };
+  }
+
+  function step(ts){
+    if(lastTs === null) lastTs = ts;
+    const dt = Math.min((ts - lastTs) / 1000, 0.05);
+    lastTs = ts;
+    t += dt;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // calm twinkling starfield
+    for(const s of stars){
+      const twinkle = 0.35 + 0.35 * Math.sin(t * s.speed + s.phase);
+      ctx.globalAlpha = Math.max(0, twinkle);
+      ctx.fillStyle = '#F4F6FA';
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // single bold signature: distant glowing planet / portal
+    drawOrb(w * ORB.xr, h * ORB.yr, ORB.baseR, t);
+
+    // two distant fleets, slowly passing on their own lanes
+    shipA.y = h * shipA.yr + Math.sin(t * 0.15) * 6;
+    shipB.y = h * shipB.yr + Math.sin(t * 0.12 + 2) * 6;
+    shipA.x += shipA.dir * shipA.speed * dt;
+    shipB.x += shipB.dir * shipB.speed * dt;
+    if(shipA.x > w + 350) shipA.x = -350;
+    if(shipB.x < -350) shipB.x = w + 350;
+
+    ctx.globalAlpha = 0.5;
+    drawShip(shipA.x, shipA.y, shipA.scale, shipA.dir, shipA.color);
+    drawShip(shipB.x, shipB.y, shipB.scale, shipB.dir, shipB.color);
+    ctx.globalAlpha = 1;
+
+    // rare, calm laser exchange between the two fleets
+    if(t > nextBoltAt){
+      const p1 = shipTip(shipA);
+      const p2 = shipTip(shipB);
+      bolts.push({ x1:p1.x, y1:p1.y, x2:p2.x, y2:p2.y, born:t, duration:0.3 });
+      nextBoltAt = t + 6 + Math.random() * 6;
+    }
+    bolts = bolts.filter(b => t - b.born < b.duration + 0.4);
+    for(const b of bolts){
+      const age = t - b.born;
+      if(age < b.duration){
+        const a = 1 - age / b.duration;
+        ctx.strokeStyle = 'rgba(255,92,92,' + (0.55 * a) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(b.x1, b.y1);
+        ctx.lineTo(b.x2, b.y2);
+        ctx.stroke();
+      } else {
+        const fa = 1 - (age - b.duration) / 0.4;
+        ctx.fillStyle = 'rgba(255,182,39,' + (0.4 * fa) + ')';
+        ctx.beginPath();
+        ctx.arc(b.x2, b.y2, 10 * (1 - fa) + 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    if(!reduceMotion) requestAnimationFrame(step);
+  }
+
+  resize();
+  makeStars();
+  shipB.x = w + 200;
+  window.addEventListener('resize', () => { resize(); makeStars(); });
+
+  if(reduceMotion){
+    lastTs = 0;
+    step(16); // draw one static, calm frame
+  } else {
+    requestAnimationFrame(step);
+  }
+})();
+</script>
+</body>
+</html>

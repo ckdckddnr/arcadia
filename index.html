@@ -6,6 +6,7 @@
 <title>ARCADIA — Play. Rank. Get Paid.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
     --bg-void:#0A0D12;
@@ -253,7 +254,7 @@
     <a href="#rankings">Rankings</a>
     <a href="#how">How It Works</a>
   </div>
-  <div style="display:flex; gap:10px;">
+  <div style="display:flex; gap:10px;" id="nav-auth-area">
     <a href="auth.html" class="btn btn-ghost" style="text-decoration:none; display:inline-flex; align-items:center;">Log In</a>
     <a href="auth.html" class="btn btn-primary" style="text-decoration:none; display:inline-flex; align-items:center;">Sign Up Free</a>
   </div>
@@ -573,6 +574,31 @@
   } else {
     requestAnimationFrame(step);
   }
+})();
+</script>
+<script>
+(function(){
+  const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  async function logout(){
+    await sb.auth.signOut();
+    window.location.reload();
+  }
+  window.logout = logout;
+
+  (async () => {
+    const { data } = await sb.auth.getSession();
+    if(data.session){
+      const user = data.session.user;
+      const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+      const area = document.getElementById('nav-auth-area');
+      area.innerHTML =
+        '<span class="mono" style="color:var(--cyan); font-size:15px; font-weight:600;">' + username + '</span>' +
+        '<button class="btn btn-ghost" onclick="logout()">Log Out</button>';
+    }
+  })();
 })();
 </script>
 </body>

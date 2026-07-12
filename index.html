@@ -251,7 +251,7 @@
   <div class="logo"><div class="dot"></div>ARCADIA</div>
   <div class="nav-links">
     <a href="#games">Games</a>
-    <a href="#rankings">Rankings</a>
+    <a href="rankings.html">Rankings</a>
     <a href="#how">How It Works</a>
   </div>
   <div style="display:flex; gap:10px; align-items:center;" id="nav-auth-area">
@@ -266,8 +266,8 @@
     <h1>Compete on skill.<br>Get paid <span>by rank.</span></h1>
     <p class="sub">Enter for a small fee, finish in the top 10, and split the prize pool. Every match is against real players — never bots.</p>
     <div class="hero-ctas">
-      <button class="btn btn-primary btn-lg">Try Your First Game Free</button>
-      <button class="btn btn-ghost btn-lg">See Rankings</button>
+      <a href="game-asteroid-run.html" class="btn btn-primary btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Try Your First Game Free</a>
+      <a href="rankings.html" class="btn btn-ghost btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">See Rankings</a>
     </div>
     <div class="trust-row">
       <div><b>12,480+</b> active players</div>
@@ -278,40 +278,13 @@
 
   <div class="scoreboard">
     <div class="scoreboard-head">
-      <span class="label">Weekly Leaderboard · Runner Dash</span>
+      <span class="label">Daily Leaderboard · Asteroid Run</span>
       <span class="live-tag">LIVE</span>
     </div>
-    <div class="score-row gold">
-      <span class="rank-badge">01</span>
-      <span class="player-name">kayla_speed<span class="tag">#98% accuracy</span></span>
-      <span class="score-val">14,220</span>
-      <span class="prize-val">$48.00</span>
+    <div id="hero-scoreboard-rows">
+      <div style="padding:24px 20px; text-align:center; color:var(--muted); font-size:14px;">Loading today's scores...</div>
     </div>
-    <div class="score-row gold">
-      <span class="rank-badge">02</span>
-      <span class="player-name">m.rivera<span class="tag">#95% accuracy</span></span>
-      <span class="score-val">13,870</span>
-      <span class="prize-val">$29.00</span>
-    </div>
-    <div class="score-row gold">
-      <span class="rank-badge">03</span>
-      <span class="player-name">nightowl22</span>
-      <span class="score-val">13,410</span>
-      <span class="prize-val">$15.00</span>
-    </div>
-    <div class="score-row">
-      <span class="rank-badge">04</span>
-      <span class="player-name">devon.k</span>
-      <span class="score-val">12,955</span>
-      <span class="prize-val">$8.00</span>
-    </div>
-    <div class="score-row">
-      <span class="rank-badge">05</span>
-      <span class="player-name">sunny_arc</span>
-      <span class="score-val">12,690</span>
-      <span class="prize-val">$5.00</span>
-    </div>
-    <div class="scoreboard-foot">Top 10 get paid · Season ends in 3 hours</div>
+    <div class="scoreboard-foot" id="hero-scoreboard-foot">Resets in --:--:--</div>
   </div>
 </section>
 
@@ -323,7 +296,41 @@
   </div>
   <div class="game-grid">
     <div class="game-card">
-      <div class="game-thumb" style="background:linear-gradient(135deg,#0e1f2c,#1a1230);">ASTEROID RUN</div>
+      <div class="game-thumb" style="background:linear-gradient(135deg,#0e1f2c,#1a1230); padding:0; overflow:hidden;">
+        <svg viewBox="0 0 400 120" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <radialGradient id="shipGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#FFB627" stop-opacity="0.9"/>
+              <stop offset="100%" stop-color="#FFB627" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <!-- stars -->
+          <circle cx="24" cy="18" r="1.2" fill="#F4F6FA" opacity="0.7"/>
+          <circle cx="70" cy="34" r="0.9" fill="#F4F6FA" opacity="0.5"/>
+          <circle cx="120" cy="14" r="1.1" fill="#F4F6FA" opacity="0.6"/>
+          <circle cx="180" cy="40" r="0.8" fill="#F4F6FA" opacity="0.4"/>
+          <circle cx="230" cy="20" r="1.3" fill="#F4F6FA" opacity="0.7"/>
+          <circle cx="280" cy="50" r="0.9" fill="#F4F6FA" opacity="0.5"/>
+          <circle cx="330" cy="16" r="1.1" fill="#F4F6FA" opacity="0.6"/>
+          <circle cx="370" cy="44" r="0.9" fill="#F4F6FA" opacity="0.5"/>
+          <circle cx="50" cy="70" r="0.8" fill="#F4F6FA" opacity="0.4"/>
+          <circle cx="300" cy="90" r="1" fill="#F4F6FA" opacity="0.5"/>
+
+          <!-- asteroids -->
+          <polygon points="300,28 316,20 332,26 336,42 322,54 306,48 298,36"
+            fill="rgba(24,29,40,0.95)" stroke="rgba(138,147,166,0.7)" stroke-width="1.5"/>
+          <polygon points="60,78 74,72 88,80 84,96 68,100 54,90"
+            fill="rgba(24,29,40,0.95)" stroke="rgba(138,147,166,0.7)" stroke-width="1.5"/>
+          <polygon points="230,88 240,82 252,88 248,100 236,104 226,98"
+            fill="rgba(24,29,40,0.9)" stroke="rgba(138,147,166,0.6)" stroke-width="1.2"/>
+
+          <!-- ship -->
+          <g transform="translate(160,72)">
+            <circle cx="0" cy="20" r="16" fill="url(#shipGlow)"/>
+            <path d="M0 -18 L14 16 L0 9 L-14 16 Z" fill="rgba(45,225,252,0.9)" stroke="#F4F6FA" stroke-width="1.5"/>
+          </g>
+        </svg>
+      </div>
       <div class="game-title">Asteroid Run <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>
       <div class="game-meta"><span>Avg. round 45s</span><span class="players">● Practice mode</span></div>
       <div class="game-footer"><span class="entry-fee">Free to play</span><a href="game-asteroid-run.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
@@ -605,6 +612,67 @@
         '<button class="btn btn-ghost" onclick="logout()">Log Out</button>';
     }
   })();
+
+  // ---- Hero scoreboard: live daily leaderboard for Asteroid Run ----
+  function startOfTodayUTC(){
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+  }
+
+  function updateHeroCountdown(){
+    const now = new Date();
+    const start = startOfTodayUTC();
+    const next = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    const diff = Math.max(0, next - now);
+    const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
+    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+    const el = document.getElementById('hero-scoreboard-foot');
+    if(el) el.textContent = 'Resets in ' + h + ':' + m + ':' + s;
+  }
+  updateHeroCountdown();
+  setInterval(updateHeroCountdown, 1000);
+
+  async function loadHeroScoreboard(){
+    const rowsEl = document.getElementById('hero-scoreboard-rows');
+    if(!rowsEl) return;
+    const startISO = startOfTodayUTC().toISOString();
+
+    const { data: rows, error } = await sb
+      .from('scores')
+      .select('user_id, username, score')
+      .eq('game', 'asteroid-run')
+      .gte('created_at', startISO)
+      .order('score', { ascending: false })
+      .limit(500);
+
+    if(error || !rows || rows.length === 0){
+      rowsEl.innerHTML = '<div style="padding:24px 20px; text-align:center; color:var(--muted); font-size:14px;">No scores yet today — be the first to play!</div>';
+      return;
+    }
+
+    const bestByUser = new Map();
+    for(const r of rows){
+      const existing = bestByUser.get(r.user_id);
+      if(!existing || r.score > existing.score) bestByUser.set(r.user_id, r);
+    }
+    const top = Array.from(bestByUser.values()).sort((a, b) => b.score - a.score).slice(0, 5);
+
+    rowsEl.innerHTML = top.map((r, i) => {
+      const rank = i + 1;
+      const goldClass = rank <= 3 ? ' gold' : '';
+      return '<div class="score-row' + goldClass + '">' +
+        '<span class="rank-badge">' + String(rank).padStart(2, '0') + '</span>' +
+        '<span class="player-name">' + (r.username || 'player') + '</span>' +
+        '<span class="score-val">' + Math.floor(r.score).toLocaleString() + '</span>' +
+        '<span class="prize-val" style="visibility:hidden;">—</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  loadHeroScoreboard();
+  setInterval(loadHeroScoreboard, 15000);
 })();
 </script>
 </body>

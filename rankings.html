@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCADIA — Daily Rankings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg-void:#0A0D12;
+    --surface:#12161F;
+    --surface-2:#181D28;
+    --line:#242B38;
+    --amber:#FFB627;
+    --cyan:#2DE1FC;
+    --green:#34D399;
+    --red:#FF5C5C;
+    --text:#F4F6FA;
+    --muted:#8A93A6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg-void); color:var(--text);
+    font-family:'Inter','Noto Sans KR',sans-serif;
+    min-height:100vh;
+  }
+  .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
+  .display{font-family:'Bebas Neue','Noto Sans KR',sans-serif;}
+
+  nav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 5vw;
+    border-bottom:1px solid var(--line);
+    background:rgba(10,13,18,0.9);
+    position:sticky; top:0; z-index:20;
+    backdrop-filter:blur(10px);
+  }
+  .logo{
+    display:flex; align-items:center; gap:10px;
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif;
+    font-size:26px; letter-spacing:0.03em;
+    color:var(--text); text-decoration:none;
+  }
+  .logo .dot{width:10px; height:10px; border-radius:2px; background:var(--amber); box-shadow:0 0 12px var(--amber);}
+  .nav-links{display:flex; gap:32px; align-items:center;}
+  .nav-links a{color:var(--text); text-decoration:none; font-size:16px; font-weight:700;}
+  .nav-links a:hover{color:var(--cyan);}
+  .back-link{color:var(--muted); text-decoration:none; font-size:15px; font-weight:600;}
+  .back-link:hover{color:var(--text);}
+
+  main{max-width:800px; margin:0 auto; padding:56px 5vw 100px;}
+
+  .page-head{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    flex-wrap:wrap; gap:24px; margin-bottom:32px;
+  }
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:13px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--cyan); margin-bottom:12px;
+  }
+  .eyebrow::before{
+    content:""; width:7px; height:7px; border-radius:50%; background:var(--cyan);
+    box-shadow:0 0 8px var(--cyan); animation:pulse 1.6s infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:0.3;}}
+  .page-title{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:48px; line-height:1;}
+
+  .reset-box{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:14px 22px; text-align:center; min-width:180px;
+  }
+  .reset-box .r-label{font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:4px;}
+  .reset-box .r-value{font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:22px; font-weight:700; color:var(--amber);}
+
+  .game-tabs{display:flex; gap:10px; margin-bottom:24px; flex-wrap:wrap;}
+  .game-tab{
+    padding:9px 16px; border-radius:8px; border:1px solid var(--line);
+    background:var(--surface); color:var(--muted); font-size:14px; font-weight:700;
+    cursor:pointer;
+  }
+  .game-tab.active{background:var(--amber); color:#1A1200; border-color:var(--amber);}
+
+  .board{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    overflow:hidden;
+  }
+  .board-head{
+    display:grid; grid-template-columns:50px 1fr 120px 140px;
+    padding:14px 20px; background:var(--surface-2); border-bottom:1px solid var(--line);
+    font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); font-weight:700;
+  }
+  .row{
+    display:grid; grid-template-columns:50px 1fr 120px 140px;
+    align-items:center; padding:16px 20px;
+    border-bottom:1px solid var(--line);
+  }
+  .row:last-child{border-bottom:none;}
+  .row.gold{background:rgba(255,182,39,0.05);}
+  .rank{font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:700; color:var(--muted);}
+  .row.gold .rank{color:var(--amber);}
+  .player{display:flex; align-items:center; gap:12px; font-weight:700;}
+  .avatar{
+    width:32px; height:32px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:700; font-size:14px;
+    background:rgba(45,225,252,0.14); color:var(--cyan); flex-shrink:0;
+  }
+  .row.gold .avatar{background:rgba(255,182,39,0.16); color:var(--amber);}
+  .score{font-family:'IBM Plex Mono','Noto Sans KR',monospace; color:var(--cyan); font-weight:700;}
+  .played-at{color:var(--muted); font-size:13px; text-align:right;}
+
+  .empty-state{padding:60px 20px; text-align:center; color:var(--muted);}
+  .empty-state a{color:var(--cyan); font-weight:700; text-decoration:none;}
+
+  .loading-row{padding:40px; text-align:center; color:var(--muted); font-size:14px;}
+
+  @media (max-width:640px){
+    .board-head, .row{grid-template-columns:40px 1fr 90px; }
+    .played-at{display:none;}
+    .page-head{align-items:flex-start;}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
+  <div class="nav-links">
+    <a href="index.html#games">Games</a>
+    <a href="rankings.html">Rankings</a>
+    <a href="index.html#how">How It Works</a>
+  </div>
+  <a href="index.html" class="back-link">&larr; Back to home</a>
+</nav>
+
+<main>
+  <div class="page-head">
+    <div>
+      <div class="eyebrow">Live &middot; Resets Daily</div>
+      <div class="page-title">Daily Rankings</div>
+    </div>
+    <div class="reset-box">
+      <div class="r-label">Resets in</div>
+      <div class="r-value" id="countdown">--:--:--</div>
+    </div>
+  </div>
+
+  <div class="game-tabs">
+    <button class="game-tab active" data-game="asteroid-run">Asteroid Run</button>
+  </div>
+
+  <div class="board">
+    <div class="board-head">
+      <div>#</div>
+      <div>Player</div>
+      <div>Score</div>
+      <div>Played</div>
+    </div>
+    <div id="board-body">
+      <div class="loading-row">Loading today's scores...</div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const CURRENT_GAME = 'asteroid-run';
+
+  function startOfTodayUTC(){
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+  }
+
+  function updateCountdown(){
+    const now = new Date();
+    const start = startOfTodayUTC();
+    const next = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+    let diff = Math.max(0, next - now);
+    const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
+    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+    document.getElementById('countdown').textContent = h + ':' + m + ':' + s;
+  }
+  updateCountdown();
+  setInterval(updateCountdown, 1000);
+
+  function timeAgo(dateStr){
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if(mins < 1) return 'just now';
+    if(mins < 60) return mins + 'm ago';
+    const hrs = Math.floor(mins / 60);
+    if(hrs < 24) return hrs + 'h ago';
+    return Math.floor(hrs / 24) + 'd ago';
+  }
+
+  async function loadLeaderboard(){
+    const body = document.getElementById('board-body');
+    const startISO = startOfTodayUTC().toISOString();
+
+    const { data, error } = await sb
+      .from('scores')
+      .select('user_id, username, score, created_at')
+      .eq('game', CURRENT_GAME)
+      .gte('created_at', startISO)
+      .order('score', { ascending: false })
+      .limit(500);
+
+    if(error){
+      body.innerHTML = '<div class="empty-state">Could not load rankings right now.</div>';
+      return;
+    }
+
+    if(!data || data.length === 0){
+      body.innerHTML = '<div class="empty-state">No scores yet today. <a href="game-asteroid-run.html">Be the first to play →</a></div>';
+      return;
+    }
+
+    // keep each player's best score today
+    const bestByUser = new Map();
+    for(const row of data){
+      const existing = bestByUser.get(row.user_id);
+      if(!existing || row.score > existing.score){
+        bestByUser.set(row.user_id, row);
+      }
+    }
+
+    const ranked = Array.from(bestByUser.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 50);
+
+    body.innerHTML = ranked.map((r, i) => {
+      const rank = i + 1;
+      const goldClass = rank <= 3 ? ' gold' : '';
+      const initial = (r.username || '?').charAt(0).toUpperCase();
+      return '<div class="row' + goldClass + '">' +
+        '<div class="rank">' + String(rank).padStart(2, '0') + '</div>' +
+        '<div class="player"><div class="avatar">' + initial + '</div>' + (r.username || 'player') + '</div>' +
+        '<div class="score">' + Math.floor(r.score).toLocaleString() + '</div>' +
+        '<div class="played-at">' + timeAgo(r.created_at) + '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  loadLeaderboard();
+  setInterval(loadLeaderboard, 15000);
+</script>
+</body>
+</html>

@@ -159,6 +159,7 @@
         <li><span class="rule-icon">🖱</span><span><b>One button:</b> tap, click, or press space — that's the whole control scheme.</span></li>
         <li><span class="rule-icon">🎯</span><span><b>The gate:</b> a glowing arc appears on your orbit. Launch while your ship is inside it to aim true.</span></li>
         <li><span class="rule-icon">🪐</span><span><b>Docking:</b> hit the next planet to snap into a new orbit around it and keep going.</span></li>
+        <li><span class="rule-icon">⭐</span><span><b>Perfect zone:</b> the gold band inside the gate is worth way more — nail it dead-center for a big bonus.</span></li>
         <li><span class="rule-icon">💥</span><span><b>Miss the gate</b> and you'll fly off in the wrong direction — one mistake ends the run.</span></li>
       </ul>
       <button class="btn btn-primary" onclick="startGame()">Start Run</button>
@@ -217,6 +218,62 @@
   let state = 'orbit'; // 'orbit' | 'flying'
   let ship = { x: 0, y: 0, vx: 0, vy: 0 };
   let trail = [];
+  let particles = [];
+  let popups = [];
+  let shakeMag = 0;
+  let shakeTimer = 0;
+  let dying = false;
+  let deathTimer = 0;
+
+  // ---------- Simple synth sound effects (no audio files needed) ----------
+  let audioCtx = null;
+  function getAudioCtx(){
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioCtx;
+  }
+  function playTone(freq, duration, type, startGain){
+    try{
+      const ctx2 = getAudioCtx();
+      const osc = ctx2.createOscillator();
+      const gain = ctx2.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.setValueAtTime(freq, ctx2.currentTime);
+      gain.gain.setValueAtTime(startGain || 0.15, ctx2.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx2.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx2.destination);
+      osc.start();
+      osc.stop(ctx2.currentTime + duration);
+    } catch(e){ /* audio not available, ignore */ }
+  }
+  function sfxLaunch(){ playTone(520, 0.12, 'square', 0.08); }
+  function sfxDockGood(){ playTone(660, 0.12, 'sine', 0.14); setTimeout(() => playTone(880, 0.16, 'sine', 0.12), 60); }
+  function sfxDockPerfect(){ playTone(740, 0.1, 'sine', 0.16); setTimeout(() => playTone(988, 0.1, 'sine', 0.15), 55); setTimeout(() => playTone(1318, 0.2, 'sine', 0.14), 110); }
+  function sfxCrash(){ playTone(180, 0.35, 'sawtooth', 0.16); setTimeout(() => playTone(90, 0.4, 'sawtooth', 0.14), 80); }
+
+  function spawnParticles(x, y, color, count){
+    for(let i = 0; i < count; i++){
+      const a = Math.random() * Math.PI * 2;
+      const speed = 60 + Math.random() * 140;
+      particles.push({
+        x, y,
+        vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+        life: 0, duration: 0.5 + Math.random() * 0.3,
+        color, r: 1.5 + Math.random() * 2
+      });
+    }
+  }
+
+  function spawnPopup(x, y, text, color){
+    popups.push({ x, y, text, color, life: 0, duration: 0.9 });
+  }
+
+  function triggerShake(mag, dur){
+    shakeMag = mag;
+    shakeTimer = dur;
+  }
 
   function normalizeAngleDiff(a){
     while(a > Math.PI) a -= Math.PI * 2;
@@ -275,6 +332,12 @@
     tolerance = 0.34;
     state = 'orbit';
     trail = [];
+    particles = [];
+    popups = [];
+    shakeMag = 0;
+    shakeTimer = 0;
+    dying = false;
+    deathTimer = 0;
     planet = { x: W / 2, y: H / 2, r: 26 };
     pickNewTarget();
     stars = Array.from({length: 90}, () => ({
@@ -282,6 +345,8 @@
       r: Math.random() * 1.2 + 0.3, phase: Math.random() * Math.PI * 2
     }));
   }
+
+  let lastLaunchPrecision = 1; // 0 = dead-center perfect, 1 = edge of window
 
   function attemptLaunch(){
     if(!running || state !== 'orbit') return;
@@ -292,6 +357,7 @@
 
     if(diff <= tolerance){
       // success: snap to the precise ideal direction toward the target
+      lastLaunchPrecision = diff / tolerance;
       const dx = target.x - shipX, dy = target.y - shipY;
       const dist = Math.sqrt(dx*dx + dy*dy) || 1;
       const speed = 420 + docks * 10;
@@ -300,6 +366,8 @@
       ship.vy = (dy / dist) * speed;
       trail = [{x: shipX, y: shipY}];
       state = 'flying';
+      sfxLaunch();
+      spawnParticles(shipX, shipY, '45,225,252', 8);
     } else {
       // failure: launch along the actual current tangent direction — usually misses everything
       const speed = 420 + docks * 10;
@@ -308,10 +376,31 @@
       ship.vy = Math.cos(angle) * speed;
       trail = [{x: shipX, y: shipY}];
       state = 'crashing'; // this launch cannot dock — it just plays out until it flies off-screen
+      sfxLaunch();
     }
   }
 
   function update(dt){
+    if(dying){
+      deathTimer += dt;
+      for(const p of particles){
+        p.life += dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.94; p.vy *= 0.94;
+      }
+      particles = particles.filter(p => p.life < p.duration);
+      if(shakeTimer > 0){
+        shakeTimer -= dt;
+        if(shakeTimer < 0) shakeTimer = 0;
+      }
+      if(deathTimer > 0.4){
+        dying = false;
+        finishGame();
+      }
+      return;
+    }
+
     elapsed += dt;
     score += dt * 10;
 
@@ -336,7 +425,15 @@
         if(dist < target.r + 10){
           // docked!
           docks++;
-          score += 150 + docks * 8;
+          const isPerfect = lastLaunchPrecision < 0.35;
+          const baseBonus = 150 + docks * 8;
+          const bonus = isPerfect ? Math.floor(baseBonus * 1.6) : baseBonus;
+          score += bonus;
+
+          spawnParticles(target.x, target.y, isPerfect ? '255,182,39' : '52,211,153', isPerfect ? 22 : 12);
+          spawnPopup(target.x, target.y - 30, (isPerfect ? 'PERFECT +' : 'DOCKED +') + bonus, isPerfect ? '#FFB627' : '#34D399');
+          if(isPerfect){ sfxDockPerfect(); triggerShake(4, 0.15); } else { sfxDockGood(); }
+
           planet = { x: target.x, y: target.y, r: 18 + Math.random() * 12 };
           orbitRadius = 55 + Math.random() * 40;
           angle = Math.atan2(ship.y - planet.y, ship.x - planet.x);
@@ -347,9 +444,38 @@
 
       const margin = 60;
       if(ship.x < -margin || ship.x > W + margin || ship.y < -margin || ship.y > H + margin){
-        endGame();
+        sfxCrash();
+        triggerShake(10, 0.4);
+        spawnParticles(
+          Math.max(10, Math.min(W - 10, ship.x)),
+          Math.max(10, Math.min(H - 10, ship.y)),
+          '255,92,92', 18
+        );
+        dying = true;
+        deathTimer = 0;
         return;
       }
+    }
+
+    // particles
+    for(const p of particles){
+      p.life += dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.94; p.vy *= 0.94;
+    }
+    particles = particles.filter(p => p.life < p.duration);
+
+    // score popups
+    for(const t of popups){
+      t.life += dt;
+    }
+    popups = popups.filter(t => t.life < t.duration);
+
+    // screen shake decay
+    if(shakeTimer > 0){
+      shakeTimer -= dt;
+      if(shakeTimer < 0) shakeTimer = 0;
     }
   }
 
@@ -399,12 +525,24 @@
     ctx.arc(planet.x, planet.y, orbitRadius, 0, Math.PI * 2);
     ctx.stroke();
 
-    const inGate = Math.abs(normalizeAngleDiff(angle - idealAngle)) <= tolerance;
+    const currentDiff = Math.abs(normalizeAngleDiff(angle - idealAngle));
+    const inGate = currentDiff <= tolerance;
+    const inPerfect = currentDiff <= tolerance * 0.35;
+
     ctx.strokeStyle = inGate ? 'rgba(52,211,153,0.95)' : 'rgba(45,225,252,0.55)';
     ctx.lineWidth = inGate ? 6 : 4;
     ctx.beginPath();
     ctx.arc(planet.x, planet.y, orbitRadius, idealAngle - tolerance, idealAngle + tolerance);
     ctx.stroke();
+
+    // inner "perfect timing" band, thinner and gold
+    const pulse = 0.7 + 0.3 * Math.sin(elapsed * 8);
+    ctx.strokeStyle = inPerfect ? ('rgba(255,182,39,' + pulse + ')') : 'rgba(255,182,39,0.5)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(planet.x, planet.y, orbitRadius, idealAngle - tolerance * 0.35, idealAngle + tolerance * 0.35);
+    ctx.stroke();
+
     ctx.restore();
   }
 
@@ -441,8 +579,40 @@
     ctx.restore();
   }
 
+  function drawParticles(){
+    for(const p of particles){
+      const a = 1 - p.life / p.duration;
+      ctx.globalAlpha = Math.max(0, a);
+      ctx.fillStyle = 'rgba(' + p.color + ',1)';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPopups(){
+    for(const t of popups){
+      const a = 1 - t.life / t.duration;
+      const rise = t.life * 40;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, a);
+      ctx.fillStyle = t.color;
+      ctx.font = "bold 16px 'IBM Plex Mono', monospace";
+      ctx.textAlign = 'center';
+      ctx.fillText(t.text, t.x, t.y - rise);
+      ctx.restore();
+    }
+  }
+
   function render(){
     ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if(shakeTimer > 0){
+      const s = shakeMag * (shakeTimer / (shakeTimer + 0.001));
+      ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+    }
+
     drawStars();
     drawTargetMarker();
     drawOrbitAndGate();
@@ -458,6 +628,10 @@
       const dirAngle = Math.atan2(ship.vy, ship.vx);
       drawShip(ship.x, ship.y, dirAngle);
     }
+
+    drawParticles();
+    drawPopups();
+    ctx.restore();
 
     document.getElementById('hud-score').textContent = Math.floor(score);
     document.getElementById('hud-docks').textContent = docks;
@@ -484,7 +658,7 @@
     requestAnimationFrame(loop);
   }
 
-  function endGame(){
+  function finishGame(){
     running = false;
     const finalScore = Math.floor(score);
     if(finalScore > best){

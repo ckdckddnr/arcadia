@@ -207,6 +207,11 @@
     .auth-wrap{grid-template-columns:1fr; max-width:480px;}
     .auth-side{border-right:none; border-bottom:1px solid var(--line);}
   }
+  @media (max-width:420px){
+    .field-row{grid-template-columns:1fr;}
+    .auth-main{padding:36px 24px;}
+    .auth-side{padding:36px 24px;}
+  }
 </style>
 </head>
 <body>
@@ -240,27 +245,41 @@
 
         <div class="form-msg" id="login-msg"></div>
 
-        <div class="field">
-          <label for="login-email">Email</label>
-          <input type="email" id="login-email" placeholder="you@example.com">
-        </div>
-        <div class="field">
-          <label for="login-password">Password</label>
-          <input type="password" id="login-password" placeholder="Enter your password">
-        </div>
-        <div class="form-meta">
-          <label class="checkbox-row"><input type="checkbox"> Remember me</label>
-          <a href="#" class="link-text">Forgot password?</a>
-        </div>
-        <button class="btn btn-primary" id="login-btn" onclick="handleLogin()">Log In</button>
+        <div id="login-fields">
+          <div class="field">
+            <label for="login-email">Email</label>
+            <input type="email" id="login-email" placeholder="you@example.com">
+          </div>
+          <div class="field">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" placeholder="Enter your password">
+          </div>
+          <div class="form-meta">
+            <label class="checkbox-row"><input type="checkbox"> Remember me</label>
+            <a href="#" class="link-text" onclick="showForgotPassword(event)">Forgot password?</a>
+          </div>
+          <button class="btn btn-primary" id="login-btn" onclick="handleLogin()">Log In</button>
 
-        <div class="divider">or continue with</div>
-        <div class="social-row">
-          <button class="btn-social">Google</button>
-          <button class="btn-social">Apple</button>
+          <div class="divider">or continue with</div>
+          <div class="social-row">
+            <button class="btn-social" onclick="socialLogin('google')">Google</button>
+            <button class="btn-social" onclick="socialLogin('apple')">Apple</button>
+          </div>
+
+          <div class="fine-print">By logging in, you agree to our <a href="terms.html" class="link-text">Terms of Service</a> and <a href="privacy.html" class="link-text">Privacy Policy</a>.</div>
         </div>
 
-        <div class="fine-print">By logging in, you agree to our Terms of Service and Privacy Policy.</div>
+        <div id="forgot-fields" style="display:none;">
+          <div class="form-sub" style="margin-top:-14px;">Enter your email and we'll send you a reset link.</div>
+          <div class="field">
+            <label for="forgot-email">Email</label>
+            <input type="email" id="forgot-email" placeholder="you@example.com">
+          </div>
+          <button class="btn btn-primary" id="forgot-btn" onclick="handleForgotPassword()">Send Reset Link</button>
+          <div style="text-align:center; margin-top:16px;">
+            <a href="#" class="link-text" onclick="hideForgotPassword(event)">&larr; Back to log in</a>
+          </div>
+        </div>
       </div>
 
       <div class="form-panel" id="form-signup">
@@ -294,11 +313,11 @@
 
         <div class="divider">or continue with</div>
         <div class="social-row">
-          <button class="btn-social">Google</button>
-          <button class="btn-social">Apple</button>
+          <button class="btn-social" onclick="socialLogin('google')">Google</button>
+          <button class="btn-social" onclick="socialLogin('apple')">Apple</button>
         </div>
 
-        <div class="fine-print">By signing up, you agree to our Terms of Service and Privacy Policy. Must be 18+. Not available in all states.</div>
+        <div class="fine-print">By signing up, you agree to our <a href="terms.html" class="link-text">Terms of Service</a> and <a href="privacy.html" class="link-text">Privacy Policy</a>. Must be 18+. Not available in all states.</div>
       </div>
     </div>
   </div>
@@ -403,6 +422,60 @@
 
     showMsg('login-msg', 'Logged in! Redirecting...', 'success');
     setTimeout(() => { window.location.href = 'index.html'; }, 700);
+  }
+
+  function showForgotPassword(e){
+    if(e) e.preventDefault();
+    document.getElementById('login-fields').style.display = 'none';
+    document.getElementById('forgot-fields').style.display = 'block';
+    hideMsg('login-msg');
+  }
+  function hideForgotPassword(e){
+    if(e) e.preventDefault();
+    document.getElementById('forgot-fields').style.display = 'none';
+    document.getElementById('login-fields').style.display = 'block';
+  }
+
+  async function handleForgotPassword(){
+    const email = document.getElementById('forgot-email').value.trim();
+    const btn = document.getElementById('forgot-btn');
+    hideMsg('login-msg');
+
+    if(!email){
+      showMsg('login-msg', 'Enter your email address first.', 'error');
+      document.getElementById('login-fields').style.display = 'none';
+      document.getElementById('forgot-fields').style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/reset-password.html'
+    });
+
+    btn.disabled = false;
+    btn.textContent = 'Send Reset Link';
+
+    document.getElementById('login-fields').style.display = 'block';
+    document.getElementById('forgot-fields').style.display = 'none';
+
+    if(error){
+      showMsg('login-msg', error.message, 'error');
+    } else {
+      showMsg('login-msg', 'Check your email for a link to reset your password.', 'success');
+    }
+  }
+
+  async function socialLogin(provider){
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: provider,
+      options: { redirectTo: window.location.origin + '/index.html' }
+    });
+    if(error){
+      showMsg('login-msg', error.message, 'error');
+    }
   }
 
   // if already logged in, skip straight to the site

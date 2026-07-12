@@ -99,6 +99,16 @@
   }
   .row:last-child{border-bottom:none;}
   .row.gold{background:rgba(255,182,39,0.05);}
+  .row.mine{background:rgba(45,225,252,0.08); box-shadow:inset 3px 0 0 var(--cyan);}
+
+  .my-rank-box{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--surface); border:1px solid var(--cyan); border-radius:12px;
+    padding:16px 22px; margin-bottom:20px;
+  }
+  .my-rank-box .label{font-size:12px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); margin-bottom:4px;}
+  .my-rank-box .value{font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:20px; font-weight:700; color:var(--cyan);}
+  .my-rank-box a{color:var(--cyan); font-weight:700; text-decoration:none;}
   .rank{font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:700; color:var(--muted);}
   .row.gold .rank{color:var(--amber);}
   .player{display:flex; align-items:center; gap:12px; font-weight:700;}
@@ -121,6 +131,8 @@
     .board-head, .row{grid-template-columns:40px 1fr 90px; }
     .played-at{display:none;}
     .page-head{align-items:flex-start;}
+    .reset-box{width:100%;}
+    .my-rank-box{flex-wrap:wrap; gap:12px;}
   }
 </style>
 </head>
@@ -150,6 +162,17 @@
 
   <div class="game-tabs">
     <button class="game-tab active" data-game="asteroid-run">Asteroid Run</button>
+  </div>
+
+  <div class="my-rank-box" id="my-rank-box" style="display:none;">
+    <div>
+      <div class="label">Your Rank Today</div>
+      <div class="value" id="my-rank-value">—</div>
+    </div>
+    <div>
+      <div class="label" style="text-align:right;">Your Score</div>
+      <div class="value" id="my-rank-score" style="text-align:right;">—</div>
+    </div>
   </div>
 
   <div class="board">
@@ -204,13 +227,16 @@
     const body = document.getElementById('board-body');
     const startISO = startOfTodayUTC().toISOString();
 
+    const { data: sessionData } = await sb.auth.getSession();
+    const myUserId = sessionData.session ? sessionData.session.user.id : null;
+
     const { data, error } = await sb
       .from('scores')
       .select('user_id, username, score, created_at')
       .eq('game', CURRENT_GAME)
       .gte('created_at', startISO)
       .order('score', { ascending: false })
-      .limit(500);
+      .limit(1000);
 
     if(error){
       body.innerHTML = '<div class="empty-state">Could not load rankings right now.</div>';
@@ -219,6 +245,7 @@
 
     if(!data || data.length === 0){
       body.innerHTML = '<div class="empty-state">No scores yet today. <a href="game-asteroid-run.html">Be the first to play →</a></div>';
+      document.getElementById('my-rank-box').style.display = 'none';
       return;
     }
 
@@ -231,17 +258,35 @@
       }
     }
 
-    const ranked = Array.from(bestByUser.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 50);
+    const fullRanked = Array.from(bestByUser.values()).sort((a, b) => b.score - a.score);
+    const ranked = fullRanked.slice(0, 50);
+
+    // personal rank summary
+    const myRankBox = document.getElementById('my-rank-box');
+    if(myUserId){
+      const myIndex = fullRanked.findIndex(r => r.user_id === myUserId);
+      if(myIndex >= 0){
+        myRankBox.style.display = 'flex';
+        document.getElementById('my-rank-value').textContent = '#' + (myIndex + 1) + ' of ' + fullRanked.length;
+        document.getElementById('my-rank-score').textContent = Math.floor(fullRanked[myIndex].score).toLocaleString();
+      } else {
+        myRankBox.style.display = 'flex';
+        document.getElementById('my-rank-value').textContent = 'Not ranked yet';
+        document.getElementById('my-rank-score').innerHTML = '<a href="game-asteroid-run.html">Play now →</a>';
+      }
+    } else {
+      myRankBox.style.display = 'none';
+    }
 
     body.innerHTML = ranked.map((r, i) => {
       const rank = i + 1;
-      const goldClass = rank <= 3 ? ' gold' : '';
+      const isMine = r.user_id === myUserId;
+      const classes = (rank <= 3 ? ' gold' : '') + (isMine ? ' mine' : '');
       const initial = (r.username || '?').charAt(0).toUpperCase();
-      return '<div class="row' + goldClass + '">' +
+      const displayName = (r.username || 'player') + (isMine ? ' (you)' : '');
+      return '<div class="row' + classes + '">' +
         '<div class="rank">' + String(rank).padStart(2, '0') + '</div>' +
-        '<div class="player"><div class="avatar">' + initial + '</div>' + (r.username || 'player') + '</div>' +
+        '<div class="player"><div class="avatar">' + initial + '</div>' + displayName + '</div>' +
         '<div class="score">' + Math.floor(r.score).toLocaleString() + '</div>' +
         '<div class="played-at">' + timeAgo(r.created_at) + '</div>' +
       '</div>';

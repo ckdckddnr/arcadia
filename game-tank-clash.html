@@ -254,10 +254,8 @@
   <div class="overlay hidden" id="over-overlay">
     <div class="panel">
       <div class="eyebrow" id="over-eyebrow">Defeat</div>
-      <div class="score-display" id="final-score">0</div>
-      <div class="score-label">Final Score</div>
+      <div id="battle-summary" style="font-size:14px; color:var(--muted); margin-bottom:18px;"></div>
       <div class="submit-msg" id="submit-msg"></div>
-      <button class="btn btn-primary" id="submit-btn" disabled>Submitting...</button>
       <button class="btn btn-ghost" onclick="startGame()">Play Again</button>
     </div>
   </div>
@@ -1157,67 +1155,54 @@
     if(gameOver) return;
     gameOver = true;
     stopBgAmbience();
-    let score;
+
     const myHp = playerTanks.reduce((s,t)=>s+Math.max(0,t.hp),0);
+    const enemiesKilled = enemyTanks.filter(t => !t.alive).length;
+
     if(result === 'win'){
-      score = 1500 + myHp * 6 + Math.max(0, (MAX_TURNS - turnCount)) * 12;
       document.getElementById('over-eyebrow').textContent = byTurnLimit ? 'Victory (Turn Limit)' : 'Victory';
       document.getElementById('over-eyebrow').style.color = 'var(--green)';
+      document.getElementById('battle-summary').textContent =
+        'All ' + enemiesKilled + ' enemy tanks destroyed. ' + myHp + ' combined HP remaining after ' + Math.min(turnCount, MAX_TURNS) + ' turns.';
     } else {
-      const enemiesKilled = enemyTanks.filter(t => !t.alive).length;
-      score = Math.max(0, enemiesKilled * 200 + myHp * 3 + turnCount * 5);
       document.getElementById('over-eyebrow').textContent = 'Defeat';
       document.getElementById('over-eyebrow').style.color = 'var(--red)';
+      document.getElementById('battle-summary').textContent =
+        'Squad wiped out. You destroyed ' + enemiesKilled + ' enemy tank' + (enemiesKilled === 1 ? '' : 's') + ' over ' + turnCount + ' turns.';
     }
-    score = Math.floor(score);
 
-    document.getElementById('final-score').textContent = score;
     document.getElementById('submit-msg').className = 'submit-msg';
-    document.getElementById('submit-msg').textContent = '';
-    document.getElementById('submit-btn').disabled = true;
-    document.getElementById('submit-btn').textContent = 'Submitting...';
+    document.getElementById('submit-msg').textContent = 'Awarding XP...';
     document.getElementById('over-overlay').classList.remove('hidden');
 
-    submitScore(score, result);
+    awardMatchRewards(result);
   }
 
-  async function submitScore(finalScore, result){
-    const btn = document.getElementById('submit-btn');
+  // Tank Clash is an AI/multiplayer skirmish mode — it doesn't post to the daily
+  // leaderboard like the score-based games. It still earns XP and coins toward
+  // your account level, same as everything else.
+  async function awardMatchRewards(result){
     const msg = document.getElementById('submit-msg');
-    btn.disabled = true;
-    btn.textContent = 'Submitting...';
 
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
       msg.className = 'submit-msg error';
-      msg.innerHTML = 'Score not saved — <a href="auth.html" class="link-text">log in</a> to appear on the leaderboard.';
-      btn.disabled = false;
-      btn.textContent = 'Submit to Leaderboard';
-      btn.onclick = () => submitScore(finalScore, result);
+      msg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to earn XP and coins from this match.';
       return;
     }
 
     const user = sessionData.session.user;
     const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+    const xpEarned = result === 'win' ? 90 : 25;
+    const coinsEarned = result === 'win' ? 45 : 12;
+    const progress = await awardProgress(user.id, username, xpEarned, coinsEarned);
 
-    const { error } = await sb.from('scores').insert({
-      user_id: user.id, username: username, game: GAME_ID, score: finalScore
-    });
-
-    if(error){
+    if(progress === null){
       msg.className = 'submit-msg error';
-      msg.textContent = 'Could not save your score. Tap to retry.';
-      btn.disabled = false;
-      btn.textContent = 'Retry Submit';
-      btn.onclick = () => submitScore(finalScore, result);
+      msg.textContent = 'Could not record your XP this time.';
     } else {
-      const xpEarned = result === 'win' ? 90 : 25;
-      const coinsEarned = result === 'win' ? 45 : 12;
-      const progress = await awardProgress(user.id, username, xpEarned, coinsEarned);
       msg.className = 'submit-msg success';
-      msg.textContent = 'Score saved! +' + xpEarned + ' XP, +' + coinsEarned + ' coins' + (progress && progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
-      btn.disabled = true;
-      btn.textContent = 'Saved ✓';
+      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins' + (progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
     }
   }
 

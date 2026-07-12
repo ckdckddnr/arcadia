@@ -166,6 +166,7 @@
 
     <div class="map-connector" id="conn-1"></div>
     <div class="map-connector" id="conn-2"></div>
+    <div class="map-connector" id="conn-3"></div>
 
     <a href="game-asteroid-run.html" class="planet-node" id="node-1" style="text-decoration:none; color:inherit;">
       <div class="planet-orb" style="background:radial-gradient(circle at 35% 30%, rgba(45,225,252,0.5), rgba(20,40,55,0.9));">☄️</div>
@@ -176,6 +177,12 @@
     <a href="game-orbit-snap.html" class="planet-node" id="node-2" style="text-decoration:none; color:inherit;">
       <div class="planet-orb" style="background:radial-gradient(circle at 35% 30%, rgba(255,92,182,0.5), rgba(50,20,45,0.9));">🪐</div>
       <div class="planet-name">Orbit Snap</div>
+      <div class="planet-tag planet-live">● Free to play</div>
+    </a>
+
+    <a href="game-tank-clash.html" class="planet-node" id="node-3" style="text-decoration:none; color:inherit;">
+      <div class="planet-orb" style="background:radial-gradient(circle at 35% 30%, rgba(52,211,153,0.5), rgba(15,45,30,0.9));">⚔️</div>
+      <div class="planet-name">Tank Clash</div>
       <div class="planet-tag planet-live">● Free to play</div>
     </a>
   </div>
@@ -224,9 +231,9 @@
     const w = mapEl.clientWidth, h = mapEl.clientHeight;
     const cx = w / 2, cy = h / 2;
     const radius = Math.min(w, h) / 2 - 60;
-    const angles = [ -150, -30 ]; // two planets, symmetric either side of the hub
-    const nodes = ['node-1', 'node-2'];
-    const conns = ['conn-1', 'conn-2'];
+    const angles = [ -90, 30, 150 ]; // three planets, evenly spaced around the hub
+    const nodes = ['node-1', 'node-2', 'node-3'];
+    const conns = ['conn-1', 'conn-2', 'conn-3'];
 
     nodes.forEach((id, i) => {
       const rad = angles[i] * Math.PI / 180;

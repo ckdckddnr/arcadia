@@ -186,6 +186,31 @@
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const GAME_ID = 'orbit-snap';
 
+  function xpForLevel(level){ return 25 * level * (level - 1); }
+  function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
+
+  async function awardProgress(userId, username, xpEarned, coinsEarned){
+    try{
+      const { data: existing } = await sb.from('profiles').select('xp,coins').eq('user_id', userId).maybeSingle();
+      const prevXp = existing ? existing.xp : 0;
+      const prevCoins = existing ? existing.coins : 0;
+      const newXp = prevXp + xpEarned;
+      const newCoins = prevCoins + coinsEarned;
+
+      if(existing){
+        await sb.from('profiles').update({ xp: newXp, coins: newCoins, username, updated_at: new Date().toISOString() }).eq('user_id', userId);
+      } else {
+        await sb.from('profiles').insert({ user_id: userId, username, xp: newXp, coins: newCoins });
+      }
+
+      const prevLevel = levelFromXp(prevXp);
+      const newLevel = levelFromXp(newXp);
+      return { leveledUp: newLevel > prevLevel, newLevel };
+    } catch(e){
+      return null;
+    }
+  }
+
   // ---------- Canvas setup ----------
   const canvas = document.getElementById('game-canvas');
   const ctx = canvas.getContext('2d');
@@ -711,8 +736,12 @@
       btn.textContent = 'Retry Submit';
       btn.onclick = submitScore;
     } else {
+      const xpEarned = Math.max(5, Math.floor(finalScore / 20));
+      const coinsEarned = Math.max(2, Math.floor(finalScore / 50));
+      const progress = await awardProgress(user.id, username, xpEarned, coinsEarned);
+
       msg.className = 'submit-msg success';
-      msg.textContent = 'Score saved to today\'s leaderboard!';
+      msg.textContent = 'Score saved! +' + xpEarned + ' XP, +' + coinsEarned + ' coins' + (progress && progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
       btn.disabled = true;
       btn.textContent = 'Saved ✓';
     }

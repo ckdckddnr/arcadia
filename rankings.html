@@ -168,6 +168,7 @@
 <nav>
   <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
   <div class="nav-links">
+    <a href="hub.html">Hub</a>
     <a href="index.html#games">Games</a>
     <a href="rankings.html">Rankings</a>
     <a href="index.html#how">How It Works</a>
@@ -182,6 +183,7 @@
     <button class="hamburger-btn" style="display:inline-flex;" onclick="toggleMobileMenu()" aria-label="Close menu">✕</button>
   </div>
   <div class="mobile-menu-links">
+    <a href="hub.html">Hub</a>
     <a href="index.html#games">Games</a>
     <a href="rankings.html">Rankings</a>
     <a href="index.html#how">How It Works</a>
@@ -202,7 +204,8 @@
   </div>
 
   <div class="game-tabs">
-    <button class="game-tab active" data-game="asteroid-run">Asteroid Run</button>
+    <button class="game-tab active" data-game="asteroid-run" onclick="switchGame('asteroid-run')">Asteroid Run</button>
+    <button class="game-tab" data-game="orbit-snap" onclick="switchGame('orbit-snap')">Orbit Snap</button>
   </div>
 
   <div class="my-rank-box" id="my-rank-box" style="display:none;">
@@ -233,7 +236,15 @@
   const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  const CURRENT_GAME = 'asteroid-run';
+  let CURRENT_GAME = 'asteroid-run';
+
+  function switchGame(gameId){
+    CURRENT_GAME = gameId;
+    document.querySelectorAll('.game-tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.game === gameId);
+    });
+    loadLeaderboard();
+  }
 
   function startOfTodayUTC(){
     const d = new Date();
@@ -289,7 +300,8 @@
     }
 
     if(!data || data.length === 0){
-      body.innerHTML = '<div class="empty-state">No scores yet today. <a href="game-asteroid-run.html">Be the first to play →</a></div>';
+      const gameLink = CURRENT_GAME === 'orbit-snap' ? 'game-orbit-snap.html' : 'game-asteroid-run.html';
+      body.innerHTML = '<div class="empty-state">No scores yet today. <a href="' + gameLink + '">Be the first to play →</a></div>';
       document.getElementById('my-rank-box').style.display = 'none';
       return;
     }
@@ -317,7 +329,8 @@
       } else {
         myRankBox.style.display = 'flex';
         document.getElementById('my-rank-value').textContent = 'Not ranked yet';
-        document.getElementById('my-rank-score').innerHTML = '<a href="game-asteroid-run.html">Play now →</a>';
+        const gameLink = CURRENT_GAME === 'orbit-snap' ? 'game-orbit-snap.html' : 'game-asteroid-run.html';
+        document.getElementById('my-rank-score').innerHTML = '<a href="' + gameLink + '">Play now →</a>';
       }
     } else {
       myRankBox.style.display = 'none';

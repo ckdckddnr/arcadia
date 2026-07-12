@@ -136,6 +136,7 @@
   }
   .submit-msg.error{color:#FF8A8A;}
   .submit-msg.success{color:var(--green);}
+  .submit-msg .link-text{color:var(--cyan); font-weight:700; text-decoration:underline;}
 
   .controls-hint{
     position:absolute; bottom:18px; left:0; right:0; text-align:center;
@@ -687,9 +688,12 @@
     document.getElementById('final-score').textContent = finalScore;
     document.getElementById('submit-msg').className = 'submit-msg';
     document.getElementById('submit-msg').textContent = '';
-    document.getElementById('submit-btn').disabled = false;
-    document.getElementById('submit-btn').textContent = 'Submit to Leaderboard';
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('submit-btn').textContent = 'Submitting...';
     document.getElementById('over-overlay').classList.remove('hidden');
+
+    // submit right away so an accidental "Play Again" click can't lose the score
+    submitScore();
   }
 
   async function submitScore(){
@@ -703,7 +707,7 @@
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
       msg.className = 'submit-msg error';
-      msg.textContent = 'Log in to save your score to the leaderboard.';
+      msg.innerHTML = 'Score not saved — <a href="auth.html" class="link-text">log in</a> to appear on the leaderboard.';
       btn.disabled = false;
       btn.textContent = 'Submit to Leaderboard';
       return;
@@ -721,13 +725,14 @@
 
     if(error){
       msg.className = 'submit-msg error';
-      msg.textContent = 'Could not submit score: ' + error.message;
+      msg.textContent = 'Could not save your score. Tap to retry.';
       btn.disabled = false;
-      btn.textContent = 'Submit to Leaderboard';
+      btn.textContent = 'Retry Submit';
     } else {
       msg.className = 'submit-msg success';
-      msg.textContent = 'Score submitted!';
-      btn.textContent = 'Submitted';
+      msg.textContent = 'Score saved to today\'s leaderboard!';
+      btn.disabled = true;
+      btn.textContent = 'Saved ✓';
     }
   }
 

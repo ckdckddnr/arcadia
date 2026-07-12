@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCADIA — Profile Settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg-void:#0A0D12;
+    --surface:#12161F;
+    --surface-2:#181D28;
+    --line:#242B38;
+    --amber:#FFB627;
+    --cyan:#2DE1FC;
+    --green:#34D399;
+    --red:#FF5C5C;
+    --text:#F4F6FA;
+    --muted:#8A93A6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg-void);
+    color:var(--text);
+    font-family:'Inter','Noto Sans KR',sans-serif;
+    min-height:100vh;
+  }
+  .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
+  .display{font-family:'Bebas Neue','Noto Sans KR',sans-serif;}
+
+  nav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:18px 5vw;
+    border-bottom:1px solid var(--line);
+    background:rgba(10,13,18,0.9);
+  }
+  .logo{
+    display:flex; align-items:center; gap:10px;
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif;
+    font-size:26px; letter-spacing:0.03em;
+    color:var(--text); text-decoration:none;
+  }
+  .logo .dot{width:10px; height:10px; border-radius:2px; background:var(--amber); box-shadow:0 0 12px var(--amber);}
+  .back-link{
+    color:var(--muted); text-decoration:none; font-size:15px; font-weight:600;
+  }
+  .back-link:hover{color:var(--text);}
+
+  main{
+    max-width:640px; margin:0 auto; padding:60px 5vw 100px;
+  }
+  .page-title{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:44px; margin-bottom:6px;}
+  .page-sub{color:var(--muted); font-size:16px; margin-bottom:36px;}
+
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:32px; margin-bottom:24px;
+  }
+  .card h2{font-size:20px; font-weight:800; margin-bottom:4px;}
+  .card .card-sub{color:var(--muted); font-size:14px; margin-bottom:24px;}
+
+  .field{margin-bottom:18px;}
+  .field label{
+    display:block; font-size:13px; font-weight:600; color:var(--muted);
+    margin-bottom:8px;
+  }
+  .field input{
+    width:100%; padding:13px 14px;
+    background:var(--surface-2); border:1px solid var(--line); border-radius:8px;
+    color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif; font-size:15px;
+  }
+  .field input:disabled{color:var(--muted); cursor:not-allowed;}
+  .field input:focus{outline:none; border-color:var(--cyan);}
+
+  .btn{
+    font-family:'Inter','Noto Sans KR',sans-serif; font-weight:700; font-size:15px;
+    padding:12px 20px; border-radius:8px; border:none; cursor:pointer;
+  }
+  .btn-primary{background:var(--amber); color:#1A1200;}
+  .btn-primary:hover{transform:translateY(-1px);}
+  .btn[disabled]{opacity:0.6; cursor:not-allowed;}
+  .btn-danger-ghost{
+    background:transparent; color:var(--red); border:1px solid rgba(255,92,92,0.35);
+  }
+  .btn-danger-ghost:hover{background:rgba(255,92,92,0.08);}
+
+  .form-msg{
+    display:none; font-size:13px; font-weight:600; padding:11px 14px; border-radius:8px;
+    margin-bottom:18px; line-height:1.5;
+  }
+  .form-msg.show{display:block;}
+  .form-msg.error{background:rgba(255,92,92,0.12); color:#FF8A8A; border:1px solid rgba(255,92,92,0.3);}
+  .form-msg.success{background:rgba(52,211,153,0.12); color:var(--green); border:1px solid rgba(52,211,153,0.3);}
+
+  .loading-state{color:var(--muted); font-size:15px; padding:60px 0; text-align:center;}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
+  <a href="index.html" class="back-link">&larr; Back to home</a>
+</nav>
+
+<main>
+  <div id="loading" class="loading-state">Loading your profile...</div>
+
+  <div id="profile-content" style="display:none;">
+    <div class="page-title">Profile Settings</div>
+    <div class="page-sub">Manage your account details and password.</div>
+
+    <div class="card">
+      <h2>Account Info</h2>
+      <div class="card-sub">Your email can't be changed here yet.</div>
+      <div class="form-msg" id="profile-msg"></div>
+
+      <div class="field">
+        <label for="profile-email">Email</label>
+        <input type="email" id="profile-email" disabled>
+      </div>
+      <div class="field">
+        <label for="profile-username">Username</label>
+        <input type="text" id="profile-username">
+      </div>
+      <button class="btn btn-primary" id="profile-btn" onclick="handleUpdateProfile()">Save Changes</button>
+    </div>
+
+    <div class="card">
+      <h2>Change Password</h2>
+      <div class="card-sub">Choose a new password with at least 6 characters.</div>
+      <div class="form-msg" id="password-msg"></div>
+
+      <div class="field">
+        <label for="new-password">New Password</label>
+        <input type="password" id="new-password" placeholder="Enter a new password">
+      </div>
+      <div class="field">
+        <label for="confirm-password">Confirm New Password</label>
+        <input type="password" id="confirm-password" placeholder="Re-enter the new password">
+      </div>
+      <button class="btn btn-primary" id="password-btn" onclick="handleChangePassword()">Update Password</button>
+    </div>
+
+    <div class="card">
+      <h2>Log Out</h2>
+      <div class="card-sub">Sign out of your account on this device.</div>
+      <button class="btn btn-danger-ghost" onclick="handleLogout()">Log Out</button>
+    </div>
+  </div>
+</main>
+
+<script>
+  const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function showMsg(id, text, type){
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'form-msg show ' + type;
+  }
+  function hideMsg(id){
+    document.getElementById(id).className = 'form-msg';
+  }
+
+  async function handleUpdateProfile(){
+    const username = document.getElementById('profile-username').value.trim();
+    const btn = document.getElementById('profile-btn');
+    hideMsg('profile-msg');
+
+    if(!username){
+      showMsg('profile-msg', 'Username can\'t be empty.', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const { error } = await sb.auth.updateUser({ data: { username: username } });
+
+    btn.disabled = false;
+    btn.textContent = 'Save Changes';
+
+    if(error){
+      showMsg('profile-msg', error.message, 'error');
+    } else {
+      showMsg('profile-msg', 'Profile updated!', 'success');
+    }
+  }
+
+  async function handleChangePassword(){
+    const pw = document.getElementById('new-password').value;
+    const confirm = document.getElementById('confirm-password').value;
+    const btn = document.getElementById('password-btn');
+    hideMsg('password-msg');
+
+    if(!pw || pw.length < 6){
+      showMsg('password-msg', 'Password must be at least 6 characters.', 'error');
+      return;
+    }
+    if(pw !== confirm){
+      showMsg('password-msg', 'Passwords don\'t match.', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Updating...';
+
+    const { error } = await sb.auth.updateUser({ password: pw });
+
+    btn.disabled = false;
+    btn.textContent = 'Update Password';
+
+    if(error){
+      showMsg('password-msg', error.message, 'error');
+    } else {
+      showMsg('password-msg', 'Password updated!', 'success');
+      document.getElementById('new-password').value = '';
+      document.getElementById('confirm-password').value = '';
+    }
+  }
+
+  async function handleLogout(){
+    await sb.auth.signOut();
+    window.location.href = 'index.html';
+  }
+
+  (async () => {
+    const { data } = await sb.auth.getSession();
+    if(!data.session){
+      window.location.href = 'auth.html';
+      return;
+    }
+    const user = data.session.user;
+    document.getElementById('profile-email').value = user.email;
+    document.getElementById('profile-username').value = (user.user_metadata && user.user_metadata.username) || '';
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('profile-content').style.display = 'block';
+  })();
+</script>
+</body>
+</html>

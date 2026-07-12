@@ -333,7 +333,7 @@
 
   <div class="scoreboard">
     <div class="scoreboard-head">
-      <span class="label">Daily Leaderboard · Asteroid Run</span>
+      <span class="label" id="hero-scoreboard-label">Daily Leaderboard · <span style="color:var(--amber);">Asteroid Run</span></span>
       <span class="live-tag">LIVE</span>
     </div>
     <div id="hero-scoreboard-rows">
@@ -729,21 +729,32 @@
   updateHeroCountdown();
   setInterval(updateHeroCountdown, 1000);
 
+  const HERO_GAMES = [
+    { id: 'asteroid-run', name: 'Asteroid Run' },
+    { id: 'orbit-snap', name: 'Orbit Snap' }
+  ];
+  let heroGameIndex = 0;
+
   async function loadHeroScoreboard(){
     const rowsEl = document.getElementById('hero-scoreboard-rows');
+    const labelEl = document.getElementById('hero-scoreboard-label');
     if(!rowsEl) return;
+
+    const game = HERO_GAMES[heroGameIndex];
+    if(labelEl) labelEl.innerHTML = 'Daily Leaderboard · <span style="color:var(--amber);">' + game.name + '</span>';
+
     const startISO = startOfTodayUTC().toISOString();
 
     const { data: rows, error } = await sb
       .from('scores')
       .select('user_id, username, score')
-      .eq('game', 'asteroid-run')
+      .eq('game', game.id)
       .gte('created_at', startISO)
       .order('score', { ascending: false })
       .limit(500);
 
     if(error || !rows || rows.length === 0){
-      rowsEl.innerHTML = '<div style="padding:24px 20px; text-align:center; color:var(--muted); font-size:14px;">No scores yet today — be the first to play!</div>';
+      rowsEl.innerHTML = '<div style="padding:24px 20px; text-align:center; color:var(--muted); font-size:14px;">No scores yet today for ' + game.name + ' — be the first to play!</div>';
       return;
     }
 
@@ -766,8 +777,13 @@
     }).join('');
   }
 
+  function cycleHeroScoreboard(){
+    heroGameIndex = (heroGameIndex + 1) % HERO_GAMES.length;
+    loadHeroScoreboard();
+  }
+
   loadHeroScoreboard();
-  setInterval(loadHeroScoreboard, 15000);
+  setInterval(cycleHeroScoreboard, 5000);
 })();
 </script>
 </body>

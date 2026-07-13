@@ -265,7 +265,7 @@
         <li><span class="rule-icon">🌫️</span><span><b>Fog of war:</b> the enemy zone is hidden. Landing a hit reveals that tile only for the rest of the turn.</span></li>
         <li><span class="rule-icon">🎯</span><span><b>Move or fire:</b> select a tank, then click an adjacent tile to move, or any enemy-zone tile to fire.</span></li>
         <li><span class="rule-icon">📏</span><span><b>Range bonus:</b> the closer your tank is to its target, the more damage it deals — up to +30%.</span></li>
-        <li><span class="rule-icon">⚡</span><span><b>Skills:</b> Light Tank's Scan reveals a random enemy tank, Medium Tank's Rail Cannon hits hard, Heavy Tank can brace for +50% damage (can't move while braced), and Support Tank can Repair an ally for 300 HP. <b>Each tank can only use its skill once per match.</b></span></li>
+        <li><span class="rule-icon">⚡</span><span><b>Skills:</b> Light Tank's Scan reveals a random enemy tank, Medium Tank's Rail Cannon hits hard, Heavy Tank can brace for +50% damage (can't move while braced), and Support Tank can Repair an ally for 300 HP. <b>Each tank can only use its skill once per turn.</b></span></li>
       </ul>
       <div style="display:flex; gap:6px; margin-bottom:18px;">
         <button class="btn-ghost diff-btn active" data-diff="easy" onclick="setDifficulty('easy')" style="flex:1; padding:9px 4px; font-size:12px; font-weight:800; border-radius:8px; cursor:pointer;">Easy</button>
@@ -488,10 +488,10 @@
   let difficulty = 'medium';
   let aiMemory = []; // {r,c} tiles where the AI has landed a confirmed hit this game
   const DIFFICULTY = {
-    easy:    { fireChance:0.6,  memoryChance:0.2,  jitter:2, useSkills:false, skillChance:0 },
-    medium:  { fireChance:0.85, memoryChance:0.6,  jitter:1, useSkills:true,  skillChance:0.3 },
-    hard:    { fireChance:0.95, memoryChance:0.9,  jitter:1, useSkills:true,  skillChance:0.6 },
-    extreme: { fireChance:1.0,  memoryChance:1.0,  jitter:0, useSkills:true,  skillChance:0.9 }
+    easy:    { fireChance:0.65, memoryChance:0.3,  jitter:2, useSkills:false, skillChance:0 },
+    medium:  { fireChance:0.9,  memoryChance:0.75, jitter:1, useSkills:true,  skillChance:0.6 },
+    hard:    { fireChance:1.0,  memoryChance:0.95, jitter:1, useSkills:true,  skillChance:0.9 },
+    extreme: { fireChance:1.0,  memoryChance:1.0,  jitter:0, useSkills:true,  skillChance:1.0 }
   };
 
   function setDifficulty(d){
@@ -894,12 +894,13 @@
     playerMana = playerMaxMana;
     // clear reveals from enemy tiles at the start of player's turn
     for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) board[r][c].revealed = false;
-    // count down Siege Mode buffs
-    if(!first){
-      for(const t of playerTanks){
+    // count down Siege Mode buffs, and refresh each tank's once-per-turn skill
+    for(const t of playerTanks){
+      if(!first){
         if(t.siegeModeTurnsLeft > 0) t.siegeModeTurnsLeft--;
         if(t.buffTurnsLeft > 0) t.buffTurnsLeft--;
       }
+      t.skillUsed = false;
     }
     selectedTankId = null;
     skillMode = null;
@@ -1179,6 +1180,10 @@
     if(gameOver) return;
     enemyMaxMana = Math.min(enemyMaxMana + 1, 10);
     enemyMana = enemyMaxMana;
+    for(const t of enemyTanks){
+      if(t.siegeModeTurnsLeft > 0) t.siegeModeTurnsLeft--;
+      t.skillUsed = false;
+    }
     // clear every fog tile's reveal flag — not just occupied ones — so a tile
     // that was revealed by a miss doesn't stay "seen through" forever
     for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
@@ -1326,7 +1331,7 @@
       if(selectedForSkill.skillUsed){
         skillBtn.disabled = true;
         skillBtn.classList.remove('active');
-        skillBtn.textContent = '✓ ' + sk.name + ' Used (once per match)';
+        skillBtn.textContent = '✓ ' + sk.name + ' Used This Turn';
       } else {
         skillBtn.disabled = playerMana < sk.cost;
         skillBtn.classList.toggle('active', !!skillMode);

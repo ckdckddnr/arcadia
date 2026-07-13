@@ -181,7 +181,7 @@
         <li><span class="rule-icon">👾</span><span><b>Aliens:</b> sweep in from the sides and open fire — dodge the shots, and don't touch the ships either.</span></li>
         <li><span class="rule-icon">🛸</span><span><b>Cruiser:</b> after about a minute, a bigger ship shows up and locks a cross-shaped laser onto <b>your</b> position — you have to actually move before it fires, not just stand still.</span></li>
       </ul>
-      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">🪙 Entry costs <b style="color:var(--amber);">10 Coins</b> per run.</div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">🪙 Entry costs <b style="color:var(--amber);">20 Coins</b> per run.</div>
       <div class="submit-msg" id="entry-msg"></div>
       <button class="btn btn-primary start-action-btn" onclick="startGame()">Start Run</button>
     </div>
@@ -880,7 +880,7 @@
     }
   }
 
-  const ENTRY_FEE_COINS = 10;
+  const ENTRY_FEE_COINS = 20;
 
   async function startGame(){
     document.getElementById('over-overlay').classList.add('hidden');
@@ -894,7 +894,7 @@
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
       entryMsg.className = 'submit-msg error';
-      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to play — each run costs 10 Coins.';
+      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to play — each run costs 20 Coins.';
       actionBtns.forEach(b => b.disabled = false);
       return;
     }

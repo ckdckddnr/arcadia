@@ -101,20 +101,21 @@
   }
 
   /* ---- Roster ---- */
-  .roster{ display:flex; gap:12px; padding:10px 16px; overflow-x:auto; }
+  .roster{ display:flex; gap:9px; padding:9px 16px; overflow-x:auto; }
+  .roster.enemy-side{ justify-content:flex-end; }
   .roster-tank{
-    flex-shrink:0; width:124px; padding:10px; border-radius:12px; background:var(--surface-2); border:2px solid var(--line);
+    flex-shrink:0; width:96px; padding:8px; border-radius:10px; background:var(--surface-2); border:2px solid var(--line);
     text-align:center; cursor:pointer; transition:border-color 0.12s, transform 0.12s;
   }
   .roster-tank.mine{ cursor:pointer; }
   .roster-tank.mine:hover{ border-color:var(--muted); }
   .roster-tank.dead{ opacity:0.3; cursor:not-allowed; }
   .roster-tank.selected{ border-color:var(--amber); transform:translateY(-4px); }
-  .roster-tank .icon{ font-size:44px; height:66px; }
-  .roster-tank .name{ font-size:14px; font-weight:800; margin-top:4px; line-height:1.2; }
-  .roster-tank .hpbar{ height:7px; border-radius:4px; background:var(--surface); margin-top:7px; overflow:hidden; }
+  .roster-tank .icon{ font-size:33px; height:50px; }
+  .roster-tank .name{ font-size:11px; font-weight:800; margin-top:3px; line-height:1.2; }
+  .roster-tank .hpbar{ height:6px; border-radius:3px; background:var(--surface); margin-top:5px; overflow:hidden; }
   .roster-tank .hpbar-fill{ height:100%; background:var(--green); }
-  .roster-tank .costs{ font-size:13px; color:var(--muted); margin-top:4px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; }
+  .roster-tank .costs{ font-size:11px; color:var(--muted); margin-top:3px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; }
 
   #skill-btn{
     margin:0 16px 6px; font-family:'Inter','Noto Sans KR',sans-serif; font-weight:800; font-size:13px;
@@ -211,7 +212,7 @@
   @media (max-width:480px){
     #board{ grid-template-columns:repeat(12, minmax(18px,26px)); grid-template-rows:repeat(6, minmax(22px,32px)); gap:2px; }
     .tile{ font-size:13px; }
-    .roster-tank{ width:100px; }
+    .roster-tank{ width:78px; }
     .mana-crystal{ width:11px; height:11px; }
     .mana-label{ font-size:15px; margin-left:5px; }
   }
@@ -235,7 +236,7 @@
     <div class="mana-row" id="enemy-mana-row"></div>
     <div class="turn-count" id="turn-counter">Turn 1 / 50</div>
   </div>
-  <div class="roster" id="enemy-roster"></div>
+  <div class="roster enemy-side" id="enemy-roster"></div>
 
   <div class="board-wrap"><div id="board"></div><div id="fx-layer"></div></div>
 
@@ -264,7 +265,7 @@
         <li><span class="rule-icon">🌫️</span><span><b>Fog of war:</b> the enemy zone is hidden. Landing a hit reveals that tile only for the rest of the turn.</span></li>
         <li><span class="rule-icon">🎯</span><span><b>Move or fire:</b> select a tank, then click an adjacent tile to move, or any enemy-zone tile to fire.</span></li>
         <li><span class="rule-icon">📏</span><span><b>Range bonus:</b> the closer your tank is to its target, the more damage it deals — up to +30%.</span></li>
-        <li><span class="rule-icon">⚡</span><span><b>Skills:</b> Light Tank's Scan reveals a random enemy tank, Medium Tank's Rail Cannon hits hard, Heavy Tank can brace for +50% damage (can't move while braced), and Support Tank can Repair an ally for 300 HP.</span></li>
+        <li><span class="rule-icon">⚡</span><span><b>Skills:</b> Light Tank's Scan reveals a random enemy tank, Medium Tank's Rail Cannon hits hard, Heavy Tank can brace for +50% damage (can't move while braced), and Support Tank can Repair an ally for 300 HP. <b>Each tank can only use its skill once per match.</b></span></li>
       </ul>
       <div style="display:flex; gap:6px; margin-bottom:18px;">
         <button class="btn-ghost diff-btn active" data-diff="easy" onclick="setDifficulty('easy')" style="flex:1; padding:9px 4px; font-size:12px; font-weight:800; border-radius:8px; cursor:pointer;">Easy</button>
@@ -500,13 +501,14 @@
 
   function tryAiSkill(aliveEnemies){
     // Support: heal the lowest-HP ally if anyone is hurt
-    const support = aliveEnemies.find(t => t.type === 'support' && t.skill.cost <= enemyMana);
+    const support = aliveEnemies.find(t => t.type === 'support' && !t.skillUsed && t.skill.cost <= enemyMana);
     if(support){
       const hurtAllies = aliveEnemies.filter(t => t.hp < t.maxHp * 0.7);
       if(hurtAllies.length > 0){
         hurtAllies.sort((a,b) => (a.hp / a.maxHp) - (b.hp / b.maxHp));
         const ally = hurtAllies[0];
         enemyMana -= support.skill.cost;
+        support.skillUsed = true;
         const before = ally.hp;
         ally.hp = Math.min(ally.maxHp, ally.hp + AI_HEAL_AMOUNT);
         const healed = ally.hp - before;
@@ -519,9 +521,10 @@
       }
     }
     // Heavy: brace into Siege Mode if not already active
-    const siege = aliveEnemies.find(t => t.type === 'siege' && t.siegeModeTurnsLeft === 0 && t.skill.cost <= enemyMana);
+    const siege = aliveEnemies.find(t => t.type === 'siege' && !t.skillUsed && t.siegeModeTurnsLeft === 0 && t.skill.cost <= enemyMana);
     if(siege && Math.random() < 0.5){
       enemyMana -= siege.skill.cost;
+      siege.skillUsed = true;
       siege.siegeModeTurnsLeft = 3;
       showAction('ENEMY HEAVY TANK ENTERS SIEGE MODE', 'a-kill');
       log('Enemy Heavy Tank braces into siege mode.');
@@ -529,11 +532,12 @@
       return true;
     }
     // Light: scan reveals a real player tank position into AI memory
-    const scout = aliveEnemies.find(t => t.type === 'scout' && t.skill.cost <= enemyMana);
+    const scout = aliveEnemies.find(t => t.type === 'scout' && !t.skillUsed && t.skill.cost <= enemyMana);
     if(scout){
       const aliveTargets = playerTanks.filter(t => t.alive);
       if(aliveTargets.length > 0){
         enemyMana -= scout.skill.cost;
+        scout.skillUsed = true;
         const found = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
         aiMemory.push({ r: found.r, c: found.c });
         if(aiMemory.length > 6) aiMemory.shift();
@@ -545,7 +549,7 @@
       }
     }
     // Medium: rail cannon at a remembered or random location
-    const battle = aliveEnemies.find(t => t.type === 'battle' && t.skill.cost <= enemyMana);
+    const battle = aliveEnemies.find(t => t.type === 'battle' && !t.skillUsed && t.skill.cost <= enemyMana);
     if(battle){
       let tr, tc;
       if(aiMemory.length > 0){
@@ -556,6 +560,7 @@
         tc = PLAYER_COLS[Math.floor(Math.random() * PLAYER_COLS.length)];
       }
       enemyMana -= battle.skill.cost;
+      battle.skillUsed = true;
       const target = board[tr][tc].occupant;
       const isHit = !!(target && target.isPlayer);
       sfxSkill('railcannon');
@@ -827,7 +832,7 @@
     const def = TANK_TYPES[type];
     return { uid:'t'+uidCounter, type, isPlayer, name:def.name, icon:def.icon, hp:def.hp, maxHp:def.hp,
       moveCost:def.moveCost, fireCost:def.fireCost, damage:def.damage, skill:def.skill,
-      siegeModeTurnsLeft:0, buffTurnsLeft:0, buffMultiplier:1, r, c, alive:true };
+      siegeModeTurnsLeft:0, buffTurnsLeft:0, buffMultiplier:1, skillUsed:false, r, c, alive:true };
   }
 
   function resetGame(){
@@ -927,11 +932,13 @@
     const sk = t.skill;
 
     if(skillMode){ skillMode = null; render(); return; }
+    if(t.skillUsed) return;
     if(playerMana < sk.cost){ sfxInsufficientMana(); return; }
 
     if(sk.key === 'siegemode'){
       playerMana -= sk.cost;
       t.siegeModeTurnsLeft = 3;
+      t.skillUsed = true;
       selectedTankId = null;
       showAction('YOUR ' + t.name.toUpperCase() + ' ENTERS SIEGE MODE <span class="mono" style="font-size:0.55em; color:var(--muted);">(&minus;' + sk.cost + ' MP)</span>', 'a-kill');
       log('Your ' + t.name + ' braces into siege mode (+50% damage, can\'t move for 3 turns).');
@@ -940,6 +947,7 @@
       const aliveEnemies = enemyTanks.filter(e => e.alive);
       if(aliveEnemies.length === 0) return;
       playerMana -= sk.cost;
+      t.skillUsed = true;
       selectedTankId = null;
       const target = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
       board[target.r][target.c].revealed = true;
@@ -961,9 +969,11 @@
     const attacker = playerTanks.find(x => x.uid === selectedTankId);
     if(!attacker){ skillMode = null; render(); return; }
     const sk = attacker.skill;
+    if(attacker.skillUsed){ skillMode = null; render(); return; }
     if(playerMana < sk.cost){ skillMode = null; render(); return; }
 
     playerMana -= sk.cost;
+    attacker.skillUsed = true;
     const mode = skillMode;
     skillMode = null;
     selectedTankId = null;
@@ -1313,9 +1323,15 @@
     if(selectedForSkill && turn === 'player' && !gameOver){
       const sk = selectedForSkill.skill;
       skillBtn.style.display = 'block';
-      skillBtn.disabled = playerMana < sk.cost;
-      skillBtn.classList.toggle('active', !!skillMode);
-      skillBtn.textContent = (skillMode ? 'Cancel ' : '⚡ ') + sk.name + ' (' + sk.cost + ' MP)';
+      if(selectedForSkill.skillUsed){
+        skillBtn.disabled = true;
+        skillBtn.classList.remove('active');
+        skillBtn.textContent = '✓ ' + sk.name + ' Used (once per match)';
+      } else {
+        skillBtn.disabled = playerMana < sk.cost;
+        skillBtn.classList.toggle('active', !!skillMode);
+        skillBtn.textContent = (skillMode ? 'Cancel ' : '⚡ ') + sk.name + ' (' + sk.cost + ' MP)';
+      }
     } else {
       skillBtn.style.display = 'none';
       skillBtn.classList.remove('active');
@@ -1396,7 +1412,7 @@
         ? '<div style="font-size:8px; color:var(--green); font-weight:800;">💪RALLY x' + t.buffTurnsLeft + '</div>'
         : '';
       return '<div class="roster-tank mine' + deadCls + selCls + '" ' + onclick + '>' +
-        '<div class="icon" style="width:100%; height:66px;">' + tankSvg(t.type, true) + '</div>' +
+        '<div class="icon" style="width:100%; height:50px;">' + tankSvg(t.type, true) + '</div>' +
         '<div class="name">' + t.name + '</div>' +
         siegeTag + buffTag +
         '<div class="hpbar"><div class="hpbar-fill" style="width:' + Math.max(0,(t.hp/t.maxHp*100)) + '%;"></div></div>' +
@@ -1411,7 +1427,7 @@
         ? '<div style="font-size:8px; color:var(--pink); font-weight:800;">⚡SIEGE x' + t.siegeModeTurnsLeft + '</div>'
         : '';
       return '<div class="roster-tank' + deadCls + '" style="cursor:default;">' +
-        '<div class="icon" style="width:100%; height:66px;">' + tankSvg(t.type, false) + '</div>' +
+        '<div class="icon" style="width:100%; height:50px;">' + tankSvg(t.type, false) + '</div>' +
         '<div class="name">' + t.name + '</div>' +
         siegeTag +
         '<div class="hpbar"><div class="hpbar-fill" style="width:' + Math.max(0,(t.hp/t.maxHp*100)) + '%; background:var(--red);"></div></div>' +

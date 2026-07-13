@@ -215,6 +215,8 @@
     .roster-tank{ width:78px; }
     .mana-crystal{ width:11px; height:11px; }
     .mana-label{ font-size:15px; margin-left:5px; }
+    #combat-log{ max-width:42vw; gap:3px; }
+    #combat-log .log-line{ font-size:9px; padding:3px 6px; border-radius:5px; opacity:0.8; }
   }
 </style>
 </head>
@@ -500,7 +502,68 @@
   }
 
   function tryAiSkill(aliveEnemies){
-    // Support: heal the lowest-HP ally if anyone is hurt
+    // PRIORITY 1: if we already know where a player tank is, hit it hard right now
+    if(aiMemory.length > 0){
+      const battle = aliveEnemies.find(t => t.type === 'battle' && !t.skillUsed && t.skill.cost <= enemyMana);
+      if(battle){
+        const m = aiMemory[aiMemory.length - 1]; // freshest intel first
+        const tr = m.r, tc = m.c;
+        enemyMana -= battle.skill.cost;
+        battle.skillUsed = true;
+        const target = board[tr][tc].occupant;
+        const isHit = !!(target && target.isPlayer);
+        sfxSkill('railcannon');
+        animateFire(battle.r, battle.c, tr, tc, 'battle', isHit, () => {
+          if(isHit){
+            const bonus = distanceBonus(battle.r, battle.c, tr, tc);
+            const dmg = Math.round(AI_RAILCANNON_DMG * (1 + bonus));
+            target.hp -= dmg;
+            fxFloatText(tr, tc, '-' + dmg, '#FF5C5C');
+            log('Enemy Medium Tank rail cannon hits ' + target.name + ' for ' + dmg + '!');
+            if(target.hp <= 0){
+              target.alive = false;
+              board[tr][tc].occupant = null;
+              sfxKill();
+              triggerBoardShake(9, 0.4);
+              showAction('ENEMY RAIL CANNON DESTROYS YOUR ' + target.name.toUpperCase() + '!', 'a-kill');
+            } else {
+              sfxHit();
+              triggerBoardShake(5, 0.3);
+              showAction('ENEMY RAIL CANNON HITS YOU FOR ' + dmg + '!', 'a-dmg');
+            }
+          } else {
+            aiMemory = aiMemory.filter(x => !(x.r === tr && x.c === tc)); // stale intel, forget it
+            sfxMiss();
+            showAction('ENEMY RAIL CANNON FIRES INTO THE FOG — MISS', 'a-miss');
+          }
+          checkVictory();
+          render();
+        });
+        return true;
+      }
+    }
+
+    // PRIORITY 2: no intel yet — scan to find a target before wasting other actions
+    if(aiMemory.length === 0){
+      const scout = aliveEnemies.find(t => t.type === 'scout' && !t.skillUsed && t.skill.cost <= enemyMana);
+      if(scout){
+        const aliveTargets = playerTanks.filter(t => t.alive);
+        if(aliveTargets.length > 0){
+          enemyMana -= scout.skill.cost;
+          scout.skillUsed = true;
+          const found = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
+          aiMemory.push({ r: found.r, c: found.c });
+          if(aiMemory.length > 6) aiMemory.shift();
+          sfxSkill('scan');
+          showAction('ENEMY LIGHT TANK SCANS THE BATTLEFIELD', 'a-move');
+          log('Enemy Light Tank scans and gathers intel.');
+          render();
+          return true;
+        }
+      }
+    }
+
+    // PRIORITY 3: heal a hurt ally
     const support = aliveEnemies.find(t => t.type === 'support' && !t.skillUsed && t.skill.cost <= enemyMana);
     if(support){
       const hurtAllies = aliveEnemies.filter(t => t.hp < t.maxHp * 0.7);
@@ -520,7 +583,8 @@
         return true;
       }
     }
-    // Heavy: brace into Siege Mode if not already active
+
+    // PRIORITY 4: brace into Siege Mode opportunistically
     const siege = aliveEnemies.find(t => t.type === 'siege' && !t.skillUsed && t.siegeModeTurnsLeft === 0 && t.skill.cost <= enemyMana);
     if(siege && Math.random() < 0.5){
       enemyMana -= siege.skill.cost;
@@ -531,67 +595,7 @@
       render();
       return true;
     }
-    // Light: scan reveals a real player tank position into AI memory
-    const scout = aliveEnemies.find(t => t.type === 'scout' && !t.skillUsed && t.skill.cost <= enemyMana);
-    if(scout){
-      const aliveTargets = playerTanks.filter(t => t.alive);
-      if(aliveTargets.length > 0){
-        enemyMana -= scout.skill.cost;
-        scout.skillUsed = true;
-        const found = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
-        aiMemory.push({ r: found.r, c: found.c });
-        if(aiMemory.length > 6) aiMemory.shift();
-        sfxSkill('scan');
-        showAction('ENEMY LIGHT TANK SCANS THE BATTLEFIELD', 'a-move');
-        log('Enemy Light Tank scans and gathers intel.');
-        render();
-        return true;
-      }
-    }
-    // Medium: rail cannon at a remembered or random location
-    const battle = aliveEnemies.find(t => t.type === 'battle' && !t.skillUsed && t.skill.cost <= enemyMana);
-    if(battle){
-      let tr, tc;
-      if(aiMemory.length > 0){
-        const m = aiMemory[Math.floor(Math.random() * aiMemory.length)];
-        tr = m.r; tc = m.c;
-      } else {
-        tr = Math.floor(Math.random() * ROWS);
-        tc = PLAYER_COLS[Math.floor(Math.random() * PLAYER_COLS.length)];
-      }
-      enemyMana -= battle.skill.cost;
-      battle.skillUsed = true;
-      const target = board[tr][tc].occupant;
-      const isHit = !!(target && target.isPlayer);
-      sfxSkill('railcannon');
-      animateFire(battle.r, battle.c, tr, tc, 'battle', isHit, () => {
-        if(isHit){
-          aiMemory.push({ r: tr, c: tc });
-          const bonus = distanceBonus(battle.r, battle.c, tr, tc);
-          const dmg = Math.round(AI_RAILCANNON_DMG * (1 + bonus));
-          target.hp -= dmg;
-          fxFloatText(tr, tc, '-' + dmg, '#FF5C5C');
-          log('Enemy Medium Tank rail cannon hits ' + target.name + ' for ' + dmg + '!');
-          if(target.hp <= 0){
-            target.alive = false;
-            board[tr][tc].occupant = null;
-            sfxKill();
-            triggerBoardShake(9, 0.4);
-            showAction('ENEMY RAIL CANNON DESTROYS YOUR ' + target.name.toUpperCase() + '!', 'a-kill');
-          } else {
-            sfxHit();
-            triggerBoardShake(5, 0.3);
-            showAction('ENEMY RAIL CANNON HITS YOU FOR ' + dmg + '!', 'a-dmg');
-          }
-        } else {
-          sfxMiss();
-          showAction('ENEMY RAIL CANNON FIRES INTO THE FOG — MISS', 'a-miss');
-        }
-        checkVictory();
-        render();
-      });
-      return true;
-    }
+
     return false;
   }
   let skillMode = null; // 'scan' | 'railcannon' when awaiting a skill target click
@@ -873,7 +877,7 @@
     line.className = 'log-line ' + kind;
     line.textContent = msg;
     el.appendChild(line);
-    while(el.children.length > 5) el.removeChild(el.firstChild);
+    while(el.children.length > 3) el.removeChild(el.firstChild);
   }
 
   function showTurnBanner(text){

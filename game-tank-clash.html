@@ -96,7 +96,7 @@
   .roster-tank.dead{ opacity:0.3; cursor:not-allowed; }
   .roster-tank.selected{ border-color:var(--amber); transform:translateY(-4px); }
   .roster-tank .icon{ font-size:22px; height:34px; }
-  .roster-tank .name{ font-size:9px; font-weight:700; margin-top:2px; }
+  .roster-tank .name{ font-size:8px; font-weight:700; margin-top:2px; line-height:1.15; }
   .roster-tank .hpbar{ height:4px; border-radius:2px; background:var(--surface); margin-top:4px; overflow:hidden; }
   .roster-tank .hpbar-fill{ height:100%; background:var(--green); }
   .roster-tank .costs{ font-size:8px; color:var(--muted); margin-top:2px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; }
@@ -247,7 +247,7 @@
         <li><span class="rule-icon">🌫️</span><span><b>Fog of war:</b> the enemy zone is hidden. Landing a hit reveals that tile only for the rest of the turn.</span></li>
         <li><span class="rule-icon">🎯</span><span><b>Move or fire:</b> select a tank, then click an adjacent tile to move, or any enemy-zone tile to fire.</span></li>
         <li><span class="rule-icon">📏</span><span><b>Range bonus:</b> the closer your tank is to its target, the more damage it deals — up to +30%.</span></li>
-        <li><span class="rule-icon">⚡</span><span><b>Skills:</b> Scout's Scan reveals a random enemy tank, Battle's Rail Cannon hits hard, Siege can brace for +50% damage (can't move while braced), and Support can Repair an ally for 40 HP.</span></li>
+        <li><span class="rule-icon">⚡</span><span><b>Skills:</b> Light Tank's Scan reveals a random enemy tank, Medium Tank's Rail Cannon hits hard, Heavy Tank can brace for +50% damage (can't move while braced), and Support Tank can Repair an ally for 40 HP.</span></li>
       </ul>
       <button class="btn btn-primary" onclick="startGame()">Deploy Squad</button>
     </div>
@@ -314,32 +314,66 @@
     playTone(150, 0.13, 'square', 0.06, 90);
     playNoise(0.08, 0.05, 400);
   }
-  // ---------- Real fire sound effects (uploaded audio files) ----------
+  // ---------- Real audio files (uploaded, generic player) ----------
+  const audioClipCache = {};
+  function playClip(url, volume){
+    try{
+      if(!audioClipCache[url]){
+        const a = new Audio(url);
+        a.preload = 'auto';
+        audioClipCache[url] = a;
+      }
+      const clip = audioClipCache[url].cloneNode(); // clone so overlapping sounds don't cut each other off
+      clip.volume = volume !== undefined ? volume : 0.7;
+      clip.play().catch(() => {});
+    } catch(e){}
+  }
+
   const FIRE_AUDIO_FILES = {
     scout: 'weapon_mortar_004.wav',
     battle: 'explosion_med_011.wav',
     siege: 'explosion_large_005.wav',
     support: 'weapon_mortar_004.wav'
   };
-  const fireAudioCache = {};
-  function getFireAudio(type){
-    if(!fireAudioCache[type]){
-      const a = new Audio(FIRE_AUDIO_FILES[type]);
-      a.preload = 'auto';
-      fireAudioCache[type] = a;
-    }
-    return fireAudioCache[type];
-  }
-  // warm up the cache so the first shot isn't delayed by a network fetch
-  Object.keys(FIRE_AUDIO_FILES).forEach(getFireAudio);
+  const SELECT_AUDIO_FILES = {
+    scout: 'gui_003.wav',
+    battle: 'weapon_outofammo_007.wav',
+    siege: 'mechanical_003.wav',
+    support: 'gui_032.wav'
+  };
+  const SKILL_AUDIO_FILES = {
+    scan: 'bonus_alarm_003.wav',
+    heal: 'shield_up_002.wav',
+    railcannon: 'weapon_lightning_001.wav'
+  };
+  const INSUFFICIENT_MANA_AUDIO = 'gui_028.wav';
+  const GAME_START_AUDIO = 'engine_start_003.wav';
+  const SIEGE_MODE_FIRE_AUDIO = 'explosion_med_007.wav';
 
-  function sfxFire(type){
-    try{
-      const base = getFireAudio(type);
-      const clip = base.cloneNode(); // clone so overlapping shots don't cut each other off
-      clip.volume = type === 'siege' ? 0.85 : (type === 'battle' ? 0.7 : 0.6);
-      clip.play().catch(() => {});
-    } catch(e){}
+  // warm up the cache so the first sound of each kind isn't delayed by a network fetch
+  [...Object.values(FIRE_AUDIO_FILES), ...Object.values(SELECT_AUDIO_FILES), ...Object.values(SKILL_AUDIO_FILES),
+   INSUFFICIENT_MANA_AUDIO, GAME_START_AUDIO, SIEGE_MODE_FIRE_AUDIO]
+    .forEach(url => { if(!audioClipCache[url]){ const a = new Audio(url); a.preload = 'auto'; audioClipCache[url] = a; } });
+
+  function sfxFire(type, attackerTank){
+    // a braced Heavy Tank fires with a bigger, dedicated sound
+    if(type === 'siege' && attackerTank && attackerTank.siegeModeTurnsLeft > 0){
+      playClip(SIEGE_MODE_FIRE_AUDIO, 0.9);
+      return;
+    }
+    playClip(FIRE_AUDIO_FILES[type], type === 'siege' ? 0.85 : (type === 'battle' ? 0.7 : 0.6));
+  }
+  function sfxSelect(type){
+    playClip(SELECT_AUDIO_FILES[type], 0.6);
+  }
+  function sfxSkill(key){
+    playClip(SKILL_AUDIO_FILES[key], 0.75);
+  }
+  function sfxInsufficientMana(){
+    playClip(INSUFFICIENT_MANA_AUDIO, 0.6);
+  }
+  function sfxGameStart(){
+    playClip(GAME_START_AUDIO, 0.7);
   }
   function sfxHit(){
     playNoise(0.15, 0.18, 1500);
@@ -353,15 +387,7 @@
   function sfxMiss(){
     playTone(650, 0.16, 'sine', 0.05, 280);
   }
-  function sfxScan(){
-    playTone(700, 0.09, 'sine', 0.08, 1100);
-    setTimeout(() => playTone(1100, 0.08, 'sine', 0.06, 1500), 90);
-  }
-  function sfxHeal(){
-    playTone(520, 0.12, 'sine', 0.1, 780);
-    setTimeout(() => playTone(780, 0.14, 'sine', 0.09, 1040), 100);
-    setTimeout(() => playTone(1040, 0.16, 'sine', 0.08, 1300), 200);
-  }
+
 
   // ---------- Background ambience (looping engine hum) ----------
   let bgNodes = null;
@@ -417,13 +443,13 @@
   const MAX_TURNS = 30;
 
   const TANK_TYPES = {
-    scout: { name:'Scout', icon:'🛵', hp:80, moveCost:1, fireCost:2, damage:25,
+    scout: { name:'Light Tank', icon:'🛵', hp:80, moveCost:1, fireCost:2, damage:25,
       skill:{ key:'scan', name:'Scan', cost:3, desc:'Reveal any fog tile without firing.' } },
-    battle:{ name:'Battle', icon:'🚙', hp:120, moveCost:2, fireCost:3, damage:35,
+    battle:{ name:'Medium Tank', icon:'🚙', hp:120, moveCost:2, fireCost:3, damage:35,
       skill:{ key:'railcannon', name:'Rail Cannon', cost:6, desc:'A single devastating shot — 80% bonus damage.' } },
-    siege: { name:'Siege', icon:'🚚', hp:160, moveCost:2, fireCost:4, damage:50,
+    siege: { name:'Heavy Tank', icon:'🚚', hp:160, moveCost:2, fireCost:4, damage:50,
       skill:{ key:'siegemode', name:'Siege Mode', cost:3, desc:"+50% damage for this tank's next 3 turns — can't move while active." } },
-    support:{ name:'Support', icon:'🚐', hp:100, moveCost:2, fireCost:3, damage:22,
+    support:{ name:'Support Tank', icon:'🚐', hp:100, moveCost:2, fireCost:3, damage:22,
       skill:{ key:'heal', name:'Repair', cost:4, desc:'Restore 40 HP to an ally tank.' } }
   };
   const TYPE_ORDER = ['scout','battle','siege','support'];
@@ -626,6 +652,15 @@
     }, 300);
   }
 
+  function shuffleArray(arr){
+    const a = arr.slice();
+    for(let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
   function makeTank(type, isPlayer, r, c){
     uidCounter++;
     const def = TANK_TYPES[type];
@@ -646,13 +681,13 @@
     turnCount = 1;
     document.getElementById('combat-log').innerHTML = '';
 
-    const playerRows = [0,2,3,5];
+    const playerRows = shuffleArray([0,2,3,5]);
     TYPE_ORDER.forEach((type, i) => {
       const t = makeTank(type, true, playerRows[i], 0);
       playerTanks.push(t);
       board[t.r][t.c].occupant = t;
     });
-    const enemyRows = [0,2,3,5];
+    const enemyRows = shuffleArray([0,2,3,5]);
     TYPE_ORDER.forEach((type, i) => {
       const t = makeTank(type, false, enemyRows[i], COLS - 1);
       enemyTanks.push(t);
@@ -730,7 +765,7 @@
     const sk = t.skill;
 
     if(skillMode){ skillMode = null; render(); return; }
-    if(playerMana < sk.cost) return;
+    if(playerMana < sk.cost){ sfxInsufficientMana(); return; }
 
     if(sk.key === 'siegemode'){
       playerMana -= sk.cost;
@@ -746,7 +781,7 @@
       selectedTankId = null;
       const target = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
       board[target.r][target.c].revealed = true;
-      sfxScan();
+      sfxSkill('scan');
       showAction('YOUR SCOUT SCANS AND REVEALS ' + target.name.toUpperCase() + '! <span class="mono" style="font-size:0.55em; color:var(--muted);">(&minus;' + sk.cost + ' MP)</span>', 'a-move');
       log('Your Scout scans and locates an enemy ' + target.name + '.');
       render();
@@ -778,7 +813,7 @@
       const before = ally.hp;
       ally.hp = Math.min(ally.maxHp, ally.hp + 40);
       const healed = ally.hp - before;
-      sfxHeal();
+      sfxSkill('heal');
       showAction('YOUR ' + attacker.name.toUpperCase() + ' REPAIRS ' + ally.name.toUpperCase() + ' (+' + healed + ' HP)' + costTag, 'a-move');
       log('Your ' + attacker.name + ' repairs ' + ally.name + ' for ' + healed + ' HP.');
       render();
@@ -786,7 +821,7 @@
       const fromR = attacker.r, fromC = attacker.c;
       const target = board[r][c].occupant;
       const isHit = !!(target && !target.isPlayer);
-      sfxFire('siege');
+      sfxSkill('railcannon');
 
       animateFire(fromR, fromC, r, c, 'battle', isHit, () => {
         if(isHit){
@@ -827,6 +862,7 @@
     if(!t) return;
     selectedTankId = (selectedTankId === uid) ? null : uid;
     if(selectedTankId){
+      sfxSelect(t.type);
       const canMove = playerMana >= t.moveCost && t.siegeModeTurnsLeft === 0;
       const canFire = playerMana >= t.fireCost;
       let extra = '';
@@ -910,7 +946,7 @@
       const fromR = attacker.r, fromC = attacker.c;
       selectedTankId = null;
       document.getElementById('action-hint').textContent = 'Select one of your tanks to move or fire.';
-      sfxFire(attacker.type);
+      sfxFire(attacker.type, attacker);
       render();
 
       animateFire(fromR, fromC, r, c, attacker.type, isHit, () => {
@@ -997,7 +1033,7 @@
         const target = board[tr][tc].occupant;
         const isHit = !!(target && target.isPlayer);
         const fromR = attacker.r, fromC = attacker.c;
-        sfxFire(attacker.type);
+        sfxFire(attacker.type, attacker);
 
         animateFire(fromR, fromC, tr, tc, attacker.type, isHit, () => {
           const costTag = '<span class="mono" style="font-size:0.55em; color:var(--muted);"> (&minus;' + attacker.fireCost + ' MP)</span>';
@@ -1232,6 +1268,7 @@
     enemyMana = 0; enemyMaxMana = 0;
     resetGame();
     startBgAmbience();
+    sfxGameStart();
   }
 </script>
 </body>

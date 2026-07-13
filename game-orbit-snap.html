@@ -191,18 +191,60 @@
   function xpForLevel(level){ return 25 * level * (level - 1); }
   function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
 
-  async function awardProgress(userId, username, xpEarned, coinsEarned){
+  function startOfWeekUTC(date){
+    const d = new Date(date);
+    d.setUTCHours(0, 0, 0, 0);
+    const day = d.getUTCDay();
+    const diff = (day === 0 ? -6 : 1 - day);
+    d.setUTCDate(d.getUTCDate() + diff);
+    return d;
+  }
+
+  async function getWeeklyOwner(game){
+    const thisWeekStart = startOfWeekUTC(new Date());
+    const lastWeekStart = new Date(thisWeekStart);
+    lastWeekStart.setUTCDate(lastWeekStart.getUTCDate() - 7);
+
+    const { data, error } = await sb
+      .from('scores')
+      .select('user_id, username, score')
+      .eq('game', game)
+      .gte('created_at', lastWeekStart.toISOString())
+      .lt('created_at', thisWeekStart.toISOString())
+      .order('score', { ascending: false })
+      .limit(1);
+
+    if(error || !data || data.length === 0) return null;
+    return data[0];
+  }
+
+  // Whenever anyone plays a game, that game's current weekly champion (last
+  // week's #1) earns a small platform-funded coin bonus — no player's coins
+  // are ever taken to fund this.
+  async function checkAndAwardOwnerBonus(game){
     try{
-      const { data: existing } = await sb.from('profiles').select('xp,coins').eq('user_id', userId).maybeSingle();
+      const owner = await getWeeklyOwner(game);
+      if(!owner) return;
+      const { data: existing } = await sb.from('profiles').select('coins').eq('user_id', owner.user_id).maybeSingle();
+      const prevCoins = existing ? existing.coins : 0;
+      await sb.from('profiles').update({ coins: prevCoins + 2 }).eq('user_id', owner.user_id);
+    } catch(e){ /* non-critical, fail silently */ }
+  }
+
+  async function awardProgress(userId, username, xpEarned, coinsEarned, tokensEarned){
+    try{
+      const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', userId).maybeSingle();
       const prevXp = existing ? existing.xp : 0;
       const prevCoins = existing ? existing.coins : 0;
+      const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
       const newXp = prevXp + xpEarned;
       const newCoins = prevCoins + coinsEarned;
+      const newTokens = prevTokens + (tokensEarned || 0);
 
       if(existing){
-        await sb.from('profiles').update({ xp: newXp, coins: newCoins, username, updated_at: new Date().toISOString() }).eq('user_id', userId);
+        await sb.from('profiles').update({ xp: newXp, coins: newCoins, battle_tokens: newTokens, username, updated_at: new Date().toISOString() }).eq('user_id', userId);
       } else {
-        await sb.from('profiles').insert({ user_id: userId, username, xp: newXp, coins: newCoins });
+        await sb.from('profiles').insert({ user_id: userId, username, xp: newXp, coins: newCoins, battle_tokens: newTokens });
       }
 
       const prevLevel = levelFromXp(prevXp);
@@ -820,10 +862,12 @@
     } else {
       const xpEarned = Math.max(5, Math.floor(finalScore / 55));
       const coinsEarned = Math.max(2, Math.floor(finalScore / 130));
-      const progress = await awardProgress(user.id, username, xpEarned, coinsEarned);
+      const tokensEarned = Math.max(1, Math.floor(finalScore / 400));
+      const progress = await awardProgress(user.id, username, xpEarned, coinsEarned, tokensEarned);
+      await checkAndAwardOwnerBonus(GAME_ID);
 
       msg.className = 'submit-msg success';
-      msg.textContent = 'Score saved! +' + xpEarned + ' XP, +' + coinsEarned + ' coins' + (progress && progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
+      msg.textContent = 'Score saved! +' + xpEarned + ' XP, +' + coinsEarned + ' coins, +' + tokensEarned + ' tokens' + (progress && progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
       btn.disabled = true;
       btn.textContent = 'Saved ✓';
     }

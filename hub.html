@@ -104,6 +104,11 @@
   }
   .planet-name{font-weight:800; font-size:15px; margin-bottom:2px;}
   .planet-tag{font-size:11px; color:var(--muted);}
+  .owner-tag{
+    margin-top:6px; font-size:11px; font-weight:700; color:var(--amber);
+    background:rgba(255,182,39,0.12); border:1px solid rgba(255,182,39,0.3);
+    border-radius:20px; padding:3px 10px; display:inline-block;
+  }
   .planet-live{color:var(--green); font-weight:700;}
 
   .center-hub{
@@ -151,7 +156,14 @@
       <span class="coin-icon">🪙</span>
       <div>
         <div class="coin-value" id="coin-value">0</div>
-        <div class="coin-caption">Coins earned</div>
+        <div class="coin-caption">Coins</div>
+      </div>
+    </div>
+    <div class="coin-display">
+      <span class="coin-icon">⚔️</span>
+      <div>
+        <div class="coin-value" id="token-value" style="color:var(--pink);">0</div>
+        <div class="coin-caption">Battle Tokens</div>
       </div>
     </div>
   </div>
@@ -159,6 +171,7 @@
   <div class="map-title">
     <div class="map-eyebrow"><span>●</span> Galaxy Map</div>
     <div class="map-heading">Choose Your Next Run</div>
+    <div style="text-align:center; color:var(--muted); font-size:13px; margin-top:6px;">Weekly champion resets in <span class="mono" id="week-countdown" style="color:var(--amber); font-weight:700;">--:--:--:--</span></div>
   </div>
 
   <div class="galaxy-map" id="galaxy-map">
@@ -172,12 +185,14 @@
       <div class="planet-orb" style="background:radial-gradient(circle at 35% 30%, rgba(45,225,252,0.5), rgba(20,40,55,0.9));">☄️</div>
       <div class="planet-name">Asteroid Run</div>
       <div class="planet-tag planet-live">● Free to play</div>
+      <div class="owner-tag" id="owner-asteroid-run">Loading champion...</div>
     </a>
 
     <a href="game-orbit-snap.html" class="planet-node" id="node-2" style="text-decoration:none; color:inherit;">
       <div class="planet-orb" style="background:radial-gradient(circle at 35% 30%, rgba(255,92,182,0.5), rgba(50,20,45,0.9));">🪐</div>
       <div class="planet-name">Orbit Snap</div>
       <div class="planet-tag planet-live">● Free to play</div>
+      <div class="owner-tag" id="owner-orbit-snap">Loading champion...</div>
     </a>
 
     <a href="game-tank-clash.html" class="planet-node" id="node-3" style="text-decoration:none; color:inherit;">
@@ -209,9 +224,10 @@
     const user = sessionData.session.user;
     const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
 
-    const { data: profile } = await sb.from('profiles').select('xp,coins').eq('user_id', user.id).maybeSingle();
+    const { data: profile } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', user.id).maybeSingle();
     const xp = profile ? profile.xp : 0;
     const coins = profile ? profile.coins : 0;
+    const tokens = profile ? (profile.battle_tokens || 0) : 0;
     const level = levelFromXp(xp);
     const curFloor = xpForLevel(level);
     const nextFloor = xpForLevel(level + 1);
@@ -222,7 +238,62 @@
     document.getElementById('xp-bar-fill').style.width = progress + '%';
     document.getElementById('xp-label').textContent = (xp - curFloor) + ' / ' + (nextFloor - curFloor) + ' XP to next level';
     document.getElementById('coin-value').textContent = coins.toLocaleString();
+    document.getElementById('token-value').textContent = tokens.toLocaleString();
     document.getElementById('player-card').style.display = 'flex';
+  }
+
+  function startOfWeekUTC(date){
+    const d = new Date(date);
+    d.setUTCHours(0, 0, 0, 0);
+    const day = d.getUTCDay();
+    const diff = (day === 0 ? -6 : 1 - day);
+    d.setUTCDate(d.getUTCDate() + diff);
+    return d;
+  }
+
+  async function loadWeeklyOwners(){
+    const thisWeekStart = startOfWeekUTC(new Date());
+    const lastWeekStart = new Date(thisWeekStart);
+    lastWeekStart.setUTCDate(lastWeekStart.getUTCDate() - 7);
+
+    const games = [
+      { id: 'asteroid-run', el: 'owner-asteroid-run' },
+      { id: 'orbit-snap', el: 'owner-orbit-snap' }
+    ];
+
+    for(const g of games){
+      const { data, error } = await sb
+        .from('scores')
+        .select('username, score')
+        .eq('game', g.id)
+        .gte('created_at', lastWeekStart.toISOString())
+        .lt('created_at', thisWeekStart.toISOString())
+        .order('score', { ascending: false })
+        .limit(1);
+
+      const el = document.getElementById(g.el);
+      if(!error && data && data.length > 0){
+        el.textContent = '👑 ' + data[0].username;
+      } else {
+        el.textContent = 'Unclaimed this week';
+        el.style.color = 'var(--muted)';
+        el.style.background = 'transparent';
+        el.style.border = '1px solid var(--line)';
+      }
+    }
+  }
+
+  function updateWeekCountdown(){
+    const now = new Date();
+    const thisWeekStart = startOfWeekUTC(now);
+    const nextWeekStart = new Date(thisWeekStart);
+    nextWeekStart.setUTCDate(nextWeekStart.getUTCDate() + 7);
+    let diff = Math.max(0, nextWeekStart - now);
+    const d = Math.floor(diff / 86400000);
+    const h = String(Math.floor((diff % 86400000) / 3600000)).padStart(2, '0');
+    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+    document.getElementById('week-countdown').textContent = d + 'd ' + h + ':' + m + ':' + s;
   }
 
   function layoutMap(){
@@ -257,6 +328,9 @@
   window.addEventListener('resize', layoutMap);
   layoutMap();
   loadPlayerCard();
+  loadWeeklyOwners();
+  updateWeekCountdown();
+  setInterval(updateWeekCountdown, 1000);
 </script>
 
 <script>

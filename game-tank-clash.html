@@ -443,17 +443,19 @@
 
   function xpForLevel(level){ return 25 * level * (level - 1); }
   function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
-  async function awardProgress(userId, username, xpEarned, coinsEarned){
+  async function awardProgress(userId, username, xpEarned, coinsEarned, tokensEarned){
     try{
-      const { data: existing } = await sb.from('profiles').select('xp,coins').eq('user_id', userId).maybeSingle();
+      const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', userId).maybeSingle();
       const prevXp = existing ? existing.xp : 0;
       const prevCoins = existing ? existing.coins : 0;
+      const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
       const newXp = prevXp + xpEarned;
       const newCoins = prevCoins + coinsEarned;
+      const newTokens = prevTokens + (tokensEarned || 0);
       if(existing){
-        await sb.from('profiles').update({ xp: newXp, coins: newCoins, username, updated_at: new Date().toISOString() }).eq('user_id', userId);
+        await sb.from('profiles').update({ xp: newXp, coins: newCoins, battle_tokens: newTokens, username, updated_at: new Date().toISOString() }).eq('user_id', userId);
       } else {
-        await sb.from('profiles').insert({ user_id: userId, username, xp: newXp, coins: newCoins });
+        await sb.from('profiles').insert({ user_id: userId, username, xp: newXp, coins: newCoins, battle_tokens: newTokens });
       }
       const prevLevel = levelFromXp(prevXp);
       const newLevel = levelFromXp(newXp);
@@ -1490,14 +1492,15 @@
     const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
     const xpEarned = result === 'win' ? 90 : 25;
     const coinsEarned = result === 'win' ? 45 : 12;
-    const progress = await awardProgress(user.id, username, xpEarned, coinsEarned);
+    const tokensEarned = result === 'win' ? 8 : 3;
+    const progress = await awardProgress(user.id, username, xpEarned, coinsEarned, tokensEarned);
 
     if(progress === null){
       msg.className = 'submit-msg error';
       msg.textContent = 'Could not record your XP this time.';
     } else {
       msg.className = 'submit-msg success';
-      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins' + (progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
+      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, +' + tokensEarned + ' tokens' + (progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
     }
   }
 

@@ -17,6 +17,7 @@
     --cyan:#2DE1FC;
     --green:#34D399;
     --red:#FF5C5C;
+    --pink:#FF5CB6;
     --text:#F4F6FA;
     --muted:#8A93A6;
   }
@@ -129,6 +130,11 @@
           <div style="font-size:22px;">🪙</div>
           <div class="mono" id="profile-coins" style="font-size:20px; font-weight:700; color:var(--amber);">0</div>
           <div style="font-size:11px; color:var(--muted);">Coins</div>
+        </div>
+        <div style="background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:12px 18px; text-align:center; flex-shrink:0;">
+          <div style="font-size:22px;">⚔️</div>
+          <div class="mono" id="profile-tokens" style="font-size:20px; font-weight:700; color:var(--pink);">0</div>
+          <div style="font-size:11px; color:var(--muted);">Battle Tokens</div>
         </div>
       </div>
     </div>
@@ -262,9 +268,10 @@
     document.getElementById('profile-email').value = user.email;
     document.getElementById('profile-username').value = (user.user_metadata && user.user_metadata.username) || '';
 
-    const { data: profile } = await sb.from('profiles').select('xp,coins').eq('user_id', user.id).maybeSingle();
+    const { data: profile } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', user.id).maybeSingle();
     const xp = profile ? profile.xp : 0;
-    const coins = profile ? profile.coins : 0;
+    const coins = profile ? profile.coins : 100;
+    const tokens = profile ? (profile.battle_tokens || 0) : 0;
     const level = levelFromXp(xp);
     const curFloor = xpForLevel(level);
     const nextFloor = xpForLevel(level + 1);
@@ -274,6 +281,7 @@
     document.getElementById('profile-xp-label').textContent = (xp - curFloor) + ' / ' + (nextFloor - curFloor) + ' XP';
     document.getElementById('profile-xp-fill').style.width = progress + '%';
     document.getElementById('profile-coins').textContent = coins.toLocaleString();
+    document.getElementById('profile-tokens').textContent = tokens.toLocaleString();
 
     document.getElementById('loading').style.display = 'none';
     document.getElementById('profile-content').style.display = 'block';

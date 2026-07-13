@@ -719,13 +719,16 @@
       const user = data.session.user;
       const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
 
-      const { data: profile } = await sb.from('profiles').select('xp,coins').eq('user_id', user.id).maybeSingle();
+      const { data: profile } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', user.id).maybeSingle();
       const xp = profile ? profile.xp : 0;
-      const coins = profile ? profile.coins : 0;
+      const coins = profile ? profile.coins : 100;
+      const tokens = profile ? (profile.battle_tokens || 0) : 0;
       const level = levelFromXp(xp);
       const statsHtml = '<span class="mono" style="color:var(--amber); font-size:13px; font-weight:700;">LV ' + level + '</span>' +
         '<span class="mono" style="color:var(--muted); font-size:13px;">·</span>' +
-        '<span class="mono" style="color:var(--amber); font-size:13px; font-weight:700;">🪙' + coins.toLocaleString() + '</span>';
+        '<span class="mono" style="color:var(--amber); font-size:13px; font-weight:700;">🪙' + coins.toLocaleString() + '</span>' +
+        '<span class="mono" style="color:var(--muted); font-size:13px;">·</span>' +
+        '<span class="mono" style="color:var(--pink); font-size:13px; font-weight:700;">⚔' + tokens.toLocaleString() + '</span>';
 
       const area = document.getElementById('nav-auth-area');
       area.innerHTML =

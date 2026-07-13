@@ -275,7 +275,9 @@
         <button class="btn-ghost diff-btn" data-diff="hard" onclick="setDifficulty('hard')" style="flex:1; padding:9px 4px; font-size:12px; font-weight:800; border-radius:8px; cursor:pointer;">Hard</button>
         <button class="btn-ghost diff-btn" data-diff="extreme" onclick="setDifficulty('extreme')" style="flex:1; padding:9px 4px; font-size:12px; font-weight:800; border-radius:8px; cursor:pointer;">Extreme</button>
       </div>
-      <button class="btn btn-primary" onclick="startGame()">Deploy Squad</button>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);">25 Battle Tokens</b> — win to earn more back.</div>
+      <div class="submit-msg" id="entry-msg"></div>
+      <button class="btn btn-primary" id="deploy-btn" onclick="startGame()">Deploy Squad</button>
     </div>
   </div>
 
@@ -447,7 +449,7 @@
     try{
       const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', userId).maybeSingle();
       const prevXp = existing ? existing.xp : 0;
-      const prevCoins = existing ? existing.coins : 0;
+      const prevCoins = existing ? existing.coins : 100;
       const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
       const newXp = prevXp + xpEarned;
       const newCoins = prevCoins + coinsEarned;
@@ -1492,7 +1494,7 @@
     const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
     const xpEarned = result === 'win' ? 90 : 25;
     const coinsEarned = result === 'win' ? 45 : 12;
-    const tokensEarned = result === 'win' ? 8 : 3;
+    const tokensEarned = result === 'win' ? WIN_TOKEN_REWARD : LOSS_TOKEN_REWARD;
     const progress = await awardProgress(user.id, username, xpEarned, coinsEarned, tokensEarned);
 
     if(progress === null){
@@ -1500,11 +1502,50 @@
       msg.textContent = 'Could not record your XP this time.';
     } else {
       msg.className = 'submit-msg success';
-      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, +' + tokensEarned + ' tokens' + (progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
+      const netTokens = tokensEarned - ENTRY_FEE_TOKENS;
+      const netTag = (netTokens >= 0 ? '+' : '') + netTokens + ' net tokens (paid ' + ENTRY_FEE_TOKENS + ', earned ' + tokensEarned + ')';
+      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, ' + netTag + (progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
     }
   }
 
-  function startGame(){
+  const ENTRY_FEE_TOKENS = 25;
+  const WIN_TOKEN_REWARD = 60;
+  const LOSS_TOKEN_REWARD = 12;
+
+  async function startGame(){
+    const entryMsg = document.getElementById('entry-msg');
+    const deployBtn = document.getElementById('deploy-btn');
+    entryMsg.className = 'submit-msg';
+    entryMsg.textContent = '';
+
+    deployBtn.disabled = true;
+    deployBtn.textContent = 'Checking Battle Tokens...';
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to enter — Tank Clash requires 25 Battle Tokens.';
+      deployBtn.disabled = false;
+      deployBtn.textContent = 'Deploy Squad';
+      return;
+    }
+
+    const user = sessionData.session.user;
+    const { data: profile } = await sb.from('profiles').select('battle_tokens').eq('user_id', user.id).maybeSingle();
+    const currentTokens = profile ? (profile.battle_tokens || 0) : 0;
+
+    if(currentTokens < ENTRY_FEE_TOKENS){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.textContent = 'Not enough Battle Tokens (you have ' + currentTokens + ', need ' + ENTRY_FEE_TOKENS + '). Play Asteroid Run or Orbit Snap to earn more.';
+      deployBtn.disabled = false;
+      deployBtn.textContent = 'Deploy Squad';
+      return;
+    }
+
+    await sb.from('profiles').update({ battle_tokens: currentTokens - ENTRY_FEE_TOKENS }).eq('user_id', user.id);
+
+    deployBtn.disabled = false;
+    deployBtn.textContent = 'Deploy Squad';
     document.getElementById('start-overlay').classList.add('hidden');
     document.getElementById('over-overlay').classList.add('hidden');
     playerMana = 0; playerMaxMana = 0;

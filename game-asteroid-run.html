@@ -181,7 +181,9 @@
         <li><span class="rule-icon">👾</span><span><b>Aliens:</b> sweep in from the sides and open fire — dodge the shots, and don't touch the ships either.</span></li>
         <li><span class="rule-icon">🛸</span><span><b>Cruiser:</b> after about a minute, a bigger ship shows up and locks a cross-shaped laser onto <b>your</b> position — you have to actually move before it fires, not just stand still.</span></li>
       </ul>
-      <button class="btn btn-primary" onclick="startGame()">Start Run</button>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">🪙 Entry costs <b style="color:var(--amber);">10 Coins</b> per run.</div>
+      <div class="submit-msg" id="entry-msg"></div>
+      <button class="btn btn-primary start-action-btn" onclick="startGame()">Start Run</button>
     </div>
   </div>
 
@@ -193,7 +195,7 @@
       <div class="score-label">Final Score</div>
       <div class="submit-msg" id="submit-msg"></div>
       <button class="btn btn-primary" id="submit-btn" onclick="submitScore()">Submit to Leaderboard</button>
-      <button class="btn btn-ghost" onclick="startGame()">Play Again</button>
+      <button class="btn btn-ghost start-action-btn" onclick="startGame()">Play Again</button>
     </div>
   </div>
 </div>
@@ -252,7 +254,7 @@
     try{
       const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', userId).maybeSingle();
       const prevXp = existing ? existing.xp : 0;
-      const prevCoins = existing ? existing.coins : 0;
+      const prevCoins = existing ? existing.coins : 100;
       const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
       const newXp = prevXp + xpEarned;
       const newCoins = prevCoins + coinsEarned;
@@ -878,7 +880,45 @@
     }
   }
 
-  function startGame(){
+  const ENTRY_FEE_COINS = 10;
+
+  async function startGame(){
+    document.getElementById('over-overlay').classList.add('hidden');
+    document.getElementById('start-overlay').classList.remove('hidden');
+    const entryMsg = document.getElementById('entry-msg');
+    const actionBtns = document.querySelectorAll('.start-action-btn');
+    entryMsg.className = 'submit-msg';
+    entryMsg.textContent = '';
+    actionBtns.forEach(b => b.disabled = true);
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to play — each run costs 10 Coins.';
+      actionBtns.forEach(b => b.disabled = false);
+      return;
+    }
+
+    const user = sessionData.session.user;
+    const { data: profile } = await sb.from('profiles').select('coins').eq('user_id', user.id).maybeSingle();
+    const currentCoins = profile ? profile.coins : 100; // new players start with 100 free coins
+
+    if(currentCoins < ENTRY_FEE_COINS){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.textContent = 'Not enough Coins (you have ' + currentCoins + ', need ' + ENTRY_FEE_COINS + ').';
+      actionBtns.forEach(b => b.disabled = false);
+      return;
+    }
+
+    const newCoins = currentCoins - ENTRY_FEE_COINS;
+    if(profile){
+      await sb.from('profiles').update({ coins: newCoins }).eq('user_id', user.id);
+    } else {
+      const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+      await sb.from('profiles').insert({ user_id: user.id, username, xp: 0, coins: newCoins, battle_tokens: 0 });
+    }
+
+    actionBtns.forEach(b => b.disabled = false);
     document.getElementById('start-overlay').classList.add('hidden');
     document.getElementById('over-overlay').classList.add('hidden');
     resetGame();
@@ -941,7 +981,7 @@
     } else {
       const xpEarned = Math.max(5, Math.floor(finalScore / 20));
       const coinsEarned = Math.max(2, Math.floor(finalScore / 50));
-      const tokensEarned = Math.max(1, Math.floor(finalScore / 150));
+      const tokensEarned = Math.floor(finalScore / 600);
       const progress = await awardProgress(user.id, username, xpEarned, coinsEarned, tokensEarned);
       await checkAndAwardOwnerBonus(GAME_ID);
 

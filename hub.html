@@ -226,7 +226,7 @@
 
     const { data: profile } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', user.id).maybeSingle();
     const xp = profile ? profile.xp : 0;
-    const coins = profile ? profile.coins : 0;
+    const coins = profile ? profile.coins : 100;
     const tokens = profile ? (profile.battle_tokens || 0) : 0;
     const level = levelFromXp(xp);
     const curFloor = xpForLevel(level);

@@ -87,6 +87,7 @@
     padding:40px; max-width:420px; width:90%;
     text-align:center;
     box-shadow:0 40px 100px -20px rgba(0,0,0,0.7);
+    max-height:86vh; overflow-y:auto;
   }
   .panel .eyebrow{
     display:inline-flex; align-items:center; gap:8px;
@@ -980,8 +981,8 @@
       btn.textContent = 'Retry Submit';
     } else {
       const xpEarned = Math.max(5, Math.floor(finalScore / 20));
-      const coinsEarned = Math.max(2, Math.floor(finalScore / 50));
-      const tokensEarned = Math.floor(finalScore / 600);
+      const coinsEarned = Math.max(2, Math.floor(finalScore / 15));
+      const tokensEarned = Math.floor(finalScore / 200);
       const progress = await awardProgress(user.id, username, xpEarned, coinsEarned, tokensEarned);
       await checkAndAwardOwnerBonus(GAME_ID);
 

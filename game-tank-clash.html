@@ -99,6 +99,7 @@
     color:#fff; background:rgba(10,13,18,0.75); padding:0 3px; border-radius:3px;
     line-height:1.3; text-shadow:0 1px 2px rgba(0,0,0,0.8);
   }
+  .tank-sprite-wrap{ width:92%; height:92%; }
 
   /* ---- Roster ---- */
   .roster{ display:flex; gap:9px; padding:9px 16px; overflow-x:auto; }
@@ -210,13 +211,30 @@
   }
 
   @media (max-width:480px){
-    #board{ grid-template-columns:repeat(12, minmax(18px,26px)); grid-template-rows:repeat(6, minmax(22px,32px)); gap:2px; }
-    .tile{ font-size:13px; }
+    .board-wrap{ padding:2px; }
+    #board{ grid-template-columns:repeat(12, minmax(22px,30px)); grid-template-rows:repeat(6, minmax(24px,34px)); gap:1.5px; }
+    .tile{ font-size:11px; }
+    .tank-sprite-wrap{ width:66%; height:66%; }
+    .cost-badge{ font-size:9px; padding:1px 3px 1px 2px; }
+    .cost-badge .cb-gem{ width:6px; height:6px; }
+    .dmg-badge{ font-size:7px; padding:1px 2px; }
     .roster-tank{ width:78px; }
     .mana-crystal{ width:11px; height:11px; }
     .mana-label{ font-size:15px; margin-left:5px; }
     #combat-log{ max-width:42vw; gap:3px; }
     #combat-log .log-line{ font-size:9px; padding:3px 6px; border-radius:5px; opacity:0.8; }
+  }
+  #rotate-hint{
+    display:none; position:fixed; inset:0; z-index:100; background:rgba(10,13,18,0.96);
+    flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px;
+    color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif;
+  }
+  #rotate-hint .rotate-icon{ font-size:44px; margin-bottom:14px; animation:rotate-wiggle 1.6s ease-in-out infinite; }
+  #rotate-hint .rotate-title{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:26px; margin-bottom:8px; }
+  #rotate-hint .rotate-sub{ color:var(--muted); font-size:13px; max-width:280px; margin-bottom:16px; }
+  @keyframes rotate-wiggle{ 0%,100%{ transform:rotate(0deg); } 50%{ transform:rotate(-90deg); } }
+  @media (max-width:700px) and (orientation:portrait){
+    #rotate-hint{ display:flex; }
   }
 </style>
 </head>
@@ -227,6 +245,13 @@
   <div class="game-title">TANK CLASH</div>
   <a href="index.html" class="back-link">&larr; Exit</a>
 </nav>
+
+<div id="rotate-hint">
+  <div class="rotate-icon">📱</div>
+  <div class="rotate-title">Rotate Your Device</div>
+  <div class="rotate-sub">Tank Clash plays much better in landscape — the battlefield is wide and needs the extra width.</div>
+  <button class="btn btn-ghost" onclick="document.getElementById('rotate-hint').style.display='none';" style="max-width:220px;">Continue in Portrait</button>
+</div>
 
 <div id="stage">
   <div id="combat-log"></div>
@@ -270,12 +295,12 @@
         <li><span class="rule-icon">⚡</span><span><b>Skills:</b> Light Tank's Scan reveals a random enemy tank, Medium Tank's Rail Cannon hits hard, Heavy Tank can brace for +50% damage (can't move while braced), and Support Tank can Repair an ally for 300 HP. <b>Each tank can only use its skill once per turn.</b></span></li>
       </ul>
       <div style="display:flex; gap:6px; margin-bottom:18px;">
-        <button class="btn-ghost diff-btn active" data-diff="easy" onclick="setDifficulty('easy')" style="flex:1; padding:9px 4px; font-size:12px; font-weight:800; border-radius:8px; cursor:pointer;">Easy</button>
-        <button class="btn-ghost diff-btn" data-diff="medium" onclick="setDifficulty('medium')" style="flex:1; padding:9px 4px; font-size:12px; font-weight:800; border-radius:8px; cursor:pointer;">Medium</button>
+        <button class="btn-ghost diff-btn" data-diff="easy" onclick="setDifficulty('easy')" style="flex:1; padding:9px 4px; font-size:12px; font-weight:800; border-radius:8px; cursor:pointer;">Easy</button>
+        <button class="btn-ghost diff-btn active" data-diff="medium" onclick="setDifficulty('medium')" style="flex:1; padding:9px 4px; font-size:12px; font-weight:800; border-radius:8px; cursor:pointer;">Medium</button>
         <button class="btn-ghost diff-btn" data-diff="hard" onclick="setDifficulty('hard')" style="flex:1; padding:9px 4px; font-size:12px; font-weight:800; border-radius:8px; cursor:pointer;">Hard</button>
         <button class="btn-ghost diff-btn" data-diff="extreme" onclick="setDifficulty('extreme')" style="flex:1; padding:9px 4px; font-size:12px; font-weight:800; border-radius:8px; cursor:pointer;">Extreme</button>
       </div>
-      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);">25 Battle Tokens</b> — win to earn more back.</div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;" id="entry-fee-note">⚔ Entry costs <b style="color:var(--pink);">15 Battle Tokens</b> — win to earn 35 back.</div>
       <div class="submit-msg" id="entry-msg"></div>
       <button class="btn btn-primary" id="deploy-btn" onclick="startGame()">Deploy Squad</button>
     </div>
@@ -503,6 +528,10 @@
   function setDifficulty(d){
     difficulty = d;
     document.querySelectorAll('.diff-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.diff === d));
+    const fee = DIFFICULTY_ENTRY_FEE[d];
+    const win = DIFFICULTY_WIN_REWARD[d];
+    document.getElementById('entry-fee-note').innerHTML =
+      '⚔ Entry costs <b style="color:var(--pink);">' + fee + ' Battle Tokens</b> — win to earn ' + win + ' back.';
   }
 
   function tryAiSkill(aliveEnemies){
@@ -1370,10 +1399,10 @@
           const showTank = occ && !occ.isPlayer && cell.revealed;
           if(!showTank) cls += ' fog';
           if(showTank){
-            content = '<div style="width:92%; height:92%;">' + tankSvg(occ.type, occ.isPlayer) + '</div><div class="hp-num">' + formatHp(occ.hp) + '</div><div class="hp-mini"><div class="hp-mini-fill" style="width:' + Math.max(0,(occ.hp/occ.maxHp*100)) + '%;"></div></div>';
+            content = '<div class="tank-sprite-wrap">' + tankSvg(occ.type, occ.isPlayer) + '</div><div class="hp-num">' + formatHp(occ.hp) + '</div><div class="hp-mini"><div class="hp-mini-fill" style="width:' + Math.max(0,(occ.hp/occ.maxHp*100)) + '%;"></div></div>';
           }
         } else if(occ){
-          content = '<div style="width:92%; height:92%;">' + tankSvg(occ.type, occ.isPlayer) + '</div><div class="hp-num">' + formatHp(occ.hp) + '</div><div class="hp-mini"><div class="hp-mini-fill" style="width:' + Math.max(0,(occ.hp/occ.maxHp*100)) + '%;"></div></div>';
+          content = '<div class="tank-sprite-wrap">' + tankSvg(occ.type, occ.isPlayer) + '</div><div class="hp-num">' + formatHp(occ.hp) + '</div><div class="hp-mini"><div class="hp-mini-fill" style="width:' + Math.max(0,(occ.hp/occ.maxHp*100)) + '%;"></div></div>';
         }
 
         if(selected){
@@ -1494,7 +1523,8 @@
     const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
     const xpEarned = result === 'win' ? 90 : 25;
     const coinsEarned = result === 'win' ? 45 : 12;
-    const tokensEarned = result === 'win' ? WIN_TOKEN_REWARD : LOSS_TOKEN_REWARD;
+    const tokensEarned = result === 'win' ? DIFFICULTY_WIN_REWARD[matchDifficulty] : DIFFICULTY_LOSS_REWARD[matchDifficulty];
+    const entryFeePaid = DIFFICULTY_ENTRY_FEE[matchDifficulty];
     const progress = await awardProgress(user.id, username, xpEarned, coinsEarned, tokensEarned);
 
     if(progress === null){
@@ -1502,15 +1532,16 @@
       msg.textContent = 'Could not record your XP this time.';
     } else {
       msg.className = 'submit-msg success';
-      const netTokens = tokensEarned - ENTRY_FEE_TOKENS;
-      const netTag = (netTokens >= 0 ? '+' : '') + netTokens + ' net tokens (paid ' + ENTRY_FEE_TOKENS + ', earned ' + tokensEarned + ')';
+      const netTokens = tokensEarned - entryFeePaid;
+      const netTag = (netTokens >= 0 ? '+' : '') + netTokens + ' net tokens (paid ' + entryFeePaid + ', earned ' + tokensEarned + ')';
       msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, ' + netTag + (progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
     }
   }
 
-  const ENTRY_FEE_TOKENS = 25;
-  const WIN_TOKEN_REWARD = 60;
-  const LOSS_TOKEN_REWARD = 12;
+  const DIFFICULTY_ENTRY_FEE = { easy: 10, medium: 15, hard: 20, extreme: 25 };
+  const DIFFICULTY_WIN_REWARD = { easy: 25, medium: 35, hard: 50, extreme: 60 };
+  const DIFFICULTY_LOSS_REWARD = { easy: 5, medium: 8, hard: 10, extreme: 12 };
+  let matchDifficulty = 'medium'; // locked in when the match actually starts
 
   async function startGame(){
     const entryMsg = document.getElementById('entry-msg');
@@ -1518,13 +1549,16 @@
     entryMsg.className = 'submit-msg';
     entryMsg.textContent = '';
 
+    matchDifficulty = difficulty;
+    const entryFee = DIFFICULTY_ENTRY_FEE[matchDifficulty];
+
     deployBtn.disabled = true;
     deployBtn.textContent = 'Checking Battle Tokens...';
 
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
       entryMsg.className = 'submit-msg error';
-      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to enter — Tank Clash requires 25 Battle Tokens.';
+      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to enter — this difficulty requires ' + entryFee + ' Battle Tokens.';
       deployBtn.disabled = false;
       deployBtn.textContent = 'Deploy Squad';
       return;
@@ -1534,15 +1568,15 @@
     const { data: profile } = await sb.from('profiles').select('battle_tokens').eq('user_id', user.id).maybeSingle();
     const currentTokens = profile ? (profile.battle_tokens || 0) : 0;
 
-    if(currentTokens < ENTRY_FEE_TOKENS){
+    if(currentTokens < entryFee){
       entryMsg.className = 'submit-msg error';
-      entryMsg.textContent = 'Not enough Battle Tokens (you have ' + currentTokens + ', need ' + ENTRY_FEE_TOKENS + '). Play Asteroid Run or Orbit Snap to earn more.';
+      entryMsg.textContent = 'Not enough Battle Tokens (you have ' + currentTokens + ', need ' + entryFee + '). Play Asteroid Run or Orbit Snap to earn more, or pick an easier difficulty.';
       deployBtn.disabled = false;
       deployBtn.textContent = 'Deploy Squad';
       return;
     }
 
-    await sb.from('profiles').update({ battle_tokens: currentTokens - ENTRY_FEE_TOKENS }).eq('user_id', user.id);
+    await sb.from('profiles').update({ battle_tokens: currentTokens - entryFee }).eq('user_id', user.id);
 
     deployBtn.disabled = false;
     deployBtn.textContent = 'Deploy Squad';

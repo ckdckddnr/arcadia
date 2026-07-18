@@ -31,7 +31,7 @@
 
   #stage{ position:relative; width:100%; height:calc(100vh - 49px); height:calc(100dvh - 49px); display:flex; flex-direction:column; overflow:hidden; }
 
-  .battle-row{ flex:1; display:flex; flex-direction:row; overflow:hidden; min-height:0; }
+  .battle-row{ flex:1; display:flex; flex-direction:row; overflow:hidden; min-height:0; position:relative; }
 
   /* ---- Boss side panel ---- */
   #boss-banner{
@@ -260,7 +260,7 @@
   <div id="turn-banner"></div>
 
   <div class="battle-row">
-    <div class="board-wrap"><div id="board"></div><div id="fx-layer"></div></div>
+    <div class="board-wrap"><div id="board"></div></div>
 
     <div id="boss-banner">
       <div id="boss-portrait-wrap"><img id="boss-portrait" src="" alt="Boss"></div>
@@ -274,6 +274,7 @@
       </div>
       <div id="boss-turn-count">Turn 1</div>
     </div>
+    <div id="fx-layer"></div>
   </div>
 
   <div id="action-banner"></div>
@@ -395,7 +396,12 @@
   function sfxRailgun(){ playClip('weapon_railgun_001.wav', 0.8); }
   function sfxShield(){ playClip('shield_up_002.wav', 0.7); }
   function sfxBossHit(){ playNoise(0.15, 0.18, 1500); playTone(220, 0.1, 'square', 0.1, 110); }
-  function sfxBossBigAttack(){ playClip('explosion_large_005.wav', 0.85); }
+  function sfxBossBigAttack(){
+    const pool = ['impact_blaster_001.wav', 'impact_blaster_003.wav', 'explosion_small_016.wav'];
+    playClip(pool[Math.floor(Math.random() * pool.length)], 0.85);
+  }
+  function sfxBossFullMap(){ playClip('explosion_small_fading_001.wav', 0.85); }
+  function sfxSiege(){ playClip('mechanical_004.wav', 0.75); }
   function sfxVictory(){ playTone(523,0.15,'sine',0.15,660); setTimeout(()=>playTone(659,0.15,'sine',0.15,784),140); setTimeout(()=>playTone(784,0.3,'sine',0.15,1046),280); }
   function sfxDefeat(){ playTone(220,0.4,'sawtooth',0.15,90); }
   function sfxInsufficientMana(){ playClip('gui_028.wav', 0.6); }
@@ -564,6 +570,63 @@
     return { x: tRect.left - wRect.left + tRect.width/2, y: tRect.top - wRect.top + tRect.height/2 };
   }
 
+  function bossCenter(){
+    const wrapEl = document.getElementById('fx-layer');
+    const bossEl = document.getElementById('boss-portrait-wrap');
+    const bRect = bossEl.getBoundingClientRect(); const wRect = wrapEl.getBoundingClientRect();
+    return { x: bRect.left - wRect.left + bRect.width/2, y: bRect.top - wRect.top + bRect.height/2 };
+  }
+
+  function fxBurst(x, y, color, size){
+    const layer = document.getElementById('fx-layer');
+    const el = document.createElement('div');
+    const s = size || 50;
+    el.style.cssText = 'position:absolute; left:'+x+'px; top:'+y+'px; width:'+s+'px; height:'+s+'px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, '+color+' 0%, rgba(0,0,0,0) 70%); opacity:0.95; transition:opacity 0.4s ease, width 0.4s ease, height 0.4s ease; z-index:6;';
+    layer.appendChild(el);
+    requestAnimationFrame(() => { el.style.opacity = '0'; el.style.width = (s*1.8)+'px'; el.style.height = (s*1.8)+'px'; });
+    setTimeout(() => el.remove(), 450);
+  }
+
+  // A tank fires a projectile at the boss (player attacks/skills)
+  function animateProjectileToBoss(fromR, fromC, color, onDone){
+    const start = tileCenter(fromR, fromC);
+    const end = bossCenter();
+    fxBurst(start.x, start.y, color + 'cc', 34);
+    const layer = document.getElementById('fx-layer');
+    const proj = document.createElement('div');
+    proj.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:13px; height:13px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:'+color+'; box-shadow:0 0 10px '+color+'; z-index:7; transition:left 0.32s linear, top 0.32s linear;';
+    layer.appendChild(proj);
+    requestAnimationFrame(() => { proj.style.left = end.x+'px'; proj.style.top = end.y+'px'; });
+    setTimeout(() => {
+      proj.remove();
+      fxBurst(end.x, end.y, color + 'ee', 64);
+      if(onDone) onDone();
+    }, 340);
+  }
+
+  // The boss unleashes a flashy beam toward the affected tiles
+  function animateBossAttackBeam(tiles, onDone){
+    const start = bossCenter();
+    let sx = 0, sy = 0;
+    tiles.forEach(([r,c]) => { const p = tileCenter(r,c); sx += p.x; sy += p.y; });
+    const end = { x: sx / tiles.length, y: sy / tiles.length };
+
+    fxBurst(start.x, start.y, '#FF5C5Cee', 70);
+    const layer = document.getElementById('fx-layer');
+    const beam = document.createElement('div');
+    const dx = end.x - start.x, dy = end.y - start.y;
+    const len = Math.sqrt(dx*dx + dy*dy);
+    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    beam.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:0px; height:6px; border-radius:4px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle+'deg); pointer-events:none; background:linear-gradient(90deg, rgba(255,92,92,0.95), rgba(255,182,39,0.7)); box-shadow:0 0 14px rgba(255,92,92,0.8); z-index:7; transition:width 0.28s ease-out;';
+    layer.appendChild(beam);
+    requestAnimationFrame(() => { beam.style.width = len + 'px'; });
+    setTimeout(() => {
+      beam.remove();
+      fxBurst(end.x, end.y, '#FF5C5Cee', 90);
+      if(onDone) onDone();
+    }, 300);
+  }
+
   function fxFloatText(r, c, text, color){
     const pos = tileCenter(r,c);
     const layer = document.getElementById('fx-layer');
@@ -699,33 +762,43 @@
       let dmg = PATTERNS[tg.type].dmg;
       if(enraged) dmg = Math.round(dmg * 1.5);
 
-      sfxBossBigAttack();
-      triggerBoardShake(0.4);
       showAction('CORE-EATER UNLEASHES ' + PATTERNS[tg.type].label.toUpperCase() + '!', 'a-warn');
       log('The boss strikes with a ' + PATTERNS[tg.type].label + ' attack!');
 
-      tg.tiles.forEach(([r,c]) => {
-        const occ = board[r][c].occupant;
-        if(occ && occ.alive){
-          let actualDmg = dmg;
-          if(occ.shield > 0){
-            const absorbed = Math.min(occ.shield, actualDmg);
-            actualDmg -= absorbed;
-            occ.shield = 0;
+      const applyDamage = () => {
+        triggerBoardShake(0.4);
+        tg.tiles.forEach(([r,c]) => {
+          const occ = board[r][c].occupant;
+          if(occ && occ.alive){
+            let actualDmg = dmg;
+            if(occ.shield > 0){
+              const absorbed = Math.min(occ.shield, actualDmg);
+              actualDmg -= absorbed;
+              occ.shield = 0;
+            }
+            occ.hp -= actualDmg;
+            fxFloatText(r, c, '-' + actualDmg, '#FF5C5C');
+            if(occ.hp <= 0){
+              occ.alive = false;
+              board[r][c].occupant = null;
+              log('Your ' + occ.name + ' was destroyed!');
+            }
           }
-          occ.hp -= actualDmg;
-          fxFloatText(r, c, '-' + actualDmg, '#FF5C5C');
-          if(occ.hp <= 0){
-            occ.alive = false;
-            board[r][c].occupant = null;
-            log('Your ' + occ.name + ' was destroyed!');
-          }
-        }
-      });
-      render();
-      checkSquadWipe();
-      if(gameOver) return;
-      setTimeout(resolveNext, 550);
+        });
+        render();
+        checkSquadWipe();
+        if(gameOver) return;
+        setTimeout(resolveNext, 550);
+      };
+
+      if(tg.type === 'full'){
+        sfxBossFullMap();
+        animateBossAttackBeam(tg.tiles, () => {});
+        setTimeout(applyDamage, 1200);
+      } else {
+        sfxBossBigAttack();
+        animateBossAttackBeam(tg.tiles, applyDamage);
+      }
     }
     resolveNext();
   }
@@ -818,6 +891,8 @@
     render();
   }
 
+  const TANK_PROJECTILE_COLOR = { light:'#2DE1FC', medium:'#FFB627', heavy:'#FF5C5C', guardian:'#FF5CB6' };
+
   function quickAttack(uid){
     if(turn !== 'player' || gameOver) return;
     const t = playerTanks.find(x => x.uid === uid && x.alive);
@@ -827,15 +902,18 @@
     let dmg = t.atk;
     if(t.siegeModeTurnsLeft > 0) dmg = Math.round(dmg * 1.5);
     sfxAttack(t.type, t.siegeModeTurnsLeft > 0);
-    boss.hp -= dmg;
-    boss.turnsSinceDamage = 0;
-    fxFlashBossHit();
-    triggerBoardShake(0.2);
-    const costTag = '<span class="mono" style="font-size:0.55em;color:var(--muted);"> (&minus;' + t.attackCost + ' MP)</span>';
-    showAction('YOUR ' + t.name.toUpperCase() + ' HITS THE BOSS FOR ' + dmg + '!' + costTag, 'a-dmg');
-    log('Your ' + t.name + ' hits the boss for ' + dmg + '.');
-    checkBossDefeated();
     render();
+    animateProjectileToBoss(t.r, t.c, TANK_PROJECTILE_COLOR[t.type], () => {
+      boss.hp -= dmg;
+      boss.turnsSinceDamage = 0;
+      fxFlashBossHit();
+      triggerBoardShake(0.2);
+      const costTag = '<span class="mono" style="font-size:0.55em;color:var(--muted);"> (&minus;' + t.attackCost + ' MP)</span>';
+      showAction('YOUR ' + t.name.toUpperCase() + ' HITS THE BOSS FOR ' + dmg + '!' + costTag, 'a-dmg');
+      log('Your ' + t.name + ' hits the boss for ' + dmg + '.');
+      checkBossDefeated();
+      render();
+    });
   }
 
   function quickSkill(uid){
@@ -850,21 +928,28 @@
       playerMana -= sk.cost; t.skillUsed = true;
       boss.poisonStacks++;
       sfxPoison();
-      showAction('YOUR ' + t.name.toUpperCase() + ' APPLIES ACID POISON (x' + boss.poisonStacks + ')', 'a-dmg');
-      log('Your ' + t.name + ' applies acid poison — ' + boss.poisonStacks + ' stack(s) now.');
       render();
+      animateProjectileToBoss(t.r, t.c, '#34D399', () => {
+        showAction('YOUR ' + t.name.toUpperCase() + ' APPLIES ACID POISON (x' + boss.poisonStacks + ')', 'a-dmg');
+        log('Your ' + t.name + ' applies acid poison — ' + boss.poisonStacks + ' stack(s) now.');
+        render();
+      });
     } else if(sk.key === 'railgun'){
       playerMana -= sk.cost; t.skillUsed = true;
       sfxRailgun();
-      boss.hp -= 600; boss.turnsSinceDamage = 0;
-      fxFlashBossHit(); triggerBoardShake(0.35);
-      showAction('YOUR ' + t.name.toUpperCase() + ' FIRES THE RAILGUN FOR 600!', 'a-dmg');
-      log('Your ' + t.name + ' railgun hits the boss for 600.');
-      checkBossDefeated();
       render();
+      animateProjectileToBoss(t.r, t.c, '#FFB627', () => {
+        boss.hp -= 600; boss.turnsSinceDamage = 0;
+        fxFlashBossHit(); triggerBoardShake(0.35);
+        showAction('YOUR ' + t.name.toUpperCase() + ' FIRES THE RAILGUN FOR 600!', 'a-dmg');
+        log('Your ' + t.name + ' railgun hits the boss for 600.');
+        checkBossDefeated();
+        render();
+      });
     } else if(sk.key === 'siegemode'){
       playerMana -= sk.cost; t.skillUsed = true;
       t.siegeModeTurnsLeft = 3;
+      sfxSiege();
       showAction('YOUR ' + t.name.toUpperCase() + ' ENTERS SIEGE MODE', 'a-warn');
       log('Your ' + t.name + ' braces into siege mode (+50% damage, 3 turns).');
       render();

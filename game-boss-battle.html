@@ -131,6 +131,23 @@
   #combat-log .log-line.log-you{ color:var(--cyan); border-left-color:var(--cyan); }
   #combat-log .log-line.log-boss{ color:var(--red); border-left-color:var(--red); }
   #combat-log .log-line.log-neutral{ color:var(--muted); border-left-color:var(--muted); }
+  #log-toggle-btn{
+    display:none; position:absolute; top:6px; left:8px; z-index:19;
+    width:34px; height:34px; border-radius:9px; border:1px solid var(--line); background:rgba(18,22,31,0.9);
+    color:var(--text); font-size:16px; cursor:pointer; align-items:center; justify-content:center;
+  }
+  #mobile-log-panel{
+    display:none; position:absolute; top:44px; left:8px; z-index:19; width:min(74vw,280px); max-height:55vh; overflow-y:auto;
+    background:rgba(10,13,18,0.97); border:1px solid var(--line); border-radius:10px; padding:8px; flex-direction:column; gap:5px;
+  }
+  #mobile-log-panel.open{ display:flex; }
+  #mobile-log-panel .log-line{
+    font-size:12px; font-weight:700; border-radius:6px; padding:5px 10px;
+    background:rgba(255,255,255,0.04); border-left:3px solid var(--line);
+  }
+  #mobile-log-panel .log-line.log-you{ color:var(--cyan); border-left-color:var(--cyan); }
+  #mobile-log-panel .log-line.log-boss{ color:var(--red); border-left-color:var(--red); }
+  #mobile-log-panel .log-line.log-neutral{ color:var(--muted); border-left-color:var(--muted); }
 
   #action-hint{ text-align:center; font-size:12px; color:var(--muted); padding-bottom:3px; min-height:15px; }
   .roster{ display:flex; gap:10px; padding:7px 16px; overflow-x:auto; justify-content:center; }
@@ -223,6 +240,8 @@
     #boss-banner{ padding:8px 5px; }
     #boss-portrait-wrap{ width:60px; height:60px; }
     #boss-name{ font-size:11px; } #boss-phase-tag,#boss-enrage-tag{ font-size:8px; }
+    #combat-log{ display:none; }
+    #log-toggle-btn{ display:flex; }
   }
   @media (max-height: 520px) and (orientation: landscape){
     nav{ padding:2px 3vw; } nav .game-title{ display:none; }
@@ -231,6 +250,9 @@
     #boss-portrait-wrap{ width:36px; height:36px; }
     #boss-name{ font-size:9px; } #boss-phase-tag,#boss-enrage-tag{ font-size:7px; padding:1px 5px; } #boss-hp-outer{ height:8px; } #boss-hp-text{ font-size:7px; } #boss-turn-count{ font-size:9px; padding:2px 5px; }
     #next-attacks{ display:none; }
+    #combat-log{ display:none; }
+    #log-toggle-btn{ display:flex; top:2px; left:4px; width:26px; height:26px; font-size:12px; }
+    #mobile-log-panel{ top:30px; max-height:60vh; }
     .roster{ padding:1px 8px; gap:4px; }
     .roster-tank{ width:60px; padding:3px; }
     .roster-tank .name, .roster-tank .costs{ display:none; }
@@ -268,6 +290,8 @@
 
 <div id="stage">
   <div id="combat-log"></div>
+  <button id="log-toggle-btn" onclick="toggleMobileLog()">📜</button>
+  <div id="mobile-log-panel"></div>
   <div id="turn-banner"></div>
 
   <div class="battle-row">
@@ -503,6 +527,7 @@
     return String(v);
   }
 
+  let logHistory = [];
   function log(msg){
     const el = document.getElementById('combat-log');
     const line = document.createElement('div');
@@ -513,6 +538,21 @@
     line.textContent = msg;
     el.appendChild(line);
     while(el.children.length > 4) el.removeChild(el.firstChild);
+
+    logHistory.push({ msg, kind });
+    if(logHistory.length > 30) logHistory.shift();
+    renderMobileLog();
+  }
+
+  function renderMobileLog(){
+    const panel = document.getElementById('mobile-log-panel');
+    panel.innerHTML = logHistory.slice(-15).reverse().map(l =>
+      '<div class="log-line ' + l.kind + '">' + l.msg + '</div>'
+    ).join('');
+  }
+
+  function toggleMobileLog(){
+    document.getElementById('mobile-log-panel').classList.toggle('open');
   }
 
   function showTurnBanner(text){

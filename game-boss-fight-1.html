@@ -574,12 +574,50 @@
 
   function fxBurst(x, y, color, size){
     const layer = document.getElementById('fx-layer');
-    const el = document.createElement('div');
     const s = size || 50;
-    el.style.cssText = 'position:absolute; left:'+x+'px; top:'+y+'px; width:'+s+'px; height:'+s+'px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, '+color+' 0%, rgba(0,0,0,0) 70%); opacity:0.95; transition:opacity 0.4s ease, width 0.4s ease, height 0.4s ease; z-index:6;';
-    layer.appendChild(el);
-    requestAnimationFrame(() => { el.style.opacity = '0'; el.style.width = (s*1.8)+'px'; el.style.height = (s*1.8)+'px'; });
-    setTimeout(() => el.remove(), 450);
+    // outer soft glow
+    const glow = document.createElement('div');
+    glow.style.cssText = 'position:absolute; left:'+x+'px; top:'+y+'px; width:'+s+'px; height:'+s+'px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, '+color+' 0%, rgba(0,0,0,0) 70%); opacity:0.9; transition:opacity 0.45s cubic-bezier(.2,.8,.3,1), width 0.45s cubic-bezier(.2,.8,.3,1), height 0.45s cubic-bezier(.2,.8,.3,1); z-index:6;';
+    layer.appendChild(glow);
+    // bright hot core
+    const core = document.createElement('div');
+    const cs = s * 0.35;
+    core.style.cssText = 'position:absolute; left:'+x+'px; top:'+y+'px; width:'+cs+'px; height:'+cs+'px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, #FFFFFF 0%, '+color+' 55%, rgba(0,0,0,0) 80%); opacity:1; transition:opacity 0.25s ease, width 0.3s ease, height 0.3s ease; z-index:7;';
+    layer.appendChild(core);
+    requestAnimationFrame(() => {
+      glow.style.opacity = '0'; glow.style.width = (s*1.9)+'px'; glow.style.height = (s*1.9)+'px';
+      core.style.opacity = '0'; core.style.width = (cs*2.2)+'px'; core.style.height = (cs*2.2)+'px';
+    });
+    setTimeout(() => { glow.remove(); core.remove(); }, 460);
+    fxSparks(x, y, color, 5);
+  }
+
+  function fxSparks(x, y, color, count){
+    const layer = document.getElementById('fx-layer');
+    for(let i = 0; i < (count||5); i++){
+      const angle = (Math.PI * 2 * i / count) + (Math.random()*0.6 - 0.3);
+      const dist = 18 + Math.random() * 26;
+      const spark = document.createElement('div');
+      const size = 3 + Math.random() * 2.5;
+      spark.style.cssText = 'position:absolute; left:'+x+'px; top:'+y+'px; width:'+size+'px; height:'+size+'px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:'+color+'; box-shadow:0 0 6px '+color+'; z-index:8; opacity:1; transition:left 0.36s cubic-bezier(.1,.7,.3,1), top 0.36s cubic-bezier(.1,.7,.3,1), opacity 0.36s ease-out, width 0.36s ease, height 0.36s ease;';
+      layer.appendChild(spark);
+      requestAnimationFrame(() => {
+        spark.style.left = (x + Math.cos(angle)*dist) + 'px';
+        spark.style.top = (y + Math.sin(angle)*dist) + 'px';
+        spark.style.opacity = '0';
+        spark.style.width = '1px'; spark.style.height = '1px';
+      });
+      setTimeout(() => spark.remove(), 380);
+    }
+  }
+
+  function fxChargeUp(x, y, color, duration){
+    const layer = document.getElementById('fx-layer');
+    const charge = document.createElement('div');
+    charge.style.cssText = 'position:absolute; left:'+x+'px; top:'+y+'px; width:6px; height:6px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, #FFFFFF 0%, '+color+' 60%, rgba(0,0,0,0) 85%); z-index:7; opacity:0.4; transition:width '+duration+'ms cubic-bezier(.5,0,.9,.6), height '+duration+'ms cubic-bezier(.5,0,.9,.6), opacity '+duration+'ms ease-in;';
+    layer.appendChild(charge);
+    requestAnimationFrame(() => { charge.style.width = '46px'; charge.style.height = '46px'; charge.style.opacity = '1'; });
+    setTimeout(() => charge.remove(), duration + 60);
   }
 
   // A tank fires a projectile at the boss (player attacks/skills)
@@ -588,18 +626,26 @@
     const end = bossCenter();
     fxBurst(start.x, start.y, color + 'cc', 34);
     const layer = document.getElementById('fx-layer');
+    const trail = document.createElement('div');
+    const dx0 = end.x - start.x, dy0 = end.y - start.y;
+    const angle0 = Math.atan2(dy0, dx0) * 180 / Math.PI;
+    trail.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:0px; height:3px; border-radius:2px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle0+'deg); pointer-events:none; background:linear-gradient(90deg, rgba(255,255,255,0), '+color+'); opacity:0.7; z-index:6; transition:width 0.3s ease-out, opacity 0.2s ease 0.15s;';
+    layer.appendChild(trail);
     const proj = document.createElement('div');
-    proj.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:13px; height:13px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:'+color+'; box-shadow:0 0 10px '+color+'; z-index:7; transition:left 0.32s linear, top 0.32s linear;';
+    proj.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:14px; height:14px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, #fff 0%, '+color+' 60%, rgba(0,0,0,0) 85%); box-shadow:0 0 12px '+color+'; z-index:7; transition:left 0.32s cubic-bezier(.3,.6,.2,1), top 0.32s cubic-bezier(.3,.6,.2,1);';
     layer.appendChild(proj);
-    requestAnimationFrame(() => { proj.style.left = end.x+'px'; proj.style.top = end.y+'px'; });
+    requestAnimationFrame(() => {
+      proj.style.left = end.x+'px'; proj.style.top = end.y+'px';
+      trail.style.width = Math.sqrt(dx0*dx0+dy0*dy0) + 'px';
+    });
     setTimeout(() => {
-      proj.remove();
+      proj.remove(); trail.remove();
       fxBurst(end.x, end.y, color + 'ee', 64);
       if(onDone) onDone();
     }, 340);
   }
 
-  // The boss unleashes a flashy beam toward the affected tiles
+  // The boss unleashes a flashy attack toward the affected tiles
   function animateBossAttackFX(type, tiles, onDone){
     if(type === 'cross'){
       animateBossBeamSingle(tiles, onDone);
@@ -619,21 +665,29 @@
     let sx = 0, sy = 0;
     tiles.forEach(([r,c]) => { const p = tileCenter(r,c); sx += p.x; sy += p.y; });
     const end = { x: sx / tiles.length, y: sy / tiles.length };
-
-    fxBurst(start.x, start.y, '#FF5C5Cee', 70);
-    const layer = document.getElementById('fx-layer');
-    const beam = document.createElement('div');
     const dx = end.x - start.x, dy = end.y - start.y;
     const len = Math.sqrt(dx*dx + dy*dy);
     const angle = Math.atan2(dy, dx) * 180 / Math.PI;
-    beam.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:0px; height:7px; border-radius:4px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle+'deg); pointer-events:none; background:linear-gradient(90deg, rgba(255,92,92,0.95), rgba(255,182,39,0.7)); box-shadow:0 0 14px rgba(255,92,92,0.8); z-index:7; transition:width 0.28s ease-out;';
-    layer.appendChild(beam);
-    requestAnimationFrame(() => { beam.style.width = len + 'px'; });
+    const layer = document.getElementById('fx-layer');
+
+    fxChargeUp(start.x, start.y, '#FF5C5C', 180);
     setTimeout(() => {
-      beam.remove();
-      fxBurst(end.x, end.y, '#FF5C5Cee', 90);
-      if(onDone) onDone();
-    }, 300);
+      // outer glow beam
+      const glowBeam = document.createElement('div');
+      glowBeam.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:0px; height:16px; border-radius:8px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle+'deg); pointer-events:none; background:linear-gradient(90deg, rgba(255,92,92,0.15), rgba(255,92,92,0.55)); filter:blur(2px); z-index:6; transition:width 0.22s cubic-bezier(.2,.8,.3,1);';
+      layer.appendChild(glowBeam);
+      // bright core beam
+      const coreBeam = document.createElement('div');
+      coreBeam.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:0px; height:5px; border-radius:4px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle+'deg); pointer-events:none; background:linear-gradient(90deg, rgba(255,255,255,0.6), #FFF3D0, #FF5C5C); box-shadow:0 0 16px rgba(255,92,92,0.9); z-index:7; transition:width 0.22s cubic-bezier(.2,.8,.3,1);';
+      layer.appendChild(coreBeam);
+      requestAnimationFrame(() => { glowBeam.style.width = len + 'px'; coreBeam.style.width = len + 'px'; });
+      setTimeout(() => {
+        glowBeam.remove(); coreBeam.remove();
+        fxBurst(end.x, end.y, '#FF5C5Cee', 95);
+        triggerBoardShake(0.2);
+        if(onDone) onDone();
+      }, 230);
+    }, 190);
   }
 
   function tilesBoundingBox(tiles){
@@ -650,52 +704,74 @@
   function animateBossSweep(tiles, onDone){
     const start = bossCenter();
     const box = tilesBoundingBox(tiles);
-    fxBurst(start.x, start.y, '#FF922766', 60);
     const layer = document.getElementById('fx-layer');
-    const bar = document.createElement('div');
-    const isHoriz = box.w >= box.h;
-    bar.style.cssText = 'position:absolute; left:'+(box.x - box.w/2 - 12)+'px; top:'+(box.y - box.h/2 - 12)+'px; width:'+(isHoriz?4:box.w+24)+'px; height:'+(isHoriz?box.h+24:4)+'px; pointer-events:none; background:linear-gradient(180deg, rgba(255,146,39,0.95), rgba(255,92,92,0.7)); box-shadow:0 0 18px rgba(255,146,39,0.85); z-index:7; transition:'+(isHoriz?'width':'height')+' 0.3s ease-out, opacity 0.3s ease 0.25s;';
-    layer.appendChild(bar);
-    requestAnimationFrame(() => {
-      if(isHoriz) bar.style.width = (box.w+24) + 'px'; else bar.style.height = (box.h+24) + 'px';
-    });
-    setTimeout(() => { bar.style.opacity = '0'; }, 260);
-    setTimeout(() => { bar.remove(); if(onDone) onDone(); }, 380);
+    fxChargeUp(start.x, start.y, '#FF9227', 160);
+    setTimeout(() => {
+      const isHoriz = box.w >= box.h;
+      const glowBar = document.createElement('div');
+      glowBar.style.cssText = 'position:absolute; left:'+(box.x - box.w/2 - 14)+'px; top:'+(box.y - box.h/2 - 14)+'px; width:'+(isHoriz?10:box.w+28)+'px; height:'+(isHoriz?box.h+28:10)+'px; filter:blur(3px); pointer-events:none; background:linear-gradient(180deg, rgba(255,146,39,0.3), rgba(255,92,92,0.3)); z-index:6; transition:'+(isHoriz?'width':'height')+' 0.26s cubic-bezier(.2,.8,.3,1), opacity 0.25s ease 0.24s;';
+      layer.appendChild(glowBar);
+      const bar = document.createElement('div');
+      bar.style.cssText = 'position:absolute; left:'+(box.x - box.w/2 - 12)+'px; top:'+(box.y - box.h/2 - 12)+'px; width:'+(isHoriz?4:box.w+24)+'px; height:'+(isHoriz?box.h+24:4)+'px; pointer-events:none; background:linear-gradient(180deg, #FFF3D0, rgba(255,146,39,0.95), rgba(255,92,92,0.7)); box-shadow:0 0 20px rgba(255,146,39,0.9); z-index:7; transition:'+(isHoriz?'width':'height')+' 0.26s cubic-bezier(.2,.8,.3,1), opacity 0.25s ease 0.24s;';
+      layer.appendChild(bar);
+      requestAnimationFrame(() => {
+        if(isHoriz){ bar.style.width = (box.w+24)+'px'; glowBar.style.width = (box.w+28)+'px'; }
+        else { bar.style.height = (box.h+24)+'px'; glowBar.style.height = (box.h+28)+'px'; }
+      });
+      setTimeout(() => { bar.style.opacity = '0'; glowBar.style.opacity = '0'; }, 280);
+      setTimeout(() => { bar.remove(); glowBar.remove(); triggerBoardShake(0.25); if(onDone) onDone(); }, 400);
+    }, 170);
   }
 
-  // Half-map: a big shockwave ring expands from the boss over the whole zone
+  // Half-map: cascading shockwave rings expand from the boss over the whole zone
   function animateBossWave(tiles, onDone){
     const start = bossCenter();
     const box = tilesBoundingBox(tiles);
     const layer = document.getElementById('fx-layer');
-    fxBurst(start.x, start.y, '#FF5C5Ccc', 90);
-    const ring = document.createElement('div');
     const cx = box.x, cy = box.y;
-    ring.style.cssText = 'position:absolute; left:'+cx+'px; top:'+cy+'px; width:10px; height:10px; border-radius:12px; transform:translate(-50%,-50%); pointer-events:none; border:4px solid rgba(255,92,92,0.85); box-shadow:0 0 20px rgba(255,92,92,0.7); z-index:7; transition:width 0.4s ease-out, height 0.4s ease-out, opacity 0.4s ease-out;';
-    layer.appendChild(ring);
     const targetSize = Math.max(box.w, box.h) * 1.5;
-    requestAnimationFrame(() => {
-      ring.style.width = targetSize + 'px'; ring.style.height = targetSize + 'px'; ring.style.opacity = '0.15';
-    });
-    setTimeout(() => { ring.remove(); if(onDone) onDone(); }, 420);
+
+    fxChargeUp(start.x, start.y, '#FF5C5C', 200);
+    setTimeout(() => {
+      [0, 90, 180].forEach((delay, idx) => {
+        setTimeout(() => {
+          const ring = document.createElement('div');
+          const thickness = 5 - idx;
+          const op = 0.9 - idx * 0.25;
+          ring.style.cssText = 'position:absolute; left:'+cx+'px; top:'+cy+'px; width:10px; height:10px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; border:'+thickness+'px solid rgba(255,92,92,'+op+'); box-shadow:0 0 20px rgba(255,92,92,0.7); z-index:7; transition:width 0.5s cubic-bezier(.15,.7,.3,1), height 0.5s cubic-bezier(.15,.7,.3,1), opacity 0.5s ease-out;';
+          layer.appendChild(ring);
+          requestAnimationFrame(() => { ring.style.width = targetSize+'px'; ring.style.height = targetSize+'px'; ring.style.opacity = '0'; });
+          setTimeout(() => ring.remove(), 550);
+        }, delay);
+      });
+      triggerBoardShake(0.3);
+      setTimeout(() => { if(onDone) onDone(); }, 460);
+    }, 210);
   }
 
   // Scattered: several quick shots streak out to each scattered tile
   function animateBossScatterShots(tiles, onDone){
     const start = bossCenter();
     const layer = document.getElementById('fx-layer');
-    fxBurst(start.x, start.y, '#FFB627aa', 55);
-    tiles.forEach(([r,c], i) => {
-      setTimeout(() => {
-        const end = tileCenter(r,c);
-        const shot = document.createElement('div');
-        shot.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:9px; height:9px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:#FFB627; box-shadow:0 0 8px #FFB627; z-index:7; transition:left 0.22s linear, top 0.22s linear;';
-        layer.appendChild(shot);
-        requestAnimationFrame(() => { shot.style.left = end.x+'px'; shot.style.top = end.y+'px'; });
-        setTimeout(() => { shot.remove(); fxBurst(end.x, end.y, '#FFB627cc', 40); }, 230);
-      }, i * 60);
-    });
-    setTimeout(() => { if(onDone) onDone(); }, tiles.length * 60 + 260);
+    fxChargeUp(start.x, start.y, '#FFB627', 140);
+    setTimeout(() => {
+      tiles.forEach(([r,c], i) => {
+        setTimeout(() => {
+          const end = tileCenter(r,c);
+          const dx = end.x-start.x, dy = end.y-start.y;
+          const angle = Math.atan2(dy,dx) * 180/Math.PI;
+          const trail = document.createElement('div');
+          trail.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:0px; height:3px; border-radius:2px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle+'deg); pointer-events:none; background:linear-gradient(90deg, rgba(255,182,39,0), #FFB627); z-index:6; transition:width 0.2s ease-out;';
+          layer.appendChild(trail);
+          const shot = document.createElement('div');
+          shot.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:10px; height:10px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, #fff 0%, #FFB627 60%, rgba(0,0,0,0) 85%); box-shadow:0 0 10px #FFB627; z-index:7; transition:left 0.2s cubic-bezier(.3,.6,.2,1), top 0.2s cubic-bezier(.3,.6,.2,1);';
+          layer.appendChild(shot);
+          requestAnimationFrame(() => { shot.style.left = end.x+'px'; shot.style.top = end.y+'px'; trail.style.width = Math.sqrt(dx*dx+dy*dy)+'px'; });
+          setTimeout(() => { shot.remove(); trail.remove(); fxBurst(end.x, end.y, '#FFB627cc', 44); }, 210);
+        }, i * 55);
+      });
+      setTimeout(() => { triggerBoardShake(0.25); if(onDone) onDone(); }, tiles.length * 55 + 240);
+    }, 150);
   }
 
   // Full-map: the boss's eyes flash brilliantly instead of any beam
@@ -707,15 +783,24 @@
     const cx = pRect.left - wRect.left + pRect.width/2;
     const cy = pRect.top - wRect.top + pRect.height/2;
 
-    portrait.style.filter = 'brightness(3) drop-shadow(0 0 40px rgba(255,220,140,1))';
-    const flash = document.createElement('div');
-    flash.style.cssText = 'position:absolute; left:'+cx+'px; top:'+cy+'px; width:20px; height:20px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, #FFF3D0 0%, rgba(255,182,39,0.6) 40%, rgba(255,92,92,0) 75%); z-index:8; transition:width 0.5s ease-out, height 0.5s ease-out, opacity 0.6s ease-out;';
-    layer.appendChild(flash);
-    requestAnimationFrame(() => {
-      flash.style.width = '900px'; flash.style.height = '900px'; flash.style.opacity = '0';
-    });
-    setTimeout(() => { portrait.style.filter = ''; }, 350);
-    setTimeout(() => { flash.remove(); if(onDone) onDone(); }, 600);
+    portrait.style.filter = 'brightness(1.3) drop-shadow(0 0 10px rgba(255,220,140,0.6))';
+    setTimeout(() => {
+      portrait.style.transition = 'filter 0.12s ease';
+      portrait.style.filter = 'brightness(3.2) drop-shadow(0 0 46px rgba(255,220,140,1))';
+      const flash = document.createElement('div');
+      flash.style.cssText = 'position:absolute; left:'+cx+'px; top:'+cy+'px; width:20px; height:20px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, #FFFFFF 0%, #FFF3D0 25%, rgba(255,182,39,0.6) 45%, rgba(255,92,92,0) 75%); z-index:8; transition:width 0.5s cubic-bezier(.1,.8,.2,1), height 0.5s cubic-bezier(.1,.8,.2,1), opacity 0.6s ease-out;';
+      layer.appendChild(flash);
+      const ring = document.createElement('div');
+      ring.style.cssText = 'position:absolute; left:'+cx+'px; top:'+cy+'px; width:10px; height:10px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; border:3px solid rgba(255,220,140,0.9); z-index:8; transition:width 0.55s ease-out, height 0.55s ease-out, opacity 0.55s ease-out;';
+      layer.appendChild(ring);
+      requestAnimationFrame(() => {
+        flash.style.width = '1000px'; flash.style.height = '1000px'; flash.style.opacity = '0';
+        ring.style.width = '600px'; ring.style.height = '600px'; ring.style.opacity = '0';
+      });
+      triggerBoardShake(0.45);
+      setTimeout(() => { portrait.style.filter = ''; }, 350);
+      setTimeout(() => { flash.remove(); ring.remove(); if(onDone) onDone(); }, 600);
+    }, 220);
   }
 
   function fxFloatText(r, c, text, color){
@@ -1286,7 +1371,8 @@
       return;
     }
     const user = sessionData.session.user;
-    const { data: profile } = await sb.from('profiles').select('boss_tanks_owned').eq('user_id', user.id).maybeSingle();
+    const { data: profile, error } = await sb.from('profiles').select('boss_tanks_owned').eq('user_id', user.id).maybeSingle();
+    if(error) console.error('boss_tanks_owned fetch error', error);
     ownedTanks = profile ? (profile.boss_tanks_owned || []) : [];
     if(!TYPE_ORDER.every(k => ownedTanks.includes(k))){
       window.location.href = 'game-boss-battle.html';

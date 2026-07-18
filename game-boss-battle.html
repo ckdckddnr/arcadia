@@ -31,15 +31,18 @@
 
   #stage{ position:relative; width:100%; height:calc(100vh - 49px); height:calc(100dvh - 49px); display:flex; flex-direction:column; overflow:hidden; }
 
-  /* ---- Boss banner ---- */
+  .battle-row{ flex:1; display:flex; flex-direction:row; overflow:hidden; min-height:0; }
+
+  /* ---- Boss side panel ---- */
   #boss-banner{
-    display:flex; align-items:center; gap:14px; padding:8px 16px;
-    background:linear-gradient(180deg, rgba(255,92,92,0.12), transparent); border-bottom:1px solid var(--line);
+    display:flex; flex-direction:column; align-items:center; gap:8px; padding:14px 8px;
+    background:linear-gradient(90deg, rgba(255,92,92,0.12), transparent); border-right:1px solid var(--line);
+    width:108px; flex-shrink:0; overflow-y:auto; text-align:center;
   }
-  #boss-portrait{ width:56px; height:56px; flex-shrink:0; filter:drop-shadow(0 0 10px rgba(255,92,92,0.5)); }
-  #boss-info{ flex:1; min-width:0; }
-  #boss-name-row{ display:flex; align-items:center; gap:8px; margin-bottom:3px; flex-wrap:wrap; }
-  #boss-name{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:17px; letter-spacing:0.03em; color:var(--red); }
+  #boss-portrait{ width:64px; height:64px; flex-shrink:0; filter:drop-shadow(0 0 10px rgba(255,92,92,0.5)); }
+  #boss-info{ width:100%; }
+  #boss-name-row{ display:flex; flex-direction:column; align-items:center; gap:4px; margin-bottom:6px; }
+  #boss-name{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:16px; letter-spacing:0.03em; color:var(--red); }
   #boss-phase-tag{ font-size:9px; font-weight:800; padding:2px 8px; border-radius:10px; background:rgba(255,182,39,0.15); color:var(--amber); }
   #boss-enrage-tag{ font-size:9px; font-weight:800; padding:2px 8px; border-radius:10px; background:rgba(255,92,92,0.2); color:var(--red); display:none; }
   #boss-hp-outer{ height:12px; background:var(--surface-2); border:1px solid var(--line); border-radius:7px; overflow:hidden; position:relative; }
@@ -177,16 +180,19 @@
   .shop-card button.cant-afford{ background:var(--surface); color:var(--muted); border:1px solid var(--line); }
 
   @media (max-width:480px){
-    #board{ grid-template-columns:repeat(8, minmax(28px,44px)); grid-template-rows:repeat(6, minmax(28px,44px)); gap:2px; }
+    #board{ grid-template-columns:repeat(8, minmax(24px,38px)); grid-template-rows:repeat(6, minmax(24px,38px)); gap:2px; }
     .roster-tank{ width:70px; }
     .shop-grid{ grid-template-columns:1fr; }
+    #boss-banner{ width:78px; padding:8px 5px; }
+    #boss-portrait{ width:44px; height:44px; }
+    #boss-name{ font-size:11px; } #boss-phase-tag,#boss-enrage-tag{ font-size:8px; }
   }
   @media (max-height: 520px) and (orientation: landscape){
     nav{ padding:2px 3vw; } nav .game-title{ display:none; }
     #stage{ height:calc(100vh - 22px); height:calc(100dvh - 22px); }
-    #boss-banner{ padding:2px 10px; gap:8px; }
-    #boss-portrait{ width:34px; height:34px; }
-    #boss-name{ font-size:12px; } #boss-hp-outer{ height:9px; } #boss-turn-count{ font-size:10px; padding:2px 6px; }
+    #boss-banner{ padding:4px 6px; gap:4px; width:64px; }
+    #boss-portrait{ width:28px; height:28px; }
+    #boss-name{ font-size:9px; } #boss-phase-tag,#boss-enrage-tag{ font-size:7px; padding:1px 5px; } #boss-hp-outer{ height:8px; } #boss-hp-text{ font-size:7px; } #boss-turn-count{ font-size:9px; padding:2px 5px; }
     .roster{ padding:1px 8px; gap:4px; }
     .roster-tank{ width:40px; padding:2px; }
     .roster-tank .name, .roster-tank .costs{ display:none; }
@@ -216,20 +222,22 @@
   <div id="combat-log"></div>
   <div id="turn-banner"></div>
 
-  <div id="boss-banner">
-    <img id="boss-portrait" src="" alt="Boss">
-    <div id="boss-info">
-      <div id="boss-name-row">
-        <div id="boss-name">Core-Eater</div>
-        <div id="boss-phase-tag">Phase 1</div>
-        <div id="boss-enrage-tag">⚡ ENRAGED</div>
+  <div class="battle-row">
+    <div id="boss-banner">
+      <img id="boss-portrait" src="" alt="Boss">
+      <div id="boss-info">
+        <div id="boss-name-row">
+          <div id="boss-name">Core-Eater</div>
+          <div id="boss-phase-tag">Phase 1</div>
+          <div id="boss-enrage-tag">⚡ ENRAGED</div>
+        </div>
+        <div id="boss-hp-outer"><div id="boss-hp-fill" style="width:100%;"></div><div id="boss-hp-text">7000 / 7000</div></div>
       </div>
-      <div id="boss-hp-outer"><div id="boss-hp-fill" style="width:100%;"></div><div id="boss-hp-text">7000 / 7000</div></div>
+      <div id="boss-turn-count">Turn 1</div>
     </div>
-    <div id="boss-turn-count">Turn 1</div>
-  </div>
 
-  <div class="board-wrap"><div id="board"></div><div id="fx-layer"></div></div>
+    <div class="board-wrap"><div id="board"></div><div id="fx-layer"></div></div>
+  </div>
 
   <div id="action-banner"></div>
   <div id="action-hint">Select one of your tanks to move or act.</div>
@@ -404,13 +412,15 @@
     if(type === 'cross'){
       const cr = Math.floor(Math.random()*ROWS), cc = Math.floor(Math.random()*COLS);
       tiles.push([cr,cc]);
-      [[cr-1,cc],[cr+1,cc],[cr,cc-1],[cr,cc+1]].forEach(([r,c]) => { if(r>=0&&r<ROWS&&c>=0&&c<COLS) tiles.push([r,c]); });
+      for(let d=1; d<=2; d++){
+        [[cr-d,cc],[cr+d,cc],[cr,cc-d],[cr,cc+d]].forEach(([r,c]) => { if(r>=0&&r<ROWS&&c>=0&&c<COLS) tiles.push([r,c]); });
+      }
     } else if(type === 'column'){
-      const cc = Math.floor(Math.random()*COLS);
-      for(let r=0;r<ROWS;r++) tiles.push([r,cc]);
+      const cc = Math.floor(Math.random()*(COLS-1));
+      for(let r=0;r<ROWS;r++){ tiles.push([r,cc]); tiles.push([r,cc+1]); }
     } else if(type === 'row'){
-      const cr = Math.floor(Math.random()*ROWS);
-      for(let c=0;c<COLS;c++) tiles.push([cr,c]);
+      const cr = Math.floor(Math.random()*(ROWS-1));
+      for(let c=0;c<COLS;c++){ tiles.push([cr,c]); tiles.push([cr+1,c]); }
     } else if(type === 'half'){
       const left = Math.random() < 0.5;
       for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){ if((left && c<COLS/2) || (!left && c>=COLS/2)) tiles.push([r,c]); }
@@ -990,10 +1000,20 @@
 
     const newOwned = owned.concat([key]);
     const newTokens = tokens - price;
-    if(profile) await sb.from('profiles').update({ battle_tokens:newTokens, boss_tanks_owned:newOwned }).eq('user_id', user.id);
-    else {
+    let dbError = null;
+    if(profile){
+      const { error } = await sb.from('profiles').update({ battle_tokens:newTokens, boss_tanks_owned:newOwned }).eq('user_id', user.id);
+      dbError = error;
+    } else {
       const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
-      await sb.from('profiles').insert({ user_id:user.id, username, battle_tokens:newTokens, boss_tanks_owned:newOwned });
+      const { error } = await sb.from('profiles').insert({ user_id:user.id, username, battle_tokens:newTokens, boss_tanks_owned:newOwned });
+      dbError = error;
+    }
+    if(dbError){
+      shopMsg.className = 'submit-msg error';
+      shopMsg.textContent = 'Purchase failed: ' + dbError.message;
+      console.error('buyTank error', dbError);
+      return;
     }
     ownedTanks = newOwned;
     shopMsg.className = 'submit-msg success';

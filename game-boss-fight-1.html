@@ -75,9 +75,11 @@
   .tile:nth-child(odd){ background:#1e2434; }
   .tile.move-target{ cursor:pointer; box-shadow:inset 0 0 0 3px var(--cyan), 0 0 8px rgba(45,225,252,0.6); background:rgba(45,225,252,0.14) !important; }
   .tile.telegraph{ animation:telegraph-pulse 1s ease-in-out infinite; }
-  .tile.telegraph-0{ background:rgba(255,92,92,0.4) !important; box-shadow:inset 0 0 0 3px rgba(255,92,92,0.9); }
-  .tile.telegraph-1{ background:rgba(255,146,39,0.24) !important; box-shadow:inset 0 0 0 2px rgba(255,146,39,0.55); animation:none; }
-  .tile.telegraph-2{ background:rgba(255,182,39,0.12) !important; box-shadow:inset 0 0 0 1.5px rgba(255,182,39,0.35); animation:none; }
+  #board.full-incoming{ animation:full-map-warning 0.7s ease-in-out infinite; }
+  @keyframes full-map-warning{
+    0%,100%{ box-shadow:0 0 0 1px rgba(255,182,39,0.08), 0 20px 50px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03), 0 0 0 3px rgba(255,182,39,0.15); }
+    50%{ box-shadow:0 0 0 1px rgba(255,182,39,0.08), 0 20px 50px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03), 0 0 24px 5px rgba(255,182,39,0.55); }
+  }
 
 
   @keyframes telegraph-pulse{ 0%,100%{ opacity:0.75; } 50%{ opacity:1; } }
@@ -391,9 +393,15 @@
   function sfxRailgun(){ playClip('weapon_railgun_001.wav', 0.8); }
   function sfxShield(){ playClip('shield_up_002.wav', 0.7); }
   function sfxBossHit(){ playNoise(0.15, 0.18, 1500); playTone(220, 0.1, 'square', 0.1, 110); }
-  function sfxBossBigAttack(){
-    const pool = ['impact_blaster_001.wav', 'impact_blaster_003.wav', 'explosion_small_016.wav'];
-    playClip(pool[Math.floor(Math.random() * pool.length)], 0.85);
+  const PATTERN_SOUND = {
+    cross: 'impact_blaster_001.wav',
+    column: 'impact_blaster_003.wav',
+    row: 'impact_blaster_003.wav',
+    half: 'explosion_small_016.wav',
+    scattered: 'impact_blaster_001.wav'
+  };
+  function sfxBossAttack(type){
+    playClip(PATTERN_SOUND[type] || 'impact_blaster_001.wav', 0.85);
   }
   function sfxBossFullMap(){ playClip('explosion_small_fading_001.wav', 0.85); }
   function sfxSiege(){ playClip('mechanical_004.wav', 0.75); }
@@ -448,12 +456,12 @@
   const REGEN_PCT = 0.02;
 
   const PATTERNS = {
-    cross:     { label:'Cross',     dmg:400, phase:1 },
-    column:    { label:'Column',    dmg:350, phase:1 },
-    row:       { label:'Row',       dmg:350, phase:1 },
-    half:      { label:'Half-Map',  dmg:250, phase:2 },
-    scattered: { label:'Scattered', dmg:200, phase:2 },
-    full:      { label:'Full-Map',  dmg:100, phase:3 }
+    cross:     { label:'Cross',     dmg:400, phase:1, color:'#FF5C5C' },
+    column:    { label:'Column',    dmg:350, phase:1, color:'#2DE1FC' },
+    row:       { label:'Row',       dmg:350, phase:1, color:'#FF5CB6' },
+    half:      { label:'Half-Map',  dmg:250, phase:2, color:'#FF9227' },
+    scattered: { label:'Scattered', dmg:200, phase:2, color:'#B84DFF' },
+    full:      { label:'Full-Map',  dmg:100, phase:3, color:'#FFB627' }
   };
 
   function patternTiles(type){
@@ -871,13 +879,13 @@
   }
 
   function buildTileWarningMap(){
-    const map = new Map();
-    telegraphQueue.forEach((batch, idx) => {
-      batch.forEach(p => {
-        p.tiles.forEach(([r,c]) => {
-          const key = r+'_'+c;
-          if(!map.has(key) || map.get(key) > idx) map.set(key, idx);
-        });
+    const map = new Map(); // tileKey -> array of pattern types affecting it
+    const batch = telegraphQueue[0] || [];
+    batch.forEach(p => {
+      p.tiles.forEach(([r,c]) => {
+        const key = r+'_'+c;
+        if(!map.has(key)) map.set(key, []);
+        map.get(key).push(p.type);
       });
     });
     return map;
@@ -972,7 +980,7 @@
         animateBossEyeFlash(() => {});
         setTimeout(applyDamage, 1200);
       } else {
-        sfxBossBigAttack();
+        sfxBossAttack(tg.type);
         animateBossAttackFX(tg.type, tg.tiles, applyDamage);
       }
     }
@@ -1158,6 +1166,9 @@
     // "next attacks" preview list — shows the queued batches in order
 
     const warningMap = buildTileWarningMap();
+    const imminentBatch = telegraphQueue[0] || [];
+    const hasFullMap = imminentBatch.some(p => p.type === 'full');
+    document.getElementById('board').classList.toggle('full-incoming', hasFullMap);
     const selected = selectedTankId ? playerTanks.find(t => t.uid === selectedTankId) : null;
 
     // board
@@ -1167,7 +1178,18 @@
       for(let c=0;c<COLS;c++){
         let cls = 'tile';
         const occ = board[r][c].occupant;
-        if(warningMap.has(r+'_'+c)) cls += ' telegraph telegraph-' + warningMap.get(r+'_'+c);
+        let tileStyle = '';
+        const patternsHere = (warningMap.get(r+'_'+c) || []).filter(t => t !== 'full');
+        if(patternsHere.length > 0){
+          cls += ' telegraph';
+          const colors = patternsHere.map(t => PATTERNS[t].color);
+          if(colors.length === 1){
+            tileStyle = 'box-shadow:inset 0 0 0 3px ' + colors[0] + ', 0 0 10px ' + colors[0] + 'aa; background:' + colors[0] + '33 !important;';
+          } else {
+            const stops = colors.map((col, i) => col + ' ' + (i*100/colors.length) + '% ' + ((i+1)*100/colors.length) + '%').join(', ');
+            tileStyle = 'background:linear-gradient(135deg, ' + stops + ') !important; box-shadow:inset 0 0 0 3px rgba(255,255,255,0.6);';
+          }
+        }
         let content = '';
         if(occ){
           const siegeCls = occ.siegeModeTurnsLeft > 0 ? ' siege-active' : '';
@@ -1185,7 +1207,7 @@
           }
         }
         const onclick = (turn==='player' && !gameOver) ? 'onclick="tileClick('+r+','+c+')"' : '';
-        html += '<div class="' + cls + '" data-r="' + r + '" data-c="' + c + '" ' + onclick + '>' + content + '</div>';
+        html += '<div class="' + cls + '" style="' + tileStyle + '" data-r="' + r + '" data-c="' + c + '" ' + onclick + '>' + content + '</div>';
       }
     }
     boardEl.innerHTML = html;
@@ -1221,12 +1243,13 @@
     document.getElementById('end-turn-btn').disabled = (turn !== 'player' || gameOver);
 
     // action buttons
+    const fullMapWarning = hasFullMap ? '<div style="color:var(--amber); font-weight:800; margin-bottom:2px;">⚠ FULL-MAP ATTACK INCOMING — everyone takes damage</div>' : '';
     if(selected && turn === 'player' && !gameOver){
-      document.getElementById('action-hint').innerHTML =
+      document.getElementById('action-hint').innerHTML = fullMapWarning +
         '<b style="color:var(--amber);">' + selected.name + '</b> selected — click an adjacent tile to move (' + selected.moveCost + ' MP) ' +
         '<span class="mono" style="color:var(--muted);">(you have ' + playerMana + ' MP)</span>';
     } else if(turn === 'player' && !gameOver){
-      document.getElementById('action-hint').textContent = 'Tap a tank to move it, or use its Attack/Skill buttons below.';
+      document.getElementById('action-hint').innerHTML = fullMapWarning + 'Tap a tank to move it, or use its Attack/Skill buttons below.';
     }
   }
 

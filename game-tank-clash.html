@@ -99,7 +99,7 @@
     color:#fff; background:rgba(10,13,18,0.75); padding:0 3px; border-radius:3px;
     line-height:1.3; text-shadow:0 1px 2px rgba(0,0,0,0.8);
   }
-  .tank-sprite-wrap{ width:92%; height:92%; }
+  .tank-sprite-wrap{ width:120%; height:120%; }
 
   /* ---- Roster ---- */
   .roster{ display:flex; gap:9px; padding:9px 16px; overflow-x:auto; }
@@ -231,7 +231,7 @@
     .board-wrap{ padding:2px; }
     #board{ grid-template-columns:repeat(12, minmax(22px,30px)); grid-template-rows:repeat(6, minmax(24px,34px)); gap:1.5px; }
     .tile{ font-size:11px; }
-    .tank-sprite-wrap{ width:66%; height:66%; }
+    .tank-sprite-wrap{ width:86%; height:86%; }
     .cost-badge{ font-size:9px; padding:1px 3px 1px 2px; }
     .cost-badge .cb-gem{ width:6px; height:6px; }
     .dmg-badge{ font-size:7px; padding:1px 2px; }
@@ -240,47 +240,6 @@
     .mana-label{ font-size:15px; margin-left:5px; }
     #combat-log{ display:none; }
     #log-toggle-btn{ display:flex; }
-  }
-  #rotate-hint{
-    display:none; position:fixed; inset:0; z-index:100; background:rgba(10,13,18,0.96);
-    flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px;
-    color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif;
-  }
-  #rotate-hint .rotate-icon{ font-size:44px; margin-bottom:14px; animation:rotate-wiggle 1.6s ease-in-out infinite; }
-  #rotate-hint .rotate-title{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:26px; margin-bottom:8px; }
-  #rotate-hint .rotate-sub{ color:var(--muted); font-size:13px; max-width:280px; margin-bottom:16px; }
-  @keyframes rotate-wiggle{ 0%,100%{ transform:rotate(0deg); } 50%{ transform:rotate(-90deg); } }
-  @media (max-width:700px) and (orientation:portrait){
-    #rotate-hint{ display:flex; }
-  }  @media (max-height: 500px) and (orientation: landscape){
-    nav{ padding:2px 3vw; }
-    nav .logo{ font-size:13px; }
-    nav .logo .dot{ width:5px; height:5px; }
-    nav .game-title{ display:none; }
-    nav .back-link{ font-size:10px; }
-    #stage{ height:calc(100vh - 22px); height:calc(100dvh - 22px); }
-    .side-hud{ padding:1px 8px; flex-shrink:0; }
-    .side-label{ font-size:9px; gap:3px; }
-    .tank-count{ font-size:8px; }
-    .turn-count{ font-size:10px; padding:1px 6px; }
-    .mana-crystal{ width:7px; height:7px; }
-    .mana-label{ font-size:9px; margin-left:3px; }
-    .roster{ padding:1px 8px; gap:3px; flex-shrink:0; }
-    .roster-tank{ width:32px; padding:1px; border-radius:4px; }
-    .roster-tank .icon{ font-size:14px; height:15px; }
-    .roster-tank .name{ display:none; }
-    .roster-tank .hpbar{ height:2px; margin-top:1px; }
-    .roster-tank .costs{ display:none; }
-    #board{ grid-template-columns:repeat(12, minmax(18px,32px)); grid-template-rows:repeat(6, minmax(16px,26px)); gap:1.5px; }
-    .board-wrap{ padding:1px; flex:1 1 0; min-height:0; }
-    #action-hint{ display:none; }
-    #skill-btn{ margin:0 8px 1px; padding:2px 8px; font-size:9px; flex-shrink:0; }
-    #end-turn-btn{ margin:1px 8px 2px; padding:4px; font-size:10px; flex-shrink:0; }
-    #combat-log{ display:none; }
-    #log-toggle-btn{ display:flex; top:2px; right:4px; width:26px; height:26px; font-size:12px; }
-    #mobile-log-panel{ top:30px; max-height:60vh; }
-    .tank-sprite-wrap{ width:70%; height:70%; }
-    #rotate-hint{ display:none !important; }
   }
 </style>
 </head>
@@ -291,13 +250,6 @@
   <div class="game-title">TANK CLASH</div>
   <a href="index.html" class="back-link">&larr; Exit</a>
 </nav>
-
-<div id="rotate-hint">
-  <div class="rotate-icon">📱</div>
-  <div class="rotate-title">Rotate Your Device</div>
-  <div class="rotate-sub">Tank Clash plays much better in landscape — the battlefield is wide and needs the extra width.</div>
-  <button class="btn btn-ghost" onclick="document.getElementById('rotate-hint').style.display='none';" style="max-width:220px;">Continue in Portrait</button>
-</div>
 
 <div id="stage">
   <div id="combat-log"></div>

@@ -68,7 +68,20 @@
     display:flex; align-items:center; justify-content:center; font-size:18px; transition:background 0.15s;
   }
   .tile.move-target{ cursor:pointer; box-shadow:inset 0 0 0 3px var(--cyan), 0 0 8px rgba(45,225,252,0.6); background:rgba(45,225,252,0.14) !important; }
-  .tile.telegraph{ background:rgba(255,92,92,0.28) !important; box-shadow:inset 0 0 0 2px rgba(255,92,92,0.7); animation:telegraph-pulse 1s ease-in-out infinite; }
+  .tile.telegraph{ animation:telegraph-pulse 1s ease-in-out infinite; }
+  .tile.telegraph-0{ background:rgba(255,92,92,0.4) !important; box-shadow:inset 0 0 0 3px rgba(255,92,92,0.9); }
+  .tile.telegraph-1{ background:rgba(255,146,39,0.24) !important; box-shadow:inset 0 0 0 2px rgba(255,146,39,0.55); animation:none; }
+  .tile.telegraph-2{ background:rgba(255,182,39,0.12) !important; box-shadow:inset 0 0 0 1.5px rgba(255,182,39,0.35); animation:none; }
+
+  #next-attacks{ width:100%; display:flex; flex-direction:column; gap:5px; margin-top:8px; }
+  .next-atk-row{ display:flex; align-items:center; gap:7px; padding:5px 9px; border-radius:8px; background:var(--surface-2); border:1px solid var(--line); font-size:11px; font-weight:700; }
+  .next-atk-num{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; width:16px; text-align:center; flex-shrink:0; }
+  .next-atk-row.urgency-0{ border-color:var(--red); color:var(--red); }
+  .next-atk-row.urgency-0 .next-atk-num{ color:var(--red); }
+  .next-atk-row.urgency-1{ color:#FF9227; }
+  .next-atk-row.urgency-1 .next-atk-num{ color:#FF9227; }
+  .next-atk-row.urgency-2{ color:var(--amber); opacity:0.75; }
+  .next-atk-row.urgency-2 .next-atk-num{ color:var(--amber); }
   @keyframes telegraph-pulse{ 0%,100%{ opacity:0.75; } 50%{ opacity:1; } }
   .tile .hp-mini{ position:absolute; bottom:1px; left:1px; right:1px; height:3px; background:rgba(0,0,0,0.5); border-radius:2px; overflow:hidden; z-index:1; }
   .tile .hp-mini-fill{ height:100%; background:var(--green); }
@@ -120,9 +133,9 @@
   #combat-log .log-line.log-neutral{ color:var(--muted); border-left-color:var(--muted); }
 
   #action-hint{ text-align:center; font-size:12px; color:var(--muted); padding-bottom:3px; min-height:15px; }
-  .roster{ display:flex; gap:8px; padding:7px 16px; overflow-x:auto; justify-content:center; }
+  .roster{ display:flex; gap:10px; padding:7px 16px; overflow-x:auto; justify-content:center; }
   .roster-tank{
-    flex-shrink:0; width:88px; padding:7px; border-radius:10px; background:var(--surface-2); border:2px solid var(--line);
+    flex-shrink:0; width:108px; padding:8px; border-radius:10px; background:var(--surface-2); border:2px solid var(--line);
     text-align:center; cursor:pointer; transition:border-color 0.12s, transform 0.12s;
   }
   .roster-tank:hover{ border-color:var(--muted); }
@@ -135,6 +148,15 @@
   .roster-tank .costs{ font-size:9px; color:var(--muted); margin-top:2px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; }
   .roster-tank .shield-tag{ font-size:8px; color:var(--cyan); font-weight:800; margin-top:1px; }
   .roster-tank .siege-tag{ font-size:8px; color:var(--pink); font-weight:800; margin-top:1px; }
+  .tank-quick-actions{ display:flex; gap:4px; margin-top:6px; }
+  .qa-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+    height:36px; border-radius:7px; cursor:pointer; font-weight:800; font-size:13px;
+    border:1.5px solid var(--red); background:rgba(255,92,92,0.12); color:var(--red);
+  }
+  .qa-btn span{ font-size:8px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:700; opacity:0.85; }
+  .qa-btn.qa-skill{ border-color:var(--pink); background:rgba(255,92,182,0.12); color:var(--pink); }
+  .qa-btn[disabled]{ opacity:0.3; cursor:not-allowed; }
 
   .action-row{ display:flex; gap:14px; padding:0 16px 8px; }
   .action-btn{
@@ -196,7 +218,7 @@
 
   @media (max-width:480px){
     #board{ grid-template-columns:repeat(8, minmax(24px,38px)); grid-template-rows:repeat(6, minmax(24px,38px)); gap:2px; }
-    .roster-tank{ width:70px; }
+    .roster-tank{ width:100px; }
     .shop-grid{ grid-template-columns:1fr; }
     #boss-banner{ padding:8px 5px; }
     #boss-portrait-wrap{ width:60px; height:60px; }
@@ -208,11 +230,15 @@
     #boss-banner{ padding:4px 6px; gap:4px; }
     #boss-portrait-wrap{ width:36px; height:36px; }
     #boss-name{ font-size:9px; } #boss-phase-tag,#boss-enrage-tag{ font-size:7px; padding:1px 5px; } #boss-hp-outer{ height:8px; } #boss-hp-text{ font-size:7px; } #boss-turn-count{ font-size:9px; padding:2px 5px; }
+    #next-attacks{ display:none; }
     .roster{ padding:1px 8px; gap:4px; }
-    .roster-tank{ width:40px; padding:2px; }
+    .roster-tank{ width:60px; padding:3px; }
     .roster-tank .name, .roster-tank .costs{ display:none; }
     .roster-tank img{ height:20px; }
     .roster-tank .hpbar{ height:2px; margin-top:1px; }
+    .tank-quick-actions{ margin-top:3px; gap:2px; }
+    .qa-btn{ height:20px; font-size:9px; }
+    .qa-btn span{ display:none; }
     .mana-row{ padding:1px 10px; }
     .mana-crystal{ width:8px; height:8px; }
     .mana-label{ font-size:11px; }
@@ -258,6 +284,7 @@
         <div id="boss-hp-outer"><div id="boss-hp-fill" style="width:100%;"></div><div id="boss-hp-text">7000 / 7000</div></div>
       </div>
       <div id="boss-turn-count">Turn 1</div>
+      <div id="next-attacks"></div>
     </div>
   </div>
 
@@ -268,10 +295,6 @@
 
   <div class="mana-row" id="mana-row"></div>
 
-  <div class="action-row" style="justify-content:center;">
-    <button class="action-btn" id="attack-btn" onclick="handleAttackButton()" style="display:none;"><span class="icon">⚔</span><span class="label">Attack</span><span class="cost"></span></button>
-    <button class="action-btn skill" id="skill-btn" onclick="handleSkillButton()" style="display:none;"><span class="icon">✦</span><span class="label">Skill</span><span class="cost"></span></button>
-  </div>
 
   <div id="end-turn-wrap"><button id="end-turn-btn" onclick="endPlayerTurn()">End<br>Turn</button></div>
 
@@ -458,7 +481,7 @@
   }
 
   // ---------- State ----------
-  let board, playerTanks, telegraphs, telegraphTileSet;
+  let board, playerTanks, telegraphQueue;
   let boss, turn, turnCount, gameOver, phase, enraged;
   let selectedTankId = null, skillMode = null, uidCounter = 0;
   let playerMana = 0, playerMaxMana = 0;
@@ -557,15 +580,14 @@
     });
 
     boss = { hp: BOSS_MAX_HP, maxHp: BOSS_MAX_HP, poisonStacks: 0, turnsSinceDamage: 0 };
-    telegraphs = [];
-    telegraphTileSet = new Map();
-    generateTelegraphs();
+    telegraphQueue = [];
+    initTelegraphQueue();
 
     playerMana = 0; playerMaxMana = 0;
     startPlayerTurn(true);
   }
 
-  function currentSimultaneousCount(){ return phase; } // phase 1/2/3 -> 1/2/3 patterns
+  const QUEUE_DEPTH = 3;
 
   function poolForPhase(){
     const pool = ['cross','column','row'];
@@ -574,17 +596,33 @@
     return pool;
   }
 
-  function generateTelegraphs(){
-    telegraphs = [];
-    telegraphTileSet = new Map();
+  function generateBatch(){
     const pool = poolForPhase();
-    const count = currentSimultaneousCount();
+    const count = phase; // phase 1/2/3 -> 1/2/3 simultaneous patterns in this batch
+    const batch = [];
     for(let i=0;i<count;i++){
       const type = pool[Math.floor(Math.random()*pool.length)];
-      const tiles = patternTiles(type);
-      telegraphs.push({ type, tiles });
-      tiles.forEach(([r,c]) => telegraphTileSet.set(r+'_'+c, true));
+      batch.push({ type, tiles: patternTiles(type) });
     }
+    return batch;
+  }
+
+  function initTelegraphQueue(){
+    telegraphQueue = [];
+    for(let i=0;i<QUEUE_DEPTH;i++) telegraphQueue.push(generateBatch());
+  }
+
+  function buildTileWarningMap(){
+    const map = new Map();
+    telegraphQueue.forEach((batch, idx) => {
+      batch.forEach(p => {
+        p.tiles.forEach(([r,c]) => {
+          const key = r+'_'+c;
+          if(!map.has(key) || map.get(key) > idx) map.set(key, idx);
+        });
+      });
+    });
+    return map;
   }
 
   function updatePhase(){
@@ -633,10 +671,11 @@
     if(gameOver) return;
     showTurnBanner('BOSS TURN');
 
+    const imminentBatch = telegraphQueue[0];
     let idx = 0;
     function resolveNext(){
-      if(idx >= telegraphs.length){ finishBossTurn(); return; }
-      const tg = telegraphs[idx];
+      if(idx >= imminentBatch.length){ finishBossTurn(); return; }
+      const tg = imminentBatch[idx];
       idx++;
       let dmg = PATTERNS[tg.type].dmg;
       if(enraged) dmg = Math.round(dmg * 1.5);
@@ -707,7 +746,8 @@
       log('The boss enrages — its attacks now hit far harder!');
       showAction('CORE-EATER IS ENRAGED!', 'a-warn');
     }
-    generateTelegraphs();
+    telegraphQueue.shift();
+    telegraphQueue.push(generateBatch());
     render();
     setTimeout(() => startPlayerTurn(false), 700);
   }
@@ -759,9 +799,9 @@
     render();
   }
 
-  function handleAttackButton(){
-    if(turn !== 'player' || gameOver || !selectedTankId) return;
-    const t = playerTanks.find(x => x.uid === selectedTankId && x.alive);
+  function quickAttack(uid){
+    if(turn !== 'player' || gameOver) return;
+    const t = playerTanks.find(x => x.uid === uid && x.alive);
     if(!t) return;
     if(playerMana < t.attackCost){ sfxInsufficientMana(); return; }
     playerMana -= t.attackCost;
@@ -775,17 +815,15 @@
     const costTag = '<span class="mono" style="font-size:0.55em;color:var(--muted);"> (&minus;' + t.attackCost + ' MP)</span>';
     showAction('YOUR ' + t.name.toUpperCase() + ' HITS THE BOSS FOR ' + dmg + '!' + costTag, 'a-dmg');
     log('Your ' + t.name + ' hits the boss for ' + dmg + '.');
-    selectedTankId = null;
     checkBossDefeated();
     render();
   }
 
-  function handleSkillButton(){
-    if(turn !== 'player' || gameOver || !selectedTankId) return;
-    const t = playerTanks.find(x => x.uid === selectedTankId && x.alive);
+  function quickSkill(uid){
+    if(turn !== 'player' || gameOver) return;
+    const t = playerTanks.find(x => x.uid === uid && x.alive);
     if(!t) return;
     const sk = t.skill;
-    if(skillMode){ skillMode = null; render(); return; }
     if(t.skillUsed) return;
     if(playerMana < sk.cost){ sfxInsufficientMana(); return; }
 
@@ -795,7 +833,6 @@
       sfxPoison();
       showAction('YOUR ' + t.name.toUpperCase() + ' APPLIES ACID POISON (x' + boss.poisonStacks + ')', 'a-dmg');
       log('Your ' + t.name + ' applies acid poison — ' + boss.poisonStacks + ' stack(s) now.');
-      selectedTankId = null;
       render();
     } else if(sk.key === 'railgun'){
       playerMana -= sk.cost; t.skillUsed = true;
@@ -804,7 +841,6 @@
       fxFlashBossHit(); triggerBoardShake(0.35);
       showAction('YOUR ' + t.name.toUpperCase() + ' FIRES THE RAILGUN FOR 600!', 'a-dmg');
       log('Your ' + t.name + ' railgun hits the boss for 600.');
-      selectedTankId = null;
       checkBossDefeated();
       render();
     } else if(sk.key === 'siegemode'){
@@ -813,7 +849,6 @@
       sfxSiege();
       showAction('YOUR ' + t.name.toUpperCase() + ' ENTERS SIEGE MODE', 'a-warn');
       log('Your ' + t.name + ' braces into siege mode (+50% damage, 3 turns).');
-      selectedTankId = null;
       render();
     } else if(sk.key === 'shieldall'){
       playerMana -= sk.cost; t.skillUsed = true;
@@ -821,7 +856,6 @@
       playerTanks.forEach(a => { if(a.alive) a.shield = 200; });
       showAction('YOUR ' + t.name.toUpperCase() + ' SHIELDS THE SQUAD (200)', 'a-heal');
       log('Your ' + t.name + ' shields every ally for 200 damage.');
-      selectedTankId = null;
       render();
     }
   }
@@ -842,6 +876,17 @@
     document.getElementById('boss-phase-tag').textContent = 'Phase ' + phase;
     document.getElementById('boss-turn-count').textContent = 'Turn ' + Math.min(turnCount, DEFEAT_TURN_LIMIT);
 
+    // "next attacks" preview list — shows the queued batches in order
+    const nextAttacksEl = document.getElementById('next-attacks');
+    if(nextAttacksEl){
+      nextAttacksEl.innerHTML = telegraphQueue.map((batch, idx) => {
+        const urgencyClass = idx === 0 ? 'urgency-0' : (idx === 1 ? 'urgency-1' : 'urgency-2');
+        const labels = batch.map(p => PATTERNS[p.type].label).join(' + ');
+        return '<div class="next-atk-row ' + urgencyClass + '"><span class="next-atk-num">' + (idx+1) + '</span><span class="next-atk-label">' + labels + '</span></div>';
+      }).join('');
+    }
+
+    const warningMap = buildTileWarningMap();
     const selected = selectedTankId ? playerTanks.find(t => t.uid === selectedTankId) : null;
 
     // board
@@ -851,7 +896,7 @@
       for(let c=0;c<COLS;c++){
         let cls = 'tile';
         const occ = board[r][c].occupant;
-        if(telegraphTileSet.has(r+'_'+c)) cls += ' telegraph';
+        if(warningMap.has(r+'_'+c)) cls += ' telegraph telegraph-' + warningMap.get(r+'_'+c);
         let content = '';
         if(occ){
           content = '<div class="tank-sprite-wrap size-' + occ.type + '"><img src="' + occ.img + '" alt=""></div>' +
@@ -880,12 +925,23 @@
       const onclick = t.alive ? 'onclick="selectTank(\'' + t.uid + '\')"' : '';
       const shieldTag = t.shield > 0 ? '<div class="shield-tag">🛡 ' + t.shield + '</div>' : '';
       const siegeTag = t.siegeModeTurnsLeft > 0 ? '<div class="siege-tag">⚡x' + t.siegeModeTurnsLeft + '</div>' : '';
+
+      const canAct = t.alive && turn === 'player' && !gameOver;
+      const atkDisabled = !canAct || playerMana < t.attackCost;
+      const skillDisabled = !canAct || t.skillUsed || playerMana < t.skill.cost;
+      const skillLabel = t.skillUsed ? '✓' : '✦';
+      const skillCostLabel = t.skillUsed ? 'used' : t.skill.cost;
+
       return '<div class="roster-tank' + deadCls + selCls + '" ' + onclick + '>' +
         '<img src="' + t.img + '" alt="">' +
         '<div class="name">' + t.name + '</div>' +
         shieldTag + siegeTag +
         '<div class="hpbar"><div class="hpbar-fill" style="width:' + Math.max(0,(t.hp/t.maxHp*100)) + '%;"></div></div>' +
-        '<div class="costs">Mv' + t.moveCost + ' / Atk' + t.attackCost + '</div>' +
+        '<div class="costs">Move ' + t.moveCost + ' MP</div>' +
+        '<div class="tank-quick-actions">' +
+          '<button class="qa-btn qa-atk" ' + (atkDisabled?'disabled':'') + ' onclick="event.stopPropagation(); quickAttack(\'' + t.uid + '\')" title="' + t.skill.name + '">⚔<span>' + t.attackCost + '</span></button>' +
+          '<button class="qa-btn qa-skill" ' + (skillDisabled?'disabled':'') + ' onclick="event.stopPropagation(); quickSkill(\'' + t.uid + '\')" title="' + t.skill.name + '">' + skillLabel + '<span>' + skillCostLabel + '</span></button>' +
+        '</div>' +
       '</div>';
     }).join('');
 
@@ -893,34 +949,12 @@
     document.getElementById('end-turn-btn').disabled = (turn !== 'player' || gameOver);
 
     // action buttons
-    const attackBtn = document.getElementById('attack-btn');
-    const skillBtn = document.getElementById('skill-btn');
     if(selected && turn === 'player' && !gameOver){
-      attackBtn.style.display = 'flex';
-      attackBtn.disabled = playerMana < selected.attackCost;
-      attackBtn.querySelector('.label').textContent = 'Attack';
-      attackBtn.querySelector('.cost').textContent = selected.attackCost + ' MP';
-
-      skillBtn.style.display = 'flex';
-      if(selected.skillUsed){
-        skillBtn.disabled = true; skillBtn.classList.remove('active');
-        skillBtn.querySelector('.icon').textContent = '✓';
-        skillBtn.querySelector('.label').textContent = 'Used';
-        skillBtn.querySelector('.cost').textContent = 'this turn';
-      } else {
-        skillBtn.disabled = playerMana < selected.skill.cost;
-        skillBtn.querySelector('.icon').textContent = '✦';
-        skillBtn.querySelector('.label').textContent = selected.skill.name;
-        skillBtn.querySelector('.cost').textContent = selected.skill.cost + ' MP';
-      }
-
       document.getElementById('action-hint').innerHTML =
-        '<b style="color:var(--amber);">' + selected.name + '</b> — Move ' + selected.moveCost + ' MP &middot; Attack ' + selected.attackCost + ' MP &middot; ' + selected.skill.name + ' ' + selected.skill.cost + ' MP ' +
+        '<b style="color:var(--amber);">' + selected.name + '</b> selected — click an adjacent tile to move (' + selected.moveCost + ' MP) ' +
         '<span class="mono" style="color:var(--muted);">(you have ' + playerMana + ' MP)</span>';
-    } else {
-      attackBtn.style.display = 'none';
-      skillBtn.style.display = 'none';
-      if(turn === 'player' && !gameOver) document.getElementById('action-hint').textContent = 'Select one of your tanks to move or act.';
+    } else if(turn === 'player' && !gameOver){
+      document.getElementById('action-hint').textContent = 'Tap a tank to move it, or use its Attack/Skill buttons below.';
     }
   }
 

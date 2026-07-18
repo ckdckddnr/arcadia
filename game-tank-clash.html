@@ -236,32 +236,32 @@
   @media (max-width:700px) and (orientation:portrait){
     #rotate-hint{ display:flex; }
   }  @media (max-height: 500px) and (orientation: landscape){
-    nav{ padding:4px 3vw; }
-    nav .logo{ font-size:15px; }
-    nav .logo .dot{ width:6px; height:6px; }
-    nav .game-title{ font-size:13px; }
-    nav .back-link{ font-size:11px; }
-    #stage{ height:calc(100vh - 28px); }
-    .side-hud{ padding:3px 10px; }
-    .side-label{ font-size:10px; gap:4px; }
-    .tank-count{ font-size:9px; }
-    .turn-count{ font-size:12px; padding:2px 7px; }
-    .mana-crystal{ width:9px; height:9px; }
-    .mana-label{ font-size:11px; margin-left:4px; }
-    .roster{ padding:2px 10px; gap:4px; }
-    .roster-tank{ width:52px; padding:4px; border-radius:6px; }
-    .roster-tank .icon{ font-size:20px; height:26px; }
-    .roster-tank .name{ font-size:7px; margin-top:1px; }
-    .roster-tank .hpbar{ height:3px; margin-top:2px; }
-    .roster-tank .costs{ font-size:7px; margin-top:1px; }
-    #board{ grid-template-columns:repeat(12, minmax(20px,32px)); grid-template-rows:repeat(6, minmax(18px,26px)); gap:1.5px; }
-    .board-wrap{ padding:1px; }
-    #action-hint{ font-size:9px; padding-bottom:1px; min-height:11px; }
-    #skill-btn{ margin:0 10px 2px; padding:4px 10px; font-size:10px; }
-    #end-turn-btn{ margin:3px 10px 4px; padding:6px; font-size:11px; }
-    #combat-log{ max-width:30vw; top:30px; }
-    #combat-log .log-line{ font-size:8px; padding:2px 5px; }
-    .tank-sprite-wrap{ width:66%; height:66%; }
+    nav{ padding:2px 3vw; }
+    nav .logo{ font-size:13px; }
+    nav .logo .dot{ width:5px; height:5px; }
+    nav .game-title{ display:none; }
+    nav .back-link{ font-size:10px; }
+    #stage{ height:calc(100vh - 22px); }
+    .side-hud{ padding:1px 8px; }
+    .side-label{ font-size:9px; gap:3px; }
+    .tank-count{ font-size:8px; }
+    .turn-count{ font-size:10px; padding:1px 6px; }
+    .mana-crystal{ width:7px; height:7px; }
+    .mana-label{ font-size:9px; margin-left:3px; }
+    .roster{ padding:1px 8px; gap:3px; }
+    .roster-tank{ width:32px; padding:1px; border-radius:4px; }
+    .roster-tank .icon{ font-size:14px; height:15px; }
+    .roster-tank .name{ display:none; }
+    .roster-tank .hpbar{ height:2px; margin-top:1px; }
+    .roster-tank .costs{ display:none; }
+    #board{ grid-template-columns:repeat(12, minmax(20px,34px)); grid-template-rows:repeat(6, minmax(18px,28px)); gap:1.5px; }
+    .board-wrap{ padding:1px; flex:1 1 auto; min-height:0; }
+    #action-hint{ display:none; }
+    #skill-btn{ margin:0 8px 1px; padding:2px 8px; font-size:9px; }
+    #end-turn-btn{ margin:1px 8px 2px; padding:4px; font-size:10px; }
+    #combat-log{ max-width:26vw; top:22px; gap:2px; }
+    #combat-log .log-line{ font-size:7px; padding:1px 4px; }
+    .tank-sprite-wrap{ width:70%; height:70%; }
     #rotate-hint{ display:none !important; }
   }
 </style>

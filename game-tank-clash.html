@@ -14,7 +14,7 @@
     --text:#F4F6FA; --muted:#8A93A6;
   }
   *{box-sizing:border-box; margin:0; padding:0; user-select:none;}
-  html, body{ background:var(--bg-void); color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif; height:100%; overflow:hidden; }
+  html, body{ background:var(--bg-void); color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif; height:100%; width:100%; overflow:hidden; position:fixed; inset:0; overscroll-behavior:none; }
   .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
   .display{font-family:'Bebas Neue','Noto Sans KR',sans-serif;}
 
@@ -318,7 +318,7 @@
   <div id="action-banner"></div>
 
   <div id="action-hint">Select one of your tanks to move or fire.</div>
-  <button id="skill-btn" style="display:none;" onclick="handleSkillButton()"></button>
+  <button id="skill-btn" style="visibility:hidden;" onclick="handleSkillButton()"></button>
 
   <div class="roster" id="player-roster"></div>
 
@@ -1428,7 +1428,7 @@
     const selectedForSkill = selectedTankId ? playerTanks.find(t => t.uid === selectedTankId) : null;
     if(selectedForSkill && turn === 'player' && !gameOver){
       const sk = selectedForSkill.skill;
-      skillBtn.style.display = 'block';
+      skillBtn.style.visibility = 'visible';
       if(selectedForSkill.skillUsed){
         skillBtn.disabled = true;
         skillBtn.classList.remove('active');
@@ -1439,7 +1439,7 @@
         skillBtn.textContent = (skillMode ? 'Cancel ' : '⚡ ') + sk.name + ' (' + sk.cost + ' MP)';
       }
     } else {
-      skillBtn.style.display = 'none';
+      skillBtn.style.visibility = 'hidden';
       skillBtn.classList.remove('active');
     }
     document.getElementById('end-turn-btn').disabled = (turn !== 'player' || gameOver);

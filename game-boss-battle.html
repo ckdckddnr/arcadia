@@ -14,7 +14,7 @@
     --text:#F4F6FA; --muted:#8A93A6;
   }
   *{box-sizing:border-box; margin:0; padding:0; user-select:none;}
-  html, body{ background:var(--bg-void); color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif; height:100%; overflow:hidden; }
+  html, body{ background:var(--bg-void); color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif; height:100%; width:100%; overflow:hidden; position:fixed; inset:0; overscroll-behavior:none; }
   .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
   .display{font-family:'Bebas Neue','Noto Sans KR',sans-serif;}
 
@@ -73,15 +73,7 @@
   .tile.telegraph-1{ background:rgba(255,146,39,0.24) !important; box-shadow:inset 0 0 0 2px rgba(255,146,39,0.55); animation:none; }
   .tile.telegraph-2{ background:rgba(255,182,39,0.12) !important; box-shadow:inset 0 0 0 1.5px rgba(255,182,39,0.35); animation:none; }
 
-  #next-attacks{ width:100%; display:flex; flex-direction:column; gap:5px; margin-top:8px; }
-  .next-atk-row{ display:flex; align-items:center; gap:7px; padding:5px 9px; border-radius:8px; background:var(--surface-2); border:1px solid var(--line); font-size:11px; font-weight:700; }
-  .next-atk-num{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; width:16px; text-align:center; flex-shrink:0; }
-  .next-atk-row.urgency-0{ border-color:var(--red); color:var(--red); }
-  .next-atk-row.urgency-0 .next-atk-num{ color:var(--red); }
-  .next-atk-row.urgency-1{ color:#FF9227; }
-  .next-atk-row.urgency-1 .next-atk-num{ color:#FF9227; }
-  .next-atk-row.urgency-2{ color:var(--amber); opacity:0.75; }
-  .next-atk-row.urgency-2 .next-atk-num{ color:var(--amber); }
+
   @keyframes telegraph-pulse{ 0%,100%{ opacity:0.75; } 50%{ opacity:1; } }
   .tile .hp-mini{ position:absolute; bottom:1px; left:1px; right:1px; height:3px; background:rgba(0,0,0,0.5); border-radius:2px; overflow:hidden; z-index:1; }
   .tile .hp-mini-fill{ height:100%; background:var(--green); }
@@ -234,22 +226,27 @@
   .shop-card button.cant-afford{ background:var(--surface); color:var(--muted); border:1px solid var(--line); }
 
   @media (max-width:480px){
-    #board{ grid-template-columns:repeat(8, minmax(24px,38px)); grid-template-rows:repeat(6, minmax(24px,38px)); gap:2px; }
+    #board{ grid-template-columns:repeat(8, minmax(28px,42px)); grid-template-rows:repeat(6, minmax(28px,42px)); gap:2px; }
     .roster-tank{ width:100px; }
     .shop-grid{ grid-template-columns:1fr; }
-    #boss-banner{ padding:8px 5px; }
-    #boss-portrait-wrap{ width:60px; height:60px; }
-    #boss-name{ font-size:11px; } #boss-phase-tag,#boss-enrage-tag{ font-size:8px; }
+    .board-wrap{ flex:2.2; }
+    #boss-banner{ flex:1; padding:6px 4px; gap:6px; }
+    #boss-portrait-wrap{ width:38px; height:38px; }
+    #boss-name{ font-size:9px; } #boss-phase-tag,#boss-enrage-tag{ font-size:7px; padding:1px 5px; }
+    #boss-info{ width:100%; }
+    #boss-hp-outer{ height:16px; }
+    #boss-hp-text{ font-size:9px; }
+    #boss-turn-count{ font-size:9px; padding:3px 8px; margin-top:2px; }
     #combat-log{ display:none; }
     #log-toggle-btn{ display:flex; }
   }
   @media (max-height: 520px) and (orientation: landscape){
     nav{ padding:2px 3vw; } nav .game-title{ display:none; }
     #stage{ height:calc(100vh - 22px); height:calc(100dvh - 22px); }
-    #boss-banner{ padding:4px 6px; gap:4px; }
-    #boss-portrait-wrap{ width:36px; height:36px; }
+    .board-wrap{ flex:2.4; }
+    #boss-banner{ flex:1; padding:4px 6px; gap:4px; }
+    #boss-portrait-wrap{ width:32px; height:32px; }
     #boss-name{ font-size:9px; } #boss-phase-tag,#boss-enrage-tag{ font-size:7px; padding:1px 5px; } #boss-hp-outer{ height:8px; } #boss-hp-text{ font-size:7px; } #boss-turn-count{ font-size:9px; padding:2px 5px; }
-    #next-attacks{ display:none; }
     #combat-log{ display:none; }
     #log-toggle-btn{ display:flex; top:2px; left:4px; width:26px; height:26px; font-size:12px; }
     #mobile-log-panel{ top:30px; max-height:60vh; }
@@ -308,7 +305,6 @@
         <div id="boss-hp-outer"><div id="boss-hp-fill" style="width:100%;"></div><div id="boss-hp-text">7000 / 7000</div></div>
       </div>
       <div id="boss-turn-count">Turn 1</div>
-      <div id="next-attacks"></div>
     </div>
   </div>
 
@@ -627,7 +623,7 @@
     startPlayerTurn(true);
   }
 
-  const QUEUE_DEPTH = 3;
+  const QUEUE_DEPTH = 1;
 
   function poolForPhase(){
     const pool = ['cross','column','row'];
@@ -917,14 +913,6 @@
     document.getElementById('boss-turn-count').textContent = 'Turn ' + Math.min(turnCount, DEFEAT_TURN_LIMIT);
 
     // "next attacks" preview list — shows the queued batches in order
-    const nextAttacksEl = document.getElementById('next-attacks');
-    if(nextAttacksEl){
-      nextAttacksEl.innerHTML = telegraphQueue.map((batch, idx) => {
-        const urgencyClass = idx === 0 ? 'urgency-0' : (idx === 1 ? 'urgency-1' : 'urgency-2');
-        const labels = batch.map(p => PATTERNS[p.type].label).join(' + ');
-        return '<div class="next-atk-row ' + urgencyClass + '"><span class="next-atk-num">' + (idx+1) + '</span><span class="next-atk-label">' + labels + '</span></div>';
-      }).join('');
-    }
 
     const warningMap = buildTileWarningMap();
     const selected = selectedTankId ? playerTanks.find(t => t.uid === selectedTankId) : null;

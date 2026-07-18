@@ -180,6 +180,7 @@
     <div class="map-connector" id="conn-1"></div>
     <div class="map-connector" id="conn-2"></div>
     <div class="map-connector" id="conn-3"></div>
+    <div class="map-connector" id="conn-4"></div>
 
     <a href="game-asteroid-run.html" class="planet-node" id="node-1" style="text-decoration:none; color:inherit;">
       <div class="planet-orb" style="background:radial-gradient(circle at 35% 30%, rgba(45,225,252,0.5), rgba(20,40,55,0.9));">☄️</div>
@@ -199,6 +200,12 @@
       <div class="planet-orb" style="background:radial-gradient(circle at 35% 30%, rgba(52,211,153,0.5), rgba(15,45,30,0.9));">⚔️</div>
       <div class="planet-name">Tank Clash</div>
       <div class="planet-tag planet-live">● Free to play</div>
+    </a>
+
+    <a href="game-boss-battle.html" class="planet-node" id="node-4" style="text-decoration:none; color:inherit;">
+      <div class="planet-orb" style="background:radial-gradient(circle at 35% 30%, rgba(255,92,92,0.5), rgba(45,15,15,0.9));">👹</div>
+      <div class="planet-name">Boss Battle</div>
+      <div class="planet-tag" style="color:var(--pink);">⚔ Requires owned tanks</div>
     </a>
   </div>
 </main>
@@ -302,9 +309,9 @@
     const w = mapEl.clientWidth, h = mapEl.clientHeight;
     const cx = w / 2, cy = h / 2;
     const radius = Math.min(w, h) / 2 - 60;
-    const angles = [ -90, 30, 150 ]; // three planets, evenly spaced around the hub
-    const nodes = ['node-1', 'node-2', 'node-3'];
-    const conns = ['conn-1', 'conn-2', 'conn-3'];
+    const angles = [ -135, -45, 45, 135 ]; // four planets, evenly spaced around the hub
+    const nodes = ['node-1', 'node-2', 'node-3', 'node-4'];
+    const conns = ['conn-1', 'conn-2', 'conn-3', 'conn-4'];
 
     nodes.forEach((id, i) => {
       const rad = angles[i] * Math.PI / 180;

@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ARCADIA — Boss Battle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg-void:#0A0D12; --surface:#12161F; --surface-2:#181D28; --line:#242B38;
+    --amber:#FFB627; --cyan:#2DE1FC; --green:#34D399; --red:#FF5C5C; --pink:#FF5CB6;
+    --text:#F4F6FA; --muted:#8A93A6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; user-select:none;}
+  html, body{ background:var(--bg-void); color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif; height:100%; overflow:hidden; }
+  .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
+  .display{font-family:'Bebas Neue','Noto Sans KR',sans-serif;}
+
+  nav{
+    position:relative; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 4vw; border-bottom:1px solid var(--line);
+    background:rgba(10,13,18,0.95);
+  }
+  .logo{ display:flex; align-items:center; gap:10px; font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:20px; letter-spacing:0.03em; color:var(--text); text-decoration:none; }
+  .logo .dot{width:9px; height:9px; border-radius:2px; background:var(--red); box-shadow:0 0 10px var(--red);}
+  .back-link{color:var(--muted); text-decoration:none; font-size:13px; font-weight:600;}
+  .game-title{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:18px; letter-spacing:0.04em; color:var(--muted);}
+
+  #stage{ position:relative; width:100%; height:calc(100vh - 49px); height:calc(100dvh - 49px); display:flex; flex-direction:column; overflow:hidden; }
+
+  /* ---- Boss banner ---- */
+  #boss-banner{
+    display:flex; align-items:center; gap:14px; padding:8px 16px;
+    background:linear-gradient(180deg, rgba(255,92,92,0.12), transparent); border-bottom:1px solid var(--line);
+  }
+  #boss-portrait{ width:56px; height:56px; flex-shrink:0; filter:drop-shadow(0 0 10px rgba(255,92,92,0.5)); }
+  #boss-info{ flex:1; min-width:0; }
+  #boss-name-row{ display:flex; align-items:center; gap:8px; margin-bottom:3px; flex-wrap:wrap; }
+  #boss-name{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:17px; letter-spacing:0.03em; color:var(--red); }
+  #boss-phase-tag{ font-size:9px; font-weight:800; padding:2px 8px; border-radius:10px; background:rgba(255,182,39,0.15); color:var(--amber); }
+  #boss-enrage-tag{ font-size:9px; font-weight:800; padding:2px 8px; border-radius:10px; background:rgba(255,92,92,0.2); color:var(--red); display:none; }
+  #boss-hp-outer{ height:12px; background:var(--surface-2); border:1px solid var(--line); border-radius:7px; overflow:hidden; position:relative; }
+  #boss-hp-fill{ height:100%; background:linear-gradient(90deg, #7A1F1F, var(--red)); transition:width 0.5s ease; }
+  #boss-hp-text{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:9px; font-weight:700; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,0.8); }
+  #boss-turn-count{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:13px; font-weight:800; color:var(--amber); background:rgba(255,182,39,0.1); border:1px solid rgba(255,182,39,0.3); border-radius:8px; padding:4px 10px; flex-shrink:0; }
+
+  .board-wrap{ flex:1; display:flex; align-items:center; justify-content:center; padding:6px; overflow:auto; position:relative; }
+  #board{
+    display:grid; grid-template-columns:repeat(8, minmax(32px,64px)); grid-template-rows:repeat(6, minmax(32px,64px));
+    gap:3px; background:var(--surface-2); padding:6px; border-radius:10px; border:1px solid var(--line);
+  }
+  #board.shake{ animation:board-shake 0.35s ease; }
+  @keyframes board-shake{
+    0%,100%{ transform:translate(0,0); }
+    20%{ transform:translate(-4px,3px); } 40%{ transform:translate(4px,-3px); }
+    60%{ transform:translate(-3px,-2px); } 80%{ transform:translate(3px,2px); }
+  }
+  .tile{
+    position:relative; border-radius:5px; background:#1c2230;
+    display:flex; align-items:center; justify-content:center; font-size:18px; transition:background 0.15s;
+  }
+  .tile.move-target{ cursor:pointer; box-shadow:inset 0 0 0 3px var(--cyan), 0 0 8px rgba(45,225,252,0.6); background:rgba(45,225,252,0.14) !important; }
+  .tile.telegraph{ background:rgba(255,92,92,0.28) !important; box-shadow:inset 0 0 0 2px rgba(255,92,92,0.7); animation:telegraph-pulse 1s ease-in-out infinite; }
+  @keyframes telegraph-pulse{ 0%,100%{ opacity:0.75; } 50%{ opacity:1; } }
+  .tile .hp-mini{ position:absolute; bottom:1px; left:1px; right:1px; height:3px; background:rgba(0,0,0,0.5); border-radius:2px; overflow:hidden; z-index:1; }
+  .tile .hp-mini-fill{ height:100%; background:var(--green); }
+  .tile .hp-num{
+    position:absolute; bottom:3px; left:2px; z-index:2;
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; font-size:10px;
+    color:#fff; background:rgba(10,13,18,0.75); padding:0 3px; border-radius:3px; text-shadow:0 1px 2px rgba(0,0,0,0.8);
+  }
+  .tile .shield-badge{ position:absolute; top:1px; left:1px; z-index:3; font-size:11px; }
+  .tank-sprite-wrap{ width:82%; height:82%; }
+  .tank-sprite-wrap img{ width:100%; height:100%; object-fit:contain; image-rendering:pixelated; }
+  .cost-badge{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    display:flex; align-items:center; gap:2px; padding:2px 5px 2px 3px; border-radius:7px; z-index:5;
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:12px; font-weight:800; line-height:1; color:#062026;
+    box-shadow:0 0 10px rgba(0,0,0,0.5); border:1.5px solid rgba(255,255,255,0.6); background:var(--cyan);
+    animation:cost-pulse 1s ease-in-out infinite;
+  }
+  @keyframes cost-pulse{ 0%,100%{ transform:translate(-50%,-50%) scale(1); } 50%{ transform:translate(-50%,-50%) scale(1.12); } }
+
+  #action-banner{
+    position:absolute; top:9%; left:50%; transform:translate(-50%,-10px); z-index:26; pointer-events:none;
+    opacity:0; transition:opacity 0.25s, transform 0.25s; text-align:center; width:92%; max-width:560px;
+  }
+  #action-banner.show{ opacity:1; transform:translate(-50%,0); }
+  #action-banner .a-line{
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:clamp(18px,4.5vw,28px); letter-spacing:0.02em;
+    padding:9px 20px; border-radius:10px; background:rgba(18,22,31,0.9); border:1px solid var(--line); display:inline-block;
+  }
+  .a-dmg{ color:var(--red); } .a-move{ color:var(--cyan); } .a-heal{ color:var(--green); } .a-warn{ color:var(--amber); }
+
+  #fx-layer{ position:absolute; inset:0; pointer-events:none; z-index:24; }
+  #turn-banner{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:34px; letter-spacing:0.05em;
+    color:var(--red); text-shadow:0 0 20px rgba(255,92,92,0.6); z-index:25; pointer-events:none; opacity:0; transition:opacity 0.3s;
+  }
+  #turn-banner.show{ opacity:1; }
+
+  #combat-log{ position:absolute; top:52px; left:10px; max-width:230px; z-index:15; display:flex; flex-direction:column; gap:4px; pointer-events:none; }
+  #combat-log .log-line{ font-size:12px; font-weight:700; border-radius:6px; padding:5px 10px; background:rgba(18,22,31,0.88); border-left:3px solid var(--line); box-shadow:0 3px 10px rgba(0,0,0,0.35); }
+  #combat-log .log-line.log-you{ color:var(--cyan); border-left-color:var(--cyan); }
+  #combat-log .log-line.log-boss{ color:var(--red); border-left-color:var(--red); }
+  #combat-log .log-line.log-neutral{ color:var(--muted); border-left-color:var(--muted); }
+
+  #action-hint{ text-align:center; font-size:12px; color:var(--muted); padding-bottom:3px; min-height:15px; }
+  .roster{ display:flex; gap:8px; padding:7px 16px; overflow-x:auto; justify-content:center; }
+  .roster-tank{
+    flex-shrink:0; width:88px; padding:7px; border-radius:10px; background:var(--surface-2); border:2px solid var(--line);
+    text-align:center; cursor:pointer; transition:border-color 0.12s, transform 0.12s;
+  }
+  .roster-tank:hover{ border-color:var(--muted); }
+  .roster-tank.dead{ opacity:0.3; cursor:not-allowed; }
+  .roster-tank.selected{ border-color:var(--amber); transform:translateY(-3px); }
+  .roster-tank img{ width:100%; height:40px; object-fit:contain; image-rendering:pixelated; }
+  .roster-tank .name{ font-size:10px; font-weight:800; margin-top:3px; }
+  .roster-tank .hpbar{ height:5px; border-radius:3px; background:var(--surface); margin-top:4px; overflow:hidden; }
+  .roster-tank .hpbar-fill{ height:100%; background:var(--green); }
+  .roster-tank .costs{ font-size:9px; color:var(--muted); margin-top:2px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; }
+  .roster-tank .shield-tag{ font-size:8px; color:var(--cyan); font-weight:800; margin-top:1px; }
+  .roster-tank .siege-tag{ font-size:8px; color:var(--pink); font-weight:800; margin-top:1px; }
+
+  .action-row{ display:flex; gap:8px; padding:0 16px 6px; }
+  .action-btn{
+    flex:1; font-family:'Inter','Noto Sans KR',sans-serif; font-weight:800; font-size:12px;
+    padding:9px 6px; border-radius:8px; cursor:pointer; border:1.5px solid var(--red); background:rgba(255,92,92,0.1); color:var(--red);
+  }
+  .action-btn.skill{ border-color:var(--pink); background:rgba(255,92,182,0.1); color:var(--pink); }
+  .action-btn.skill.active{ background:var(--pink); color:#2A0A1F; }
+  .action-btn[disabled]{ opacity:0.4; cursor:not-allowed; }
+
+  #end-turn-btn{
+    margin:0 16px 12px; font-family:'Inter','Noto Sans KR',sans-serif; font-weight:800; font-size:14px;
+    padding:12px; border-radius:10px; border:none; cursor:pointer; background:var(--amber); color:#1A1200;
+  }
+  #end-turn-btn[disabled]{ opacity:0.4; cursor:not-allowed; }
+
+  .mana-row{ display:flex; gap:4px; align-items:center; justify-content:center; padding:6px 16px 2px; flex-wrap:wrap; }
+  .mana-crystal{ width:15px; height:15px; border-radius:4px; transform:rotate(45deg); background:var(--surface-2); border:2px solid var(--line); }
+  .mana-crystal.filled{ background:var(--cyan); border-color:var(--cyan); box-shadow:0 0 8px rgba(45,225,252,0.8); }
+  .mana-label{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:16px; font-weight:800; color:var(--text); margin-left:6px; }
+
+  /* ---- Overlays ---- */
+  .overlay{ position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center; background:rgba(10,13,18,0.92); backdrop-filter:blur(4px); }
+  .overlay.hidden{ display:none; }
+  .panel{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:28px; max-width:520px; width:92%; text-align:center; box-shadow:0 40px 100px -20px rgba(0,0,0,0.7); max-height:88vh; overflow-y:auto; }
+  .panel .eyebrow{ display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--red); margin-bottom:10px; }
+  .panel h1{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:32px; margin-bottom:8px; }
+  .panel h1 span{ color:var(--red); }
+  .panel p{ color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:14px; }
+  .btn{ font-family:'Inter','Noto Sans KR',sans-serif; font-weight:700; font-size:14px; padding:12px 20px; border-radius:8px; border:none; cursor:pointer; width:100%; margin-bottom:9px; }
+  .btn-primary{ background:var(--red); color:#2A0000; }
+  .btn-ghost{ background:transparent; color:var(--text); border:1px solid var(--line); }
+  .btn[disabled]{ opacity:0.5; cursor:not-allowed; }
+  .submit-msg{ font-size:11px; font-weight:600; margin-bottom:10px; min-height:14px; }
+  .submit-msg.error{ color:#FF8A8A; }
+  .submit-msg.success{ color:var(--green); }
+  .submit-msg .link-text{ color:var(--cyan); font-weight:700; text-decoration:underline; }
+
+  /* ---- Shop ---- */
+  .shop-token-bar{ display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:16px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:18px; font-weight:800; color:var(--pink); }
+  .shop-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+  .shop-card{ background:var(--surface-2); border:1.5px solid var(--line); border-radius:12px; padding:12px; text-align:center; }
+  .shop-card.owned{ border-color:var(--green); }
+  .shop-card img{ width:64px; height:64px; object-fit:contain; image-rendering:pixelated; margin-bottom:6px; }
+  .shop-card .name{ font-weight:800; font-size:13px; margin-bottom:2px; }
+  .shop-card .role{ font-size:10px; color:var(--muted); margin-bottom:8px; min-height:26px; }
+  .shop-card .price{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; color:var(--pink); font-size:13px; margin-bottom:8px; }
+  .shop-card button{ width:100%; padding:8px; border-radius:7px; border:none; font-weight:800; font-size:12px; cursor:pointer; background:var(--pink); color:#2A0A1F; }
+  .shop-card button[disabled]{ background:var(--green); color:#04150E; opacity:1; cursor:default; }
+  .shop-card button.cant-afford{ background:var(--surface); color:var(--muted); border:1px solid var(--line); }
+
+  @media (max-width:480px){
+    #board{ grid-template-columns:repeat(8, minmax(28px,44px)); grid-template-rows:repeat(6, minmax(28px,44px)); gap:2px; }
+    .roster-tank{ width:70px; }
+    .shop-grid{ grid-template-columns:1fr; }
+  }
+  @media (max-height: 520px) and (orientation: landscape){
+    nav{ padding:2px 3vw; } nav .game-title{ display:none; }
+    #stage{ height:calc(100vh - 22px); height:calc(100dvh - 22px); }
+    #boss-banner{ padding:2px 10px; gap:8px; }
+    #boss-portrait{ width:34px; height:34px; }
+    #boss-name{ font-size:12px; } #boss-hp-outer{ height:9px; } #boss-turn-count{ font-size:10px; padding:2px 6px; }
+    .roster{ padding:1px 8px; gap:4px; }
+    .roster-tank{ width:40px; padding:2px; }
+    .roster-tank .name, .roster-tank .costs{ display:none; }
+    .roster-tank img{ height:20px; }
+    .roster-tank .hpbar{ height:2px; margin-top:1px; }
+    .mana-row{ padding:1px 10px; }
+    .mana-crystal{ width:8px; height:8px; }
+    .mana-label{ font-size:11px; }
+    #action-hint{ display:none; }
+    .action-row{ padding:0 8px 2px; gap:4px; }
+    .action-btn{ padding:3px 4px; font-size:9px; }
+    #end-turn-btn{ margin:1px 8px 2px; padding:5px; font-size:10px; }
+    #board{ grid-template-columns:repeat(8, minmax(22px,40px)); grid-template-rows:repeat(6, minmax(18px,26px)); gap:1.5px; }
+    .tank-sprite-wrap{ width:72%; height:72%; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
+  <div class="game-title">BOSS BATTLE</div>
+  <a href="game-tank-clash.html" class="back-link">&larr; Exit</a>
+</nav>
+
+<div id="stage">
+  <div id="combat-log"></div>
+  <div id="turn-banner"></div>
+
+  <div id="boss-banner">
+    <img id="boss-portrait" src="" alt="Boss">
+    <div id="boss-info">
+      <div id="boss-name-row">
+        <div id="boss-name">Core-Eater</div>
+        <div id="boss-phase-tag">Phase 1</div>
+        <div id="boss-enrage-tag">⚡ ENRAGED</div>
+      </div>
+      <div id="boss-hp-outer"><div id="boss-hp-fill" style="width:100%;"></div><div id="boss-hp-text">7000 / 7000</div></div>
+    </div>
+    <div id="boss-turn-count">Turn 1</div>
+  </div>
+
+  <div class="board-wrap"><div id="board"></div><div id="fx-layer"></div></div>
+
+  <div id="action-banner"></div>
+  <div id="action-hint">Select one of your tanks to move or act.</div>
+
+  <div class="roster" id="player-roster"></div>
+
+  <div class="mana-row" id="mana-row"></div>
+
+  <div class="action-row">
+    <button class="action-btn" id="attack-btn" onclick="handleAttackButton()" style="display:none;">Attack (—)</button>
+    <button class="action-btn skill" id="skill-btn" onclick="handleSkillButton()" style="display:none;">Skill</button>
+  </div>
+
+  <button id="end-turn-btn" onclick="endPlayerTurn()">End Turn</button>
+
+  <!-- Shop overlay: shown until all 4 boss tanks are owned -->
+  <div class="overlay" id="shop-overlay">
+    <div class="panel">
+      <div class="eyebrow">Boss Battle &middot; Requires Owned Tanks</div>
+      <h1>SQUAD <span>ARMORY</span></h1>
+      <p>Boss Battle uses its own roster. Buy all 4 tanks with Battle Tokens to unlock the fight — each is a permanent, one-time purchase.</p>
+      <div class="shop-token-bar">⚔ <span id="shop-token-balance">0</span> Battle Tokens</div>
+      <div class="submit-msg" id="shop-msg"></div>
+      <div class="shop-grid" id="shop-grid"></div>
+      <button class="btn btn-ghost" onclick="window.location.href='game-tank-clash.html'">Back to Tank Clash</button>
+    </div>
+  </div>
+
+  <!-- Start overlay: shown once all 4 are owned -->
+  <div class="overlay hidden" id="start-overlay">
+    <div class="panel">
+      <div class="eyebrow">Boss Battle</div>
+      <h1>CORE-<span>EATER</span></h1>
+      <p>A scrap-devouring horror built from the husks of fallen tanks. No fog here — it's always visible, and so are you.</p>
+      <ul style="text-align:left; list-style:none; margin-bottom:16px;">
+        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Telegraphed attacks:</b> the boss shows upcoming strike zones as red tiles. Move your tanks off them before its turn.</span></li>
+        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Easier to dodge = harder it hits.</b> A single cross-shaped strike hurts more than a full-map strike.</span></li>
+        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">3 phases:</b> more simultaneous attack zones appear as its HP drops — plan ahead.</span></li>
+        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 30.</span></li>
+      </ul>
+      <div class="submit-msg" id="entry-msg"></div>
+      <button class="btn btn-primary" id="deploy-btn" onclick="startGame()">Deploy Squad</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="over-overlay">
+    <div class="panel">
+      <div class="eyebrow" id="over-eyebrow">Defeat</div>
+      <div id="battle-summary" style="font-size:14px; color:var(--muted); margin-bottom:18px;"></div>
+      <div class="submit-msg" id="submit-msg"></div>
+      <button class="btn btn-ghost" onclick="location.reload()">Try Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- Supabase ----------
+  const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function xpForLevel(level){ return 25 * level * (level - 1); }
+  function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
+
+  // ---------- Sound (reuses the audio files already deployed for Tank Clash) ----------
+  let audioCtx = null;
+  function getAudioCtx(){ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+  function playTone(freq, duration, type, startGain, endFreq){
+    try{
+      const ctx2 = getAudioCtx();
+      const osc = ctx2.createOscillator(); const gain = ctx2.createGain();
+      osc.type = type || 'sine'; osc.frequency.setValueAtTime(freq, ctx2.currentTime);
+      if(endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, ctx2.currentTime + duration);
+      gain.gain.setValueAtTime(startGain || 0.14, ctx2.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx2.currentTime + duration);
+      osc.connect(gain); gain.connect(ctx2.destination); osc.start(); osc.stop(ctx2.currentTime + duration);
+    } catch(e){}
+  }
+  function playNoise(duration, startGain, filterFreq){
+    try{
+      const ctx2 = getAudioCtx();
+      const bufferSize = Math.floor(ctx2.sampleRate * duration);
+      const buffer = ctx2.createBuffer(1, bufferSize, ctx2.sampleRate);
+      const data = buffer.getChannelData(0);
+      for(let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      const noise = ctx2.createBufferSource(); noise.buffer = buffer;
+      const filter = ctx2.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = filterFreq || 1200;
+      const gain = ctx2.createGain(); gain.gain.setValueAtTime(startGain || 0.2, ctx2.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx2.currentTime + duration);
+      noise.connect(filter); filter.connect(gain); gain.connect(ctx2.destination); noise.start();
+    } catch(e){}
+  }
+  const audioClipCache = {};
+  function playClip(url, volume){
+    try{
+      if(!audioClipCache[url]){ const a = new Audio(url); a.preload = 'auto'; audioClipCache[url] = a; }
+      const clip = audioClipCache[url].cloneNode();
+      clip.volume = volume !== undefined ? volume : 0.7;
+      clip.play().catch(() => {});
+    } catch(e){}
+  }
+  function sfxMove(){ playTone(150, 0.13, 'square', 0.06, 90); playNoise(0.08, 0.05, 400); }
+  function sfxAttack(){ playClip('weapon_mortar_004.wav', 0.6); }
+  function sfxPoison(){ playClip('bonus_alarm_003.wav', 0.6); }
+  function sfxRailgun(){ playClip('weapon_lightning_001.wav', 0.75); }
+  function sfxSiege(){ playClip('explosion_med_011.wav', 0.7); }
+  function sfxShield(){ playClip('shield_up_002.wav', 0.7); }
+  function sfxBossHit(){ playNoise(0.15, 0.18, 1500); playTone(220, 0.1, 'square', 0.1, 110); }
+  function sfxBossBigAttack(){ playClip('explosion_large_005.wav', 0.85); }
+  function sfxVictory(){ playTone(523,0.15,'sine',0.15,660); setTimeout(()=>playTone(659,0.15,'sine',0.15,784),140); setTimeout(()=>playTone(784,0.3,'sine',0.15,1046),280); }
+  function sfxDefeat(){ playTone(220,0.4,'sawtooth',0.15,90); }
+  function sfxInsufficientMana(){ playClip('gui_028.wav', 0.6); }
+  function sfxGameStart(){ playClip('engine_start_003.wav', 0.7); }
+
+  let bgNodes = null;
+  function startBgAmbience(){
+    stopBgAmbience();
+    try{
+      const ctx2 = getAudioCtx();
+      const o1 = ctx2.createOscillator(); o1.type = 'sine'; o1.frequency.value = 48;
+      const o2 = ctx2.createOscillator(); o2.type = 'sine'; o2.frequency.value = 51;
+      const lfo = ctx2.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.1;
+      const lfoGain = ctx2.createGain(); lfoGain.gain.value = 0.012;
+      const g = ctx2.createGain(); g.gain.value = 0.032;
+      lfo.connect(lfoGain); lfoGain.connect(g.gain);
+      o1.connect(g); o2.connect(g); g.connect(ctx2.destination);
+      o1.start(); o2.start(); lfo.start();
+      bgNodes = { o1, o2, lfo };
+    } catch(e){}
+  }
+  function stopBgAmbience(){ if(bgNodes){ try{ bgNodes.o1.stop(); bgNodes.o2.stop(); bgNodes.lfo.stop(); }catch(e){} bgNodes=null; } }
+
+  // ---------- Boss Tank roster ----------
+  const BOSS_TANK_TYPES = {
+    light: { key:'light', name:'Light Tank', img:'boss_light_tank.png', hp:1200, atk:120, moveCost:1, attackCost:1, price:150,
+      skill:{ key:'poison', name:'Acid Poison', cost:3, desc:"Applies a stacking poison — each stack deals 0.1% of the boss's max HP every boss turn." } },
+    medium: { key:'medium', name:'Medium Tank', img:'boss_medium_tank.png', hp:1600, atk:180, moveCost:1, attackCost:2, price:200,
+      skill:{ key:'railgun', name:'Railgun', cost:5, desc:'A devastating 600-damage shot at the boss.' } },
+    heavy: { key:'heavy', name:'Heavy Tank', img:'boss_heavy_tank.png', hp:2800, atk:220, moveCost:2, attackCost:4, price:250,
+      skill:{ key:'siegemode', name:'Siege Mode', cost:3, desc:"+50% damage for 3 turns — can't move while active." } },
+    guardian: { key:'guardian', name:'Guardian Tank', img:'boss_guardian_tank.png', hp:2000, atk:100, moveCost:2, attackCost:2, price:200,
+      skill:{ key:'shieldall', name:'Shield All', cost:4, desc:'Shields every ally tank for 200 damage, lasting 1 boss turn.' } }
+  };
+  const TYPE_ORDER = ['light','medium','heavy','guardian'];
+  const ROLE_TEXT = {
+    light:'Sustained poison damage', medium:'Single devastating burst', heavy:'Brace for +50% damage', guardian:'Shields the whole squad'
+  };
+
+  // ---------- Board config ----------
+  const COLS = 8, ROWS = 6;
+  const START_POS = { light:[1,1], medium:[1,6], heavy:[4,1], guardian:[4,6] };
+
+  const BOSS_MAX_HP = 7000;
+  const PHASE_THRESHOLDS = { p2: 0.6, p3: 0.3 };
+  const ENRAGE_TURN = 30;
+  const DEFEAT_TURN_LIMIT = 60;
+  const POISON_TICK_RATE = 0.001; // 0.1% of max HP per stack per boss turn
+  const REGEN_TURNS = 3;
+  const REGEN_PCT = 0.02;
+
+  const PATTERNS = {
+    cross:     { label:'Cross',     dmg:400, phase:1 },
+    column:    { label:'Column',    dmg:350, phase:1 },
+    row:       { label:'Row',       dmg:350, phase:1 },
+    half:      { label:'Half-Map',  dmg:250, phase:2 },
+    scattered: { label:'Scattered', dmg:200, phase:2 },
+    full:      { label:'Full-Map',  dmg:100, phase:3 }
+  };
+
+  function patternTiles(type){
+    const tiles = [];
+    if(type === 'cross'){
+      const cr = Math.floor(Math.random()*ROWS), cc = Math.floor(Math.random()*COLS);
+      tiles.push([cr,cc]);
+      [[cr-1,cc],[cr+1,cc],[cr,cc-1],[cr,cc+1]].forEach(([r,c]) => { if(r>=0&&r<ROWS&&c>=0&&c<COLS) tiles.push([r,c]); });
+    } else if(type === 'column'){
+      const cc = Math.floor(Math.random()*COLS);
+      for(let r=0;r<ROWS;r++) tiles.push([r,cc]);
+    } else if(type === 'row'){
+      const cr = Math.floor(Math.random()*ROWS);
+      for(let c=0;c<COLS;c++) tiles.push([cr,c]);
+    } else if(type === 'half'){
+      const left = Math.random() < 0.5;
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){ if((left && c<COLS/2) || (!left && c>=COLS/2)) tiles.push([r,c]); }
+    } else if(type === 'scattered'){
+      const all = [];
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) all.push([r,c]);
+      for(let i=all.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [all[i],all[j]]=[all[j],all[i]]; }
+      for(let i=0;i<7;i++) tiles.push(all[i]);
+    } else if(type === 'full'){
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) tiles.push([r,c]);
+    }
+    return tiles;
+  }
+
+  // ---------- State ----------
+  let board, playerTanks, telegraphs, telegraphTileSet;
+  let boss, turn, turnCount, gameOver, phase, enraged;
+  let selectedTankId = null, skillMode = null, uidCounter = 0;
+  let playerMana = 0, playerMaxMana = 0;
+
+  function inBounds(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS; }
+
+  function makeTank(typeKey){
+    uidCounter++;
+    const def = BOSS_TANK_TYPES[typeKey];
+    const [r,c] = START_POS[typeKey];
+    return { uid:'t'+uidCounter, type:typeKey, name:def.name, img:def.img, hp:def.hp, maxHp:def.hp,
+      atk:def.atk, moveCost:def.moveCost, attackCost:def.attackCost, skill:def.skill,
+      skillUsed:false, siegeModeTurnsLeft:0, shield:0, r, c, alive:true };
+  }
+
+  function formatHp(hp){
+    const v = Math.max(0, Math.round(hp));
+    if(v >= 1000) return (v/1000).toFixed(v%1000===0?0:1) + 'k';
+    return String(v);
+  }
+
+  function log(msg){
+    const el = document.getElementById('combat-log');
+    const line = document.createElement('div');
+    let kind = 'log-neutral';
+    if(/^your /i.test(msg)) kind = 'log-you';
+    else if(/^(the boss|core-eater)/i.test(msg)) kind = 'log-boss';
+    line.className = 'log-line ' + kind;
+    line.textContent = msg;
+    el.appendChild(line);
+    while(el.children.length > 4) el.removeChild(el.firstChild);
+  }
+
+  function showTurnBanner(text){
+    const el = document.getElementById('turn-banner');
+    el.textContent = text; el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 800);
+  }
+
+  let bannerTimer = null;
+  function showAction(html, cls){
+    const el = document.getElementById('action-banner');
+    clearTimeout(bannerTimer);
+    el.innerHTML = '<span class="a-line ' + (cls||'') + '">' + html + '</span>';
+    el.classList.add('show');
+    bannerTimer = setTimeout(() => el.classList.remove('show'), 1400);
+  }
+
+  function triggerBoardShake(dur){
+    const b = document.getElementById('board');
+    b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+    setTimeout(() => b.classList.remove('shake'), (dur||0.35)*1000);
+  }
+
+  function tileCenter(r, c){
+    const boardEl = document.getElementById('board');
+    const wrapEl = document.getElementById('fx-layer');
+    const tileEl = boardEl.querySelector('[data-r="'+r+'"][data-c="'+c+'"]');
+    if(!tileEl) return {x:0,y:0};
+    const tRect = tileEl.getBoundingClientRect(); const wRect = wrapEl.getBoundingClientRect();
+    return { x: tRect.left - wRect.left + tRect.width/2, y: tRect.top - wRect.top + tRect.height/2 };
+  }
+
+  function fxFloatText(r, c, text, color){
+    const pos = tileCenter(r,c);
+    const layer = document.getElementById('fx-layer');
+    const el = document.createElement('div');
+    el.textContent = text;
+    el.style.cssText = 'position:absolute; left:'+pos.x+'px; top:'+pos.y+'px; transform:translate(-50%,-50%); font-family:\'IBM Plex Mono\',monospace; font-weight:800; font-size:16px; color:'+color+'; text-shadow:0 2px 4px rgba(0,0,0,0.8); z-index:6; transition:transform 0.9s ease-out, opacity 0.9s ease-out; opacity:1;';
+    layer.appendChild(el);
+    requestAnimationFrame(() => { el.style.transform = 'translate(-50%,-140%)'; el.style.opacity = '0'; });
+    setTimeout(() => el.remove(), 950);
+  }
+
+  function fxFlashBossHit(){
+    const portrait = document.getElementById('boss-portrait');
+    portrait.style.filter = 'brightness(2.4) drop-shadow(0 0 14px rgba(255,92,92,0.9))';
+    setTimeout(() => { portrait.style.filter = 'drop-shadow(0 0 10px rgba(255,92,92,0.5))'; }, 150);
+  }
+
+  // ---------- Game setup ----------
+  function resetGame(){
+    board = Array.from({length:ROWS}, () => Array.from({length:COLS}, () => ({ occupant:null })));
+    playerTanks = [];
+    uidCounter = 0;
+    gameOver = false;
+    selectedTankId = null; skillMode = null;
+    turnCount = 1; phase = 1; enraged = false;
+    document.getElementById('combat-log').innerHTML = '';
+    document.getElementById('boss-enrage-tag').style.display = 'none';
+
+    TYPE_ORDER.forEach(key => {
+      const t = makeTank(key);
+      playerTanks.push(t);
+      board[t.r][t.c].occupant = t;
+    });
+
+    boss = { hp: BOSS_MAX_HP, maxHp: BOSS_MAX_HP, poisonStacks: 0, turnsSinceDamage: 0 };
+    telegraphs = [];
+    telegraphTileSet = new Map();
+    generateTelegraphs();
+
+    playerMana = 0; playerMaxMana = 0;
+    startPlayerTurn(true);
+  }
+
+  function currentSimultaneousCount(){ return phase; } // phase 1/2/3 -> 1/2/3 patterns
+
+  function poolForPhase(){
+    const pool = ['cross','column','row'];
+    if(phase >= 2) pool.push('half','scattered');
+    if(phase >= 3) pool.push('full');
+    return pool;
+  }
+
+  function generateTelegraphs(){
+    telegraphs = [];
+    telegraphTileSet = new Map();
+    const pool = poolForPhase();
+    const count = currentSimultaneousCount();
+    for(let i=0;i<count;i++){
+      const type = pool[Math.floor(Math.random()*pool.length)];
+      const tiles = patternTiles(type);
+      telegraphs.push({ type, tiles });
+      tiles.forEach(([r,c]) => telegraphTileSet.set(r+'_'+c, true));
+    }
+  }
+
+  function updatePhase(){
+    const pct = boss.hp / boss.maxHp;
+    let newPhase = 1;
+    if(pct <= PHASE_THRESHOLDS.p3) newPhase = 3;
+    else if(pct <= PHASE_THRESHOLDS.p2) newPhase = 2;
+    if(newPhase !== phase){
+      phase = newPhase;
+      log('The boss enters Phase ' + phase + '!');
+      showAction('CORE-EATER ENTERS PHASE ' + phase + '!', 'a-warn');
+    }
+  }
+
+  // ---------- Turn flow ----------
+  function startPlayerTurn(first){
+    if(gameOver) return;
+    turn = 'player';
+    if(!first) turnCount++;
+    playerMaxMana = Math.min(playerMaxMana + 1, 10);
+    playerMana = playerMaxMana;
+    for(const t of playerTanks){
+      if(t.siegeModeTurnsLeft > 0) t.siegeModeTurnsLeft--;
+      t.skillUsed = false;
+    }
+    selectedTankId = null; skillMode = null;
+    showTurnBanner('YOUR TURN');
+    document.getElementById('action-hint').textContent = 'Select one of your tanks to move or act.';
+    render();
+    checkDefeatByTurnLimit();
+  }
+
+  function checkDefeatByTurnLimit(){
+    if(turnCount > DEFEAT_TURN_LIMIT && !gameOver) finishGame('loss');
+  }
+
+  function endPlayerTurn(){
+    if(turn !== 'player' || gameOver) return;
+    selectedTankId = null; skillMode = null;
+    turn = 'boss';
+    render();
+    setTimeout(runBossTurn, 500);
+  }
+
+  function runBossTurn(){
+    if(gameOver) return;
+    showTurnBanner('BOSS TURN');
+
+    let idx = 0;
+    function resolveNext(){
+      if(idx >= telegraphs.length){ finishBossTurn(); return; }
+      const tg = telegraphs[idx];
+      idx++;
+      let dmg = PATTERNS[tg.type].dmg;
+      if(enraged) dmg = Math.round(dmg * 1.5);
+
+      sfxBossBigAttack();
+      triggerBoardShake(0.4);
+      showAction('CORE-EATER UNLEASHES ' + PATTERNS[tg.type].label.toUpperCase() + '!', 'a-warn');
+      log('The boss strikes with a ' + PATTERNS[tg.type].label + ' attack!');
+
+      tg.tiles.forEach(([r,c]) => {
+        const occ = board[r][c].occupant;
+        if(occ && occ.alive){
+          let actualDmg = dmg;
+          if(occ.shield > 0){
+            const absorbed = Math.min(occ.shield, actualDmg);
+            actualDmg -= absorbed;
+            occ.shield = 0;
+          }
+          occ.hp -= actualDmg;
+          fxFloatText(r, c, '-' + actualDmg, '#FF5C5C');
+          if(occ.hp <= 0){
+            occ.alive = false;
+            board[r][c].occupant = null;
+            log('Your ' + occ.name + ' was destroyed!');
+          }
+        }
+      });
+      render();
+      checkSquadWipe();
+      if(gameOver) return;
+      setTimeout(resolveNext, 550);
+    }
+    resolveNext();
+  }
+
+  function finishBossTurn(){
+    // clear all shields (1-turn duration elapsed)
+    playerTanks.forEach(t => { t.shield = 0; });
+
+    // poison tick
+    if(boss.poisonStacks > 0 && boss.hp > 0){
+      const poisonDmg = Math.round(boss.maxHp * POISON_TICK_RATE * boss.poisonStacks);
+      boss.hp -= poisonDmg;
+      boss.turnsSinceDamage = 0;
+      fxFlashBossHit();
+      log('Acid poison burns the boss for ' + poisonDmg + ' (' + boss.poisonStacks + ' stacks).');
+      showAction('ACID POISON TICKS FOR ' + poisonDmg + '!', 'a-dmg');
+    } else {
+      boss.turnsSinceDamage++;
+    }
+
+    // regen check
+    if(boss.turnsSinceDamage >= REGEN_TURNS && boss.hp > 0 && boss.hp < boss.maxHp){
+      const heal = Math.round(boss.maxHp * REGEN_PCT);
+      boss.hp = Math.min(boss.maxHp, boss.hp + heal);
+      boss.turnsSinceDamage = 0;
+      log('The boss regenerates ' + heal + ' HP — you need to keep the pressure on!');
+      showAction('CORE-EATER REGENERATES!', 'a-heal');
+    }
+
+    checkBossDefeated();
+    if(gameOver) return;
+
+    updatePhase();
+    if(turnCount >= ENRAGE_TURN && !enraged){
+      enraged = true;
+      document.getElementById('boss-enrage-tag').style.display = 'inline-block';
+      log('The boss enrages — its attacks now hit far harder!');
+      showAction('CORE-EATER IS ENRAGED!', 'a-warn');
+    }
+    generateTelegraphs();
+    render();
+    setTimeout(() => startPlayerTurn(false), 700);
+  }
+
+  function checkSquadWipe(){
+    if(gameOver) return;
+    if(!playerTanks.some(t => t.alive)) finishGame('loss');
+  }
+  function checkBossDefeated(){
+    if(gameOver) return;
+    if(boss.hp <= 0) finishGame('win');
+  }
+
+  // ---------- Player actions ----------
+  function selectTank(uid){
+    if(turn !== 'player' || gameOver) return;
+    const t = playerTanks.find(x => x.uid === uid && x.alive);
+    if(!t) return;
+    selectedTankId = (selectedTankId === uid) ? null : uid;
+    skillMode = null;
+    if(selectedTankId) sfxMove();
+    render();
+  }
+
+  function tileClick(r, c){
+    if(turn !== 'player' || gameOver) return;
+
+    const clicked = board[r][c].occupant;
+    if(clicked && clicked.alive){ selectTank(clicked.uid); return; }
+
+    if(!selectedTankId) return;
+    const attacker = playerTanks.find(x => x.uid === selectedTankId);
+    if(!attacker) return;
+
+    const dist = Math.abs(attacker.r-r) + Math.abs(attacker.c-c);
+    if(dist !== 1) return;
+    if(board[r][c].occupant) return;
+    if(playerMana < attacker.moveCost) return;
+    if(attacker.siegeModeTurnsLeft > 0) return;
+
+    playerMana -= attacker.moveCost;
+    board[attacker.r][attacker.c].occupant = null;
+    attacker.r = r; attacker.c = c;
+    board[r][c].occupant = attacker;
+    selectedTankId = null;
+    sfxMove();
+    showAction('YOUR ' + attacker.name.toUpperCase() + ' MOVES <span class="mono" style="font-size:0.6em;color:var(--muted);">(&minus;' + (attacker.moveCost) + ' MP)</span>', 'a-move');
+    log('Your ' + attacker.name + ' repositioned.');
+    render();
+  }
+
+  function handleAttackButton(){
+    if(turn !== 'player' || gameOver || !selectedTankId) return;
+    const t = playerTanks.find(x => x.uid === selectedTankId && x.alive);
+    if(!t) return;
+    if(playerMana < t.attackCost){ sfxInsufficientMana(); return; }
+    playerMana -= t.attackCost;
+    let dmg = t.atk;
+    if(t.siegeModeTurnsLeft > 0) dmg = Math.round(dmg * 1.5);
+    sfxAttack();
+    boss.hp -= dmg;
+    boss.turnsSinceDamage = 0;
+    fxFlashBossHit();
+    triggerBoardShake(0.2);
+    const costTag = '<span class="mono" style="font-size:0.55em;color:var(--muted);"> (&minus;' + t.attackCost + ' MP)</span>';
+    showAction('YOUR ' + t.name.toUpperCase() + ' HITS THE BOSS FOR ' + dmg + '!' + costTag, 'a-dmg');
+    log('Your ' + t.name + ' hits the boss for ' + dmg + '.');
+    selectedTankId = null;
+    checkBossDefeated();
+    render();
+  }
+
+  function handleSkillButton(){
+    if(turn !== 'player' || gameOver || !selectedTankId) return;
+    const t = playerTanks.find(x => x.uid === selectedTankId && x.alive);
+    if(!t) return;
+    const sk = t.skill;
+    if(skillMode){ skillMode = null; render(); return; }
+    if(t.skillUsed) return;
+    if(playerMana < sk.cost){ sfxInsufficientMana(); return; }
+
+    if(sk.key === 'poison'){
+      playerMana -= sk.cost; t.skillUsed = true;
+      boss.poisonStacks++;
+      sfxPoison();
+      showAction('YOUR ' + t.name.toUpperCase() + ' APPLIES ACID POISON (x' + boss.poisonStacks + ')', 'a-dmg');
+      log('Your ' + t.name + ' applies acid poison — ' + boss.poisonStacks + ' stack(s) now.');
+      selectedTankId = null;
+      render();
+    } else if(sk.key === 'railgun'){
+      playerMana -= sk.cost; t.skillUsed = true;
+      sfxRailgun();
+      boss.hp -= 600; boss.turnsSinceDamage = 0;
+      fxFlashBossHit(); triggerBoardShake(0.35);
+      showAction('YOUR ' + t.name.toUpperCase() + ' FIRES THE RAILGUN FOR 600!', 'a-dmg');
+      log('Your ' + t.name + ' railgun hits the boss for 600.');
+      selectedTankId = null;
+      checkBossDefeated();
+      render();
+    } else if(sk.key === 'siegemode'){
+      playerMana -= sk.cost; t.skillUsed = true;
+      t.siegeModeTurnsLeft = 3;
+      sfxSiege();
+      showAction('YOUR ' + t.name.toUpperCase() + ' ENTERS SIEGE MODE', 'a-warn');
+      log('Your ' + t.name + ' braces into siege mode (+50% damage, 3 turns).');
+      selectedTankId = null;
+      render();
+    } else if(sk.key === 'shieldall'){
+      playerMana -= sk.cost; t.skillUsed = true;
+      sfxShield();
+      playerTanks.forEach(a => { if(a.alive) a.shield = 200; });
+      showAction('YOUR ' + t.name.toUpperCase() + ' SHIELDS THE SQUAD (200)', 'a-heal');
+      log('Your ' + t.name + ' shields every ally for 200 damage.');
+      selectedTankId = null;
+      render();
+    }
+  }
+
+  // ---------- Rendering ----------
+  function manaCrystals(mana, max){
+    let html = '';
+    for(let i=0;i<max;i++) html += '<div class="mana-crystal' + (i<mana?' filled':'') + '"></div>';
+    html += '<span class="mana-label">' + mana + '/' + max + '</span>';
+    return html;
+  }
+
+  function render(){
+    // boss banner
+    const pct = Math.max(0, boss.hp / boss.maxHp * 100);
+    document.getElementById('boss-hp-fill').style.width = pct + '%';
+    document.getElementById('boss-hp-text').textContent = formatHp(Math.max(0,boss.hp)) + ' / ' + formatHp(boss.maxHp);
+    document.getElementById('boss-phase-tag').textContent = 'Phase ' + phase;
+    document.getElementById('boss-turn-count').textContent = 'Turn ' + Math.min(turnCount, DEFEAT_TURN_LIMIT);
+
+    const selected = selectedTankId ? playerTanks.find(t => t.uid === selectedTankId) : null;
+
+    // board
+    const boardEl = document.getElementById('board');
+    let html = '';
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        let cls = 'tile';
+        const occ = board[r][c].occupant;
+        if(telegraphTileSet.has(r+'_'+c)) cls += ' telegraph';
+        let content = '';
+        if(occ){
+          content = '<div class="tank-sprite-wrap"><img src="' + occ.img + '" alt=""></div>' +
+            '<div class="hp-num">' + formatHp(occ.hp) + '</div>' +
+            (occ.shield > 0 ? '<div class="shield-badge">🛡</div>' : '') +
+            '<div class="hp-mini"><div class="hp-mini-fill" style="width:' + Math.max(0,(occ.hp/occ.maxHp*100)) + '%;"></div></div>';
+          if(occ.uid === selectedTankId) cls += ' selected-tank';
+        }
+        if(selected && !occ){
+          const dist = Math.abs(selected.r-r) + Math.abs(selected.c-c);
+          if(dist === 1 && playerMana >= selected.moveCost && selected.siegeModeTurnsLeft === 0){
+            cls += ' move-target';
+            content += '<div class="cost-badge">' + selected.moveCost + '</div>';
+          }
+        }
+        const onclick = (turn==='player' && !gameOver) ? 'onclick="tileClick('+r+','+c+')"' : '';
+        html += '<div class="' + cls + '" data-r="' + r + '" data-c="' + c + '" ' + onclick + '>' + content + '</div>';
+      }
+    }
+    boardEl.innerHTML = html;
+
+    // roster
+    document.getElementById('player-roster').innerHTML = playerTanks.map(t => {
+      const deadCls = t.alive ? '' : ' dead';
+      const selCls = (selectedTankId === t.uid) ? ' selected' : '';
+      const onclick = t.alive ? 'onclick="selectTank(\'' + t.uid + '\')"' : '';
+      const shieldTag = t.shield > 0 ? '<div class="shield-tag">🛡 ' + t.shield + '</div>' : '';
+      const siegeTag = t.siegeModeTurnsLeft > 0 ? '<div class="siege-tag">⚡x' + t.siegeModeTurnsLeft + '</div>' : '';
+      return '<div class="roster-tank' + deadCls + selCls + '" ' + onclick + '>' +
+        '<img src="' + t.img + '" alt="">' +
+        '<div class="name">' + t.name + '</div>' +
+        shieldTag + siegeTag +
+        '<div class="hpbar"><div class="hpbar-fill" style="width:' + Math.max(0,(t.hp/t.maxHp*100)) + '%;"></div></div>' +
+        '<div class="costs">Mv' + t.moveCost + ' / Atk' + t.attackCost + '</div>' +
+      '</div>';
+    }).join('');
+
+    document.getElementById('mana-row').innerHTML = manaCrystals(playerMana, playerMaxMana);
+    document.getElementById('end-turn-btn').disabled = (turn !== 'player' || gameOver);
+
+    // action buttons
+    const attackBtn = document.getElementById('attack-btn');
+    const skillBtn = document.getElementById('skill-btn');
+    if(selected && turn === 'player' && !gameOver){
+      attackBtn.style.display = 'block';
+      attackBtn.disabled = playerMana < selected.attackCost;
+      attackBtn.textContent = 'Attack Boss (' + selected.attackCost + ' MP)';
+
+      skillBtn.style.display = 'block';
+      if(selected.skillUsed){
+        skillBtn.disabled = true; skillBtn.classList.remove('active');
+        skillBtn.textContent = '✓ ' + selected.skill.name + ' Used This Turn';
+      } else {
+        skillBtn.disabled = playerMana < selected.skill.cost;
+        skillBtn.textContent = '⚡ ' + selected.skill.name + ' (' + selected.skill.cost + ' MP)';
+      }
+
+      document.getElementById('action-hint').innerHTML =
+        '<b style="color:var(--amber);">' + selected.name + '</b> — Move ' + selected.moveCost + ' MP &middot; Attack ' + selected.attackCost + ' MP &middot; ' + selected.skill.name + ' ' + selected.skill.cost + ' MP ' +
+        '<span class="mono" style="color:var(--muted);">(you have ' + playerMana + ' MP)</span>';
+    } else {
+      attackBtn.style.display = 'none';
+      skillBtn.style.display = 'none';
+      if(turn === 'player' && !gameOver) document.getElementById('action-hint').textContent = 'Select one of your tanks to move or act.';
+    }
+  }
+
+  // ---------- Game over ----------
+  function finishGame(result){
+    if(gameOver) return;
+    gameOver = true;
+    stopBgAmbience();
+
+    if(result === 'win') sfxVictory(); else sfxDefeat();
+
+    const aliveCount = playerTanks.filter(t => t.alive).length;
+    if(result === 'win'){
+      document.getElementById('over-eyebrow').textContent = 'Victory';
+      document.getElementById('over-eyebrow').style.color = 'var(--green)';
+      document.getElementById('battle-summary').textContent = 'Core-Eater destroyed with ' + aliveCount + ' tank(s) still standing, in ' + Math.min(turnCount, DEFEAT_TURN_LIMIT) + ' turns.';
+    } else {
+      document.getElementById('over-eyebrow').textContent = 'Defeat';
+      document.getElementById('over-eyebrow').style.color = 'var(--red)';
+      document.getElementById('battle-summary').textContent = 'Your squad fell short. Boss HP remaining: ' + formatHp(Math.max(0,boss.hp)) + ' / ' + formatHp(boss.maxHp) + '.';
+    }
+
+    document.getElementById('submit-msg').textContent = 'Awarding rewards...';
+    document.getElementById('over-overlay').classList.remove('hidden');
+    awardRewards(result);
+  }
+
+  async function awardRewards(result){
+    const msg = document.getElementById('submit-msg');
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      msg.className = 'submit-msg error';
+      msg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to earn XP, coins, and tokens from this fight.';
+      return;
+    }
+    const user = sessionData.session.user;
+    const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+    const xpEarned = result === 'win' ? 150 : 40;
+    const coinsEarned = result === 'win' ? 80 : 15;
+    const tokensEarned = result === 'win' ? 40 : 10;
+
+    try{
+      const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', user.id).maybeSingle();
+      const prevXp = existing ? existing.xp : 0;
+      const prevCoins = existing ? existing.coins : 100;
+      const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
+      const newXp = prevXp + xpEarned, newCoins = prevCoins + coinsEarned, newTokens = prevTokens + tokensEarned;
+      if(existing) await sb.from('profiles').update({ xp:newXp, coins:newCoins, battle_tokens:newTokens, username, updated_at:new Date().toISOString() }).eq('user_id', user.id);
+      else await sb.from('profiles').insert({ user_id:user.id, username, xp:newXp, coins:newCoins, battle_tokens:newTokens });
+      const leveledUp = levelFromXp(newXp) > levelFromXp(prevXp);
+      msg.className = 'submit-msg success';
+      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, +' + tokensEarned + ' tokens' + (leveledUp ? ' — LEVEL UP to ' + levelFromXp(newXp) + '!' : '');
+    } catch(e){
+      msg.className = 'submit-msg error';
+      msg.textContent = 'Could not record your rewards this time.';
+    }
+  }
+
+  // ---------- Shop ----------
+  let ownedTanks = [];
+
+  function renderShop(tokens){
+    document.getElementById('shop-token-balance').textContent = tokens.toLocaleString();
+    const grid = document.getElementById('shop-grid');
+    grid.innerHTML = TYPE_ORDER.map(key => {
+      const def = BOSS_TANK_TYPES[key];
+      const owned = ownedTanks.includes(key);
+      const canAfford = tokens >= def.price;
+      let btnHtml;
+      if(owned) btnHtml = '<button disabled>✓ Owned</button>';
+      else if(canAfford) btnHtml = '<button onclick="buyTank(\'' + key + '\')">Buy — ' + def.price + ' ⚔</button>';
+      else btnHtml = '<button class="cant-afford" disabled>Need ' + def.price + ' ⚔</button>';
+      return '<div class="shop-card' + (owned?' owned':'') + '">' +
+        '<img src="' + def.img + '" alt="">' +
+        '<div class="name">' + def.name + '</div>' +
+        '<div class="role">' + ROLE_TEXT[key] + '</div>' +
+        '<div class="price">' + (owned ? 'Owned' : def.price + ' Battle Tokens') + '</div>' +
+        btnHtml +
+      '</div>';
+    }).join('');
+  }
+
+  async function buyTank(key){
+    const shopMsg = document.getElementById('shop-msg');
+    shopMsg.className = 'submit-msg'; shopMsg.textContent = '';
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      shopMsg.className = 'submit-msg error';
+      shopMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to purchase boss tanks.';
+      return;
+    }
+    const user = sessionData.session.user;
+    const { data: profile } = await sb.from('profiles').select('battle_tokens,boss_tanks_owned').eq('user_id', user.id).maybeSingle();
+    const tokens = profile ? (profile.battle_tokens || 0) : 0;
+    const owned = profile ? (profile.boss_tanks_owned || []) : [];
+    const price = BOSS_TANK_TYPES[key].price;
+
+    if(owned.includes(key)) return;
+    if(tokens < price){
+      shopMsg.className = 'submit-msg error';
+      shopMsg.textContent = 'Not enough Battle Tokens for ' + BOSS_TANK_TYPES[key].name + '.';
+      return;
+    }
+
+    const newOwned = owned.concat([key]);
+    const newTokens = tokens - price;
+    if(profile) await sb.from('profiles').update({ battle_tokens:newTokens, boss_tanks_owned:newOwned }).eq('user_id', user.id);
+    else {
+      const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+      await sb.from('profiles').insert({ user_id:user.id, username, battle_tokens:newTokens, boss_tanks_owned:newOwned });
+    }
+    ownedTanks = newOwned;
+    shopMsg.className = 'submit-msg success';
+    shopMsg.textContent = BOSS_TANK_TYPES[key].name + ' acquired!';
+    renderShop(newTokens);
+    if(TYPE_ORDER.every(k => ownedTanks.includes(k))){
+      setTimeout(() => {
+        document.getElementById('shop-overlay').classList.add('hidden');
+        document.getElementById('start-overlay').classList.remove('hidden');
+      }, 700);
+    }
+  }
+
+  async function initPage(){
+    TYPE_ORDER.forEach(key => { document.getElementById('boss-portrait').src=''; });
+    document.getElementById('boss-portrait').src = 'data:image/svg+xml;utf8,' + encodeURIComponent(bossSvg());
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      renderShop(0);
+      const shopMsg = document.getElementById('shop-msg');
+      shopMsg.className = 'submit-msg error';
+      shopMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to buy boss tanks and track ownership.';
+      return;
+    }
+    const user = sessionData.session.user;
+    const { data: profile } = await sb.from('profiles').select('battle_tokens,boss_tanks_owned').eq('user_id', user.id).maybeSingle();
+    const tokens = profile ? (profile.battle_tokens || 0) : 0;
+    ownedTanks = profile ? (profile.boss_tanks_owned || []) : [];
+    renderShop(tokens);
+    if(TYPE_ORDER.every(k => ownedTanks.includes(k))){
+      document.getElementById('shop-overlay').classList.add('hidden');
+      document.getElementById('start-overlay').classList.remove('hidden');
+    }
+  }
+
+  function bossSvg(){
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+      '<circle cx="50" cy="50" r="46" fill="#1a1010" stroke="#FF5C5C" stroke-width="2"/>' +
+      '<path d="M50 12 L62 30 L58 46 L50 40 L42 46 L38 30 Z" fill="#3a1414" stroke="#FF5C5C" stroke-width="1.5"/>' +
+      '<circle cx="50" cy="55" r="16" fill="#2a1010" stroke="#FF5C5C" stroke-width="2"/>' +
+      '<circle cx="50" cy="55" r="8" fill="#FF5C5C"><animate attributeName="r" values="7;9;7" dur="1.6s" repeatCount="indefinite"/></circle>' +
+      '<path d="M20 40 L10 55 L20 65" fill="none" stroke="#FF5C5C" stroke-width="3" stroke-linecap="round"/>' +
+      '<path d="M80 40 L90 55 L80 65" fill="none" stroke="#FF5C5C" stroke-width="3" stroke-linecap="round"/>' +
+      '<circle cx="38" cy="34" r="3" fill="#FFB627"/><circle cx="62" cy="34" r="3" fill="#FFB627"/>' +
+    '</svg>';
+  }
+
+  function startGame(){
+    document.getElementById('start-overlay').classList.add('hidden');
+    document.getElementById('over-overlay').classList.add('hidden');
+    resetGame();
+    startBgAmbience();
+    sfxGameStart();
+  }
+
+  initPage();
+</script>
+</body>
+</html>

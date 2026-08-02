@@ -352,6 +352,22 @@
   </div>
 </section>
 
+<section id="daily-strip" style="max-width:1300px; margin:0 auto 10px; padding:0 5vw; display:none;">
+  <a href="profile.html" style="text-decoration:none; display:flex; align-items:center; gap:16px; flex-wrap:wrap; justify-content:space-between; background:linear-gradient(90deg, rgba(255,182,39,0.12), rgba(45,225,252,0.06)); border:1.5px solid rgba(255,182,39,0.35); border-radius:14px; padding:16px 22px;">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <div style="font-size:30px;">📅</div>
+      <div>
+        <div style="font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:22px; letter-spacing:0.02em; color:var(--text);" id="daily-strip-title">Daily Check-In</div>
+        <div style="font-size:12px; color:var(--muted);" id="daily-strip-sub">Loading...</div>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div class="mono" style="font-size:13px; font-weight:800; color:var(--cyan); background:rgba(45,225,252,0.12); padding:5px 12px; border-radius:14px; white-space:nowrap;" id="daily-strip-streak">🔥 0 day streak</div>
+      <span class="btn btn-primary" style="padding:9px 18px; font-size:13px; white-space:nowrap;" id="daily-strip-cta">Claim</span>
+    </div>
+  </a>
+</section>
+
 <section class="games" id="games">
   <div class="section-head">
     <div class="eyebrow">Game Library</div>
@@ -429,56 +445,74 @@
       <div class="game-footer"><span class="entry-fee">🪙 20 Coins</span><a href="game-orbit-snap.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
     </div>
     <div class="game-card">
-      <div class="game-thumb" style="background:linear-gradient(135deg,#122318,#1a2a1e); padding:0; overflow:hidden;">
-        <svg viewBox="0 0 400 120" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-          <g stroke="rgba(255,255,255,0.06)" stroke-width="1">
-            <line x1="0" y1="30" x2="400" y2="30"/><line x1="0" y1="60" x2="400" y2="60"/><line x1="0" y1="90" x2="400" y2="90"/>
-            <line x1="80" y1="0" x2="80" y2="120"/><line x1="160" y1="0" x2="160" y2="120"/>
-            <line x1="240" y1="0" x2="240" y2="120"/><line x1="320" y1="0" x2="320" y2="120"/>
+      <div class="game-thumb" style="background:radial-gradient(ellipse at 30% 60%, #1d3326, #0d1a12); padding:0; overflow:hidden;">
+        <svg viewBox="0 0 400 180" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <radialGradient id="tcFlash" cx="50%" cy="50%">
+              <stop offset="0%" stop-color="#FFF3D0"/>
+              <stop offset="45%" stop-color="#FFB627" stop-opacity="0.8"/>
+              <stop offset="100%" stop-color="#FF9227" stop-opacity="0"/>
+            </radialGradient>
+            <linearGradient id="tcFog" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#0d1a12" stop-opacity="0"/>
+              <stop offset="100%" stop-color="#050a07" stop-opacity="0.95"/>
+            </linearGradient>
+          </defs>
+
+          <!-- battlefield grid, angled for depth -->
+          <g stroke="rgba(52,211,153,0.10)" stroke-width="1">
+            <line x1="0" y1="52" x2="400" y2="42"/><line x1="0" y1="92" x2="400" y2="88"/><line x1="0" y1="136" x2="400" y2="146"/>
+            <line x1="70" y1="0" x2="62" y2="180"/><line x1="150" y1="0" x2="146" y2="180"/>
+            <line x1="240" y1="0" x2="248" y2="180"/><line x1="320" y1="0" x2="334" y2="180"/>
           </g>
-          <!-- Light Tank -->
-          <g transform="translate(20,14) scale(1.15)">
-            <rect x="6" y="10" width="4" height="24" rx="2" fill="#12161F"/><rect x="34" y="10" width="4" height="24" rx="2" fill="#12161F"/>
-            <circle cx="8" cy="14" r="1.8" fill="#2a3244"/><circle cx="8" cy="22" r="1.8" fill="#2a3244"/><circle cx="8" cy="30" r="1.8" fill="#2a3244"/>
-            <circle cx="36" cy="14" r="1.8" fill="#2a3244"/><circle cx="36" cy="22" r="1.8" fill="#2a3244"/><circle cx="36" cy="30" r="1.8" fill="#2a3244"/>
-            <path d="M12 14 L30 11 L32 32 L12 32 Z" fill="#2DE1FC" stroke="#0F5C6E" stroke-width="1.5"/>
-            <line x1="15" y1="12" x2="12" y2="4" stroke="#0F5C6E" stroke-width="1.6"/><circle cx="12" cy="4" r="1.5" fill="#0F5C6E"/>
-            <circle cx="22" cy="23" r="5.4" fill="#0F5C6E"/><circle cx="23.3" cy="21.7" r="2.5" fill="#BFF6FF"/>
-            <rect x="30" y="21" width="11" height="2.6" fill="#0F5C6E"/><rect x="39" y="19.8" width="2.6" height="5" fill="#0F5C6E"/>
-          </g>
-          <!-- Medium Tank -->
-          <g transform="translate(115,10) scale(1.15)">
-            <rect x="5" y="8" width="5" height="28" rx="2" fill="#12161F"/><rect x="34" y="8" width="5" height="28" rx="2" fill="#12161F"/>
-            <circle cx="7.5" cy="12" r="2.2" fill="#2a3244"/><circle cx="7.5" cy="22" r="2.2" fill="#2a3244"/><circle cx="7.5" cy="32" r="2.2" fill="#2a3244"/>
-            <circle cx="36.5" cy="12" r="2.2" fill="#2a3244"/><circle cx="36.5" cy="22" r="2.2" fill="#2a3244"/><circle cx="36.5" cy="32" r="2.2" fill="#2a3244"/>
-            <rect x="10" y="9" width="24" height="26" rx="4" fill="#FFB627" stroke="#8A5C0A" stroke-width="1.6"/>
-            <rect x="10" y="9" width="8" height="26" rx="4" fill="#E69F1A" opacity="0.55"/>
-            <rect x="16" y="4" width="3" height="6" fill="#8A5C0A"/><rect x="24" y="4" width="3" height="6" fill="#8A5C0A"/>
-            <rect x="14" y="18" width="16" height="9" rx="2" fill="#8A5C0A"/><rect x="16" y="20" width="12" height="5" rx="1" fill="#FFE7B0"/>
-            <rect x="30" y="20" width="12" height="4" fill="#8A5C0A"/><rect x="38" y="18.4" width="3" height="7.2" fill="#8A5C0A"/>
-          </g>
-          <!-- Heavy Tank -->
-          <g transform="translate(205,6) scale(1.2)">
-            <rect x="4" y="6" width="6" height="32" rx="2" fill="#12161F"/><rect x="34" y="6" width="6" height="32" rx="2" fill="#12161F"/>
+
+          <!-- fog of war creeping in from the enemy side -->
+          <rect x="230" y="0" width="170" height="180" fill="url(#tcFog)"/>
+          <circle cx="330" cy="60" r="2.5" fill="rgba(255,92,92,0.5)"/>
+          <circle cx="362" cy="118" r="2" fill="rgba(255,92,92,0.35)"/>
+
+          <!-- HEAVY tank, foreground hero, mid-recoil -->
+          <g transform="translate(38,58) scale(1.9)">
+            <rect x="4" y="6" width="6" height="32" rx="2" fill="#0d1117"/><rect x="34" y="6" width="6" height="32" rx="2" fill="#0d1117"/>
             <circle cx="7" cy="11" r="2.4" fill="#2a3244"/><circle cx="7" cy="20" r="2.4" fill="#2a3244"/><circle cx="7" cy="29" r="2.4" fill="#2a3244"/>
             <circle cx="37" cy="11" r="2.4" fill="#2a3244"/><circle cx="37" cy="20" r="2.4" fill="#2a3244"/><circle cx="37" cy="29" r="2.4" fill="#2a3244"/>
             <rect x="9" y="8" width="26" height="28" rx="3" fill="#FF5C5C" stroke="#7A1F1F" stroke-width="1.8"/>
             <path d="M9 8 L22 8 L18 18 L9 18 Z" fill="#7A1F1F" opacity="0.6"/>
             <rect x="11" y="30" width="6" height="6" rx="1.5" fill="#7A1F1F"/><rect x="27" y="30" width="6" height="6" rx="1.5" fill="#7A1F1F"/>
             <path d="M15 20 L29 22 L28 27 L15 27 Z" fill="#7A1F1F"/><rect x="14" y="22.6" width="16" height="2.4" fill="#3A0D0D"/>
-            <rect x="30" y="19" width="9" height="6" fill="#7A1F1F"/><rect x="37" y="17" width="4" height="10" fill="#7A1F1F"/>
+            <rect x="30" y="19" width="11" height="6" fill="#7A1F1F"/><rect x="39" y="17" width="4" height="10" fill="#7A1F1F"/>
           </g>
-          <!-- Support Tank -->
-          <g transform="translate(300,12) scale(1.15)">
-            <rect x="6" y="9" width="4" height="26" rx="2" fill="#12161F"/><rect x="34" y="9" width="4" height="26" rx="2" fill="#12161F"/>
-            <circle cx="8" cy="13" r="1.9" fill="#2a3244"/><circle cx="8" cy="22" r="1.9" fill="#2a3244"/><circle cx="8" cy="31" r="1.9" fill="#2a3244"/>
-            <circle cx="36" cy="13" r="1.9" fill="#2a3244"/><circle cx="36" cy="22" r="1.9" fill="#2a3244"/><circle cx="36" cy="31" r="1.9" fill="#2a3244"/>
-            <rect x="10" y="10" width="24" height="24" rx="4" fill="#34D399" stroke="#166B4C" stroke-width="1.6"/>
-            <line x1="16" y1="10" x2="14" y2="4" stroke="#166B4C" stroke-width="1.4"/><circle cx="14" cy="4" r="1.4" fill="#166B4C"/>
-            <line x1="28" y1="10" x2="30" y2="4" stroke="#166B4C" stroke-width="1.4"/><circle cx="30" cy="4" r="1.4" fill="#166B4C"/>
-            <circle cx="22" cy="27" r="4.2" fill="#166B4C"/><circle cx="23" cy="26" r="1.9" fill="#BFF6E3"/>
-            <rect x="18.5" y="14.5" width="7" height="2.4" fill="#166B4C"/><rect x="21" y="12" width="2.4" height="7" fill="#166B4C"/>
+
+          <!-- muzzle flash bursting off the heavy tank's barrel -->
+          <circle cx="160" cy="100" r="30" fill="url(#tcFlash)"/>
+          <circle cx="160" cy="100" r="9" fill="#FFF3D0"/>
+
+          <!-- tracer streaking into the fog -->
+          <line x1="170" y1="99" x2="300" y2="76" stroke="#FFB627" stroke-width="4" stroke-linecap="round" opacity="0.95"/>
+          <line x1="300" y1="76" x2="345" y2="68" stroke="#FFB627" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
+
+          <!-- impact burst where the shell lands -->
+          <circle cx="348" cy="67" r="20" fill="#FF5C5C" opacity="0.35"/>
+          <circle cx="348" cy="67" r="9" fill="#FFB627" opacity="0.85"/>
+          <g stroke="#FFB627" stroke-width="2.5" stroke-linecap="round" opacity="0.8">
+            <line x1="348" y1="47" x2="348" y2="38"/><line x1="366" y1="60" x2="376" y2="55"/>
+            <line x1="332" y1="78" x2="322" y2="86"/><line x1="362" y1="82" x2="371" y2="90"/>
           </g>
+
+          <!-- LIGHT tank flanking behind, smaller for depth -->
+          <g transform="translate(148,20) scale(1.05)" opacity="0.95">
+            <rect x="6" y="10" width="4" height="24" rx="2" fill="#0d1117"/><rect x="34" y="10" width="4" height="24" rx="2" fill="#0d1117"/>
+            <circle cx="8" cy="15" r="1.8" fill="#2a3244"/><circle cx="8" cy="24" r="1.8" fill="#2a3244"/>
+            <circle cx="36" cy="15" r="1.8" fill="#2a3244"/><circle cx="36" cy="24" r="1.8" fill="#2a3244"/>
+            <path d="M12 14 L30 11 L32 32 L12 32 Z" fill="#2DE1FC" stroke="#0F5C6E" stroke-width="1.5"/>
+            <circle cx="22" cy="23" r="5.4" fill="#0F5C6E"/><circle cx="23.3" cy="21.7" r="2.5" fill="#BFF6FF"/>
+            <rect x="30" y="21" width="11" height="2.6" fill="#0F5C6E"/>
+          </g>
+
+          <!-- drifting smoke from the exchange -->
+          <circle cx="196" cy="130" r="16" fill="rgba(180,190,205,0.09)"/>
+          <circle cx="214" cy="120" r="11" fill="rgba(180,190,205,0.07)"/>
+          <circle cx="176" cy="140" r="9" fill="rgba(180,190,205,0.06)"/>
         </svg>
       </div>
       <div class="game-title">Tank Clash <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>
@@ -812,6 +846,38 @@
         '</a>' +
         '<button class="btn btn-ghost" onclick="logout()">Log Out</button>';
     }
+  })();
+
+  // ---- Daily check-in strip ----
+  (async function loadDailyStrip(){
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session) return; // signed-out visitors don't see it
+
+    const user = sessionData.session.user;
+    let profile = null;
+    try{
+      const res = await sb.from('profiles').select('checkin_streak,last_checkin_date').eq('user_id', user.id).maybeSingle();
+      profile = res.data;
+    } catch(e){ return; }
+
+    const d = new Date();
+    const today = d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0') + '-' + String(d.getUTCDate()).padStart(2,'0');
+    const streak = profile ? (profile.checkin_streak || 0) : 0;
+    const lastDate = profile ? (profile.last_checkin_date || null) : null;
+    const claimedToday = lastDate === today;
+
+    document.getElementById('daily-strip-streak').textContent = '🔥 ' + streak + ' day streak';
+    if(claimedToday){
+      document.getElementById('daily-strip-title').textContent = 'Checked in today';
+      document.getElementById('daily-strip-sub').textContent = 'Come back tomorrow to keep the streak alive.';
+      document.getElementById('daily-strip-cta').textContent = 'View streak';
+      document.getElementById('daily-strip-cta').className = 'btn btn-ghost';
+    } else {
+      document.getElementById('daily-strip-title').textContent = 'Daily reward is waiting';
+      document.getElementById('daily-strip-sub').textContent = 'Claim today\u2019s coins before the streak resets.';
+      document.getElementById('daily-strip-cta').textContent = 'Claim now';
+    }
+    document.getElementById('daily-strip').style.display = 'block';
   })();
 
   // ---- Hero scoreboard: live daily leaderboard for Asteroid Run ----

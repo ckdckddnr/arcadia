@@ -404,9 +404,9 @@
     scattered: 'explosion_large_001.wav'
   };
   function sfxBossAttack(type){
-    playClip(PATTERN_SOUND[type] || 'explosion_large_001.wav', 0.85);
+    playClipTimed(PATTERN_SOUND[type] || 'explosion_large_001.wav', 0.85, 4000);
   }
-  function sfxBossFullMap(){ playClip('explosion_large_fade_mix_001.wav', 0.85); }
+  function sfxBossFullMap(){ playClipTimed('explosion_large_fade_mix_001.wav', 0.85, 4000); }
   function sfxSiege(){ playClip('mechanical_004.wav', 0.75); }
   function sfxVictory(){ playTone(523,0.15,'sine',0.15,660); setTimeout(()=>playTone(659,0.15,'sine',0.15,784),140); setTimeout(()=>playTone(784,0.3,'sine',0.15,1046),280); }
   function sfxDefeat(){ playTone(220,0.4,'sawtooth',0.15,90); }
@@ -1055,12 +1055,12 @@
       showAction('NULLREAPER UNLEASHES ' + PATTERNS[tg.type].label.toUpperCase() + '!', 'a-warn');
       log('The boss strikes with a ' + PATTERNS[tg.type].label + ' attack!');
 
-      const applyDamage = () => {
-        triggerBoardShake(0.4);
+      const resolveHit = (hitDmg) => {
+        triggerBoardShake(0.3);
         tg.tiles.forEach(([r,c]) => {
           const occ = board[r][c].occupant;
           if(occ && occ.alive){
-            let actualDmg = dmg;
+            let actualDmg = hitDmg;
             if(occ.shield > 0){
               const absorbed = Math.min(occ.shield, actualDmg);
               actualDmg -= absorbed;
@@ -1076,9 +1076,28 @@
           }
         });
         render();
-        checkSquadWipe();
-        if(gameOver) return;
-        setTimeout(resolveNext, 550);
+      };
+
+      const MULTI_HIT_PATTERNS = ['cross','column','row','diagonal','quadrant'];
+      const applyDamage = () => {
+        if(MULTI_HIT_PATTERNS.includes(tg.type)){
+          const hit1 = Math.round(dmg * 0.55);
+          const hit2 = dmg - hit1;
+          resolveHit(hit1);
+          checkSquadWipe();
+          if(gameOver) return;
+          setTimeout(() => {
+            resolveHit(hit2);
+            checkSquadWipe();
+            if(gameOver) return;
+            setTimeout(resolveNext, 500);
+          }, 260);
+        } else {
+          resolveHit(dmg);
+          checkSquadWipe();
+          if(gameOver) return;
+          setTimeout(resolveNext, 550);
+        }
       };
 
       if(tg.type === 'full'){

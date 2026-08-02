@@ -401,9 +401,9 @@
     scattered: 'impact_blaster_001.wav'
   };
   function sfxBossAttack(type){
-    playClip(PATTERN_SOUND[type] || 'impact_blaster_001.wav', 0.85);
+    playClipTimed(PATTERN_SOUND[type] || 'impact_blaster_001.wav', 0.85, 4000);
   }
-  function sfxBossFullMap(){ playClip('explosion_small_fading_001.wav', 0.85); }
+  function sfxBossFullMap(){ playClipTimed('explosion_small_fading_001.wav', 0.85, 4000); }
   function sfxSiege(){ playClip('mechanical_004.wav', 0.75); }
   function sfxVictory(){ playTone(523,0.15,'sine',0.15,660); setTimeout(()=>playTone(659,0.15,'sine',0.15,784),140); setTimeout(()=>playTone(784,0.3,'sine',0.15,1046),280); }
   function sfxDefeat(){ playTone(220,0.4,'sawtooth',0.15,90); }
@@ -670,32 +670,56 @@
 
   function animateBossBeamSingle(tiles, onDone){
     const start = bossCenter();
-    let sx = 0, sy = 0;
-    tiles.forEach(([r,c]) => { const p = tileCenter(r,c); sx += p.x; sy += p.y; });
-    const end = { x: sx / tiles.length, y: sy / tiles.length };
-    const dx = end.x - start.x, dy = end.y - start.y;
-    const len = Math.sqrt(dx*dx + dy*dy);
-    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+    const center = tiles[0]; // patternTiles('cross') always puts the center tile first
+    const centerPos = tileCenter(center[0], center[1]);
     const layer = document.getElementById('fx-layer');
 
-    fxChargeUp(start.x, start.y, '#FF5C5C', 180);
+    // horizontal arm = tiles sharing the center's row; vertical arm = tiles sharing the center's column
+    const horizTiles = tiles.filter(([r,c]) => r === center[0]);
+    const vertTiles = tiles.filter(([r,c]) => c === center[1]);
+    let hMinX = Infinity, hMaxX = -Infinity;
+    horizTiles.forEach(([r,c]) => { const p = tileCenter(r,c); hMinX = Math.min(hMinX,p.x); hMaxX = Math.max(hMaxX,p.x); });
+    let vMinY = Infinity, vMaxY = -Infinity;
+    vertTiles.forEach(([r,c]) => { const p = tileCenter(r,c); vMinY = Math.min(vMinY,p.y); vMaxY = Math.max(vMaxY,p.y); });
+    const hLen = (hMaxX - hMinX) + 46;
+    const vLen = (vMaxY - vMinY) + 46;
+
+    // a quick connecting streak from the boss to the strike point
+    const dx0 = centerPos.x - start.x, dy0 = centerPos.y - start.y;
+    const angle0 = Math.atan2(dy0, dx0) * 180 / Math.PI;
+    const len0 = Math.sqrt(dx0*dx0 + dy0*dy0);
+    fxChargeUp(start.x, start.y, '#FF5C5C', 170);
     setTimeout(() => {
-      // outer glow beam
-      const glowBeam = document.createElement('div');
-      glowBeam.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:0px; height:16px; border-radius:8px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle+'deg); pointer-events:none; background:linear-gradient(90deg, rgba(255,92,92,0.15), rgba(255,92,92,0.55)); filter:blur(2px); z-index:6; transition:width 0.22s cubic-bezier(.2,.8,.3,1);';
-      layer.appendChild(glowBeam);
-      // bright core beam
-      const coreBeam = document.createElement('div');
-      coreBeam.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:0px; height:5px; border-radius:4px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle+'deg); pointer-events:none; background:linear-gradient(90deg, rgba(255,255,255,0.6), #FFF3D0, #FF5C5C); box-shadow:0 0 16px rgba(255,92,92,0.9); z-index:7; transition:width 0.22s cubic-bezier(.2,.8,.3,1);';
-      layer.appendChild(coreBeam);
-      requestAnimationFrame(() => { glowBeam.style.width = len + 'px'; coreBeam.style.width = len + 'px'; });
+      const streak = document.createElement('div');
+      streak.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:0px; height:4px; border-radius:3px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle0+'deg); pointer-events:none; background:linear-gradient(90deg, rgba(255,92,92,0.1), rgba(255,92,92,0.8)); box-shadow:0 0 10px rgba(255,92,92,0.7); z-index:6; transition:width 0.16s ease-out, opacity 0.15s ease 0.12s;';
+      layer.appendChild(streak);
+      requestAnimationFrame(() => { streak.style.width = len0 + 'px'; });
+      setTimeout(() => { streak.style.opacity = '0'; }, 140);
+      setTimeout(() => streak.remove(), 300);
+
+      // the cross-shaped laser snaps onto the actual tiles it hits
       setTimeout(() => {
-        glowBeam.remove(); coreBeam.remove();
-        fxBurst(end.x, end.y, '#FF5C5Cee', 95);
-        triggerBoardShake(0.2);
-        if(onDone) onDone();
-      }, 230);
-    }, 190);
+        [ { axis:'h', len:hLen, x:(hMinX+hMaxX)/2, y:centerPos.y },
+          { axis:'v', len:vLen, x:centerPos.x, y:(vMinY+vMaxY)/2 } ].forEach(bar => {
+          const isH = bar.axis === 'h';
+          const glow = document.createElement('div');
+          glow.style.cssText = 'position:absolute; left:'+bar.x+'px; top:'+bar.y+'px; width:'+(isH?'0px':'20px')+'; height:'+(isH?'20px':'0px')+'; border-radius:10px; transform:translate(-50%,-50%); pointer-events:none; background:rgba(255,92,92,0.4); filter:blur(3px); z-index:6; transition:'+(isH?'width':'height')+' 0.16s cubic-bezier(.2,.8,.3,1), opacity 0.2s ease 0.22s;';
+          layer.appendChild(glow);
+          const core = document.createElement('div');
+          core.style.cssText = 'position:absolute; left:'+bar.x+'px; top:'+bar.y+'px; width:'+(isH?'0px':'7px')+'; height:'+(isH?'7px':'0px')+'; border-radius:4px; transform:translate(-50%,-50%); pointer-events:none; background:linear-gradient('+(isH?'90deg':'180deg')+', rgba(255,243,208,0.9), #FF5C5C); box-shadow:0 0 18px rgba(255,92,92,0.9); z-index:7; transition:'+(isH?'width':'height')+' 0.16s cubic-bezier(.2,.8,.3,1), opacity 0.2s ease 0.22s;';
+          layer.appendChild(core);
+          requestAnimationFrame(() => {
+            if(isH){ glow.style.width = bar.len+'px'; core.style.width = bar.len+'px'; }
+            else { glow.style.height = bar.len+'px'; core.style.height = bar.len+'px'; }
+          });
+          setTimeout(() => { glow.style.opacity = '0'; core.style.opacity = '0'; }, 230);
+          setTimeout(() => { glow.remove(); core.remove(); }, 380);
+        });
+        fxBurst(centerPos.x, centerPos.y, '#FF5C5Cee', 90);
+        triggerBoardShake(0.25);
+        setTimeout(() => { if(onDone) onDone(); }, 300);
+      }, 130);
+    }, 170);
   }
 
   function tilesBoundingBox(tiles){
@@ -949,12 +973,12 @@
       showAction('CORE-EATER UNLEASHES ' + PATTERNS[tg.type].label.toUpperCase() + '!', 'a-warn');
       log('The boss strikes with a ' + PATTERNS[tg.type].label + ' attack!');
 
-      const applyDamage = () => {
-        triggerBoardShake(0.4);
+      const resolveHit = (hitDmg) => {
+        triggerBoardShake(0.3);
         tg.tiles.forEach(([r,c]) => {
           const occ = board[r][c].occupant;
           if(occ && occ.alive){
-            let actualDmg = dmg;
+            let actualDmg = hitDmg;
             if(occ.shield > 0){
               const absorbed = Math.min(occ.shield, actualDmg);
               actualDmg -= absorbed;
@@ -970,9 +994,28 @@
           }
         });
         render();
-        checkSquadWipe();
-        if(gameOver) return;
-        setTimeout(resolveNext, 550);
+      };
+
+      const MULTI_HIT_PATTERNS = [];
+      const applyDamage = () => {
+        if(MULTI_HIT_PATTERNS.includes(tg.type)){
+          const hit1 = Math.round(dmg * 0.55);
+          const hit2 = dmg - hit1;
+          resolveHit(hit1);
+          checkSquadWipe();
+          if(gameOver) return;
+          setTimeout(() => {
+            resolveHit(hit2);
+            checkSquadWipe();
+            if(gameOver) return;
+            setTimeout(resolveNext, 500);
+          }, 260);
+        } else {
+          resolveHit(dmg);
+          checkSquadWipe();
+          if(gameOver) return;
+          setTimeout(resolveNext, 550);
+        }
       };
 
       if(tg.type === 'full'){

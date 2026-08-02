@@ -133,6 +133,9 @@
     animation:pulse 1.6s infinite;
   }
   @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:0.3;}}
+  #coin-eyebrow::before{ display:none; }
+  #coin-eyebrow{ animation:coin-blink 1.1s steps(1) infinite; color:var(--amber); }
+  @keyframes coin-blink{ 0%,49%{opacity:1;} 50%,100%{opacity:0.3;} }
   h1{
     font-family:'Bebas Neue','Noto Sans KR',sans-serif;
     font-size:clamp(48px,6.2vw,84px);
@@ -205,18 +208,25 @@
   /* GAMES */
   .games{padding:100px 5vw;}
   .game-grid{
-    display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
-    gap:20px; max-width:1200px; margin:0 auto;
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+    gap:24px; max-width:1300px; margin:0 auto;
   }
   .game-card{
     background:var(--surface); border:1px solid var(--line); border-radius:12px;
     padding:22px; transition:border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    position:relative; overflow:hidden;
   }
+  .game-card::before{
+    content:""; position:absolute; top:0; left:0; right:0; height:3px;
+    background:linear-gradient(90deg, var(--cyan), var(--amber), var(--pink));
+    opacity:0; transition:opacity 0.2s;
+  }
+  .game-card:hover::before{ opacity:1; }
   .game-card:hover{border-color:var(--cyan); transform:translateY(-4px); box-shadow:0 10px 40px -12px rgba(45,225,252,0.35);}
   .game-card.soon{opacity:0.5;}
   .game-card.soon:hover{border-color:var(--line); transform:none;}
   .game-thumb{
-    height:120px; border-radius:8px; margin-bottom:16px;
+    height:180px; border-radius:10px; margin-bottom:18px;
     display:flex; align-items:center; justify-content:center;
     font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:18px; color:rgba(255,255,255,0.5);
     letter-spacing:0.06em;
@@ -319,9 +329,8 @@
 
 <section class="hero">
   <div>
-    <div class="eyebrow">Live rankings in progress</div>
-    <h1>Compete on skill.<br>Climb the <span>daily rankings.</span></h1>
-    <p class="sub">Free to play. Jump in, post your best score, see where you land.</p>
+    <div class="eyebrow" id="coin-eyebrow">🪙 Insert Coin</div>
+    <h1>Pick a cabinet.<br>Chase the <span>high score.</span></h1>
     <div class="hero-ctas">
       <a href="game-asteroid-run.html" class="btn btn-primary btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Play Free Now</a>
       <a href="rankings.html" class="btn btn-ghost btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">See Rankings</a>
@@ -783,25 +792,23 @@
       const coins = profile ? profile.coins : 100;
       const tokens = profile ? (profile.battle_tokens || 0) : 0;
       const level = levelFromXp(xp);
-      const statsHtml = '<span class="mono" style="color:var(--amber); font-size:13px; font-weight:700;">LV ' + level + '</span>' +
-        '<span class="mono" style="color:var(--muted); font-size:13px;">·</span>' +
-        '<span class="mono" style="color:var(--amber); font-size:13px; font-weight:700;">🪙' + coins.toLocaleString() + '</span>' +
-        '<span class="mono" style="color:var(--muted); font-size:13px;">·</span>' +
-        '<span class="mono" style="color:var(--pink); font-size:13px; font-weight:700;">⚔' + tokens.toLocaleString() + '</span>';
+      const statsHtml = '<span class="mono" style="color:var(--amber); font-size:12px; font-weight:700; background:rgba(255,182,39,0.12); padding:2px 8px; border-radius:10px; white-space:nowrap;">LV ' + level + '</span>' +
+        '<span class="mono" style="color:var(--amber); font-size:12px; font-weight:700; background:rgba(255,182,39,0.12); padding:2px 8px; border-radius:10px; white-space:nowrap;">🪙 ' + coins.toLocaleString() + '</span>' +
+        '<span class="mono" style="color:var(--pink); font-size:12px; font-weight:700; background:rgba(255,92,182,0.12); padding:2px 8px; border-radius:10px; white-space:nowrap;">⚔ ' + tokens.toLocaleString() + '</span>';
 
       const area = document.getElementById('nav-auth-area');
       area.innerHTML =
-        '<a href="profile.html" style="text-decoration:none; display:flex; flex-direction:column; align-items:flex-end; gap:2px;">' +
-          '<span class="mono" style="color:var(--cyan); font-size:17px; font-weight:700;">' + username + '</span>' +
-          '<span style="display:flex; gap:5px; align-items:center;">' + statsHtml + '</span>' +
+        '<a href="profile.html" style="text-decoration:none; display:flex; flex-direction:column; align-items:flex-end; gap:5px;">' +
+          '<span class="mono" style="color:var(--cyan); font-size:16px; font-weight:700;">' + username + '</span>' +
+          '<span style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">' + statsHtml + '</span>' +
         '</a>' +
         '<button class="btn btn-ghost" onclick="logout()">Log Out</button>';
 
       const mobileArea = document.getElementById('mobile-menu-auth');
       mobileArea.innerHTML =
-        '<a href="profile.html" style="text-decoration:none; display:flex; flex-direction:column; align-items:center; gap:4px; padding:12px;">' +
-          '<span class="mono" style="color:var(--cyan); font-size:17px; font-weight:700;">' + username + '</span>' +
-          '<span style="display:flex; gap:6px; align-items:center;">' + statsHtml + '</span>' +
+        '<a href="profile.html" style="text-decoration:none; display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px;">' +
+          '<span class="mono" style="color:var(--cyan); font-size:16px; font-weight:700;">' + username + '</span>' +
+          '<span style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center;">' + statsHtml + '</span>' +
         '</a>' +
         '<button class="btn btn-ghost" onclick="logout()">Log Out</button>';
     }

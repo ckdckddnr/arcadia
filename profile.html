@@ -115,10 +115,10 @@
     <div class="card">
       <h2>Your Progress</h2>
       <div class="card-sub">Earned by playing any game on Arcadia.</div>
-      <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+      <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
         <div style="width:56px; height:56px; border-radius:50%; background:var(--surface-2); border:2px solid var(--cyan); display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow:0 0 16px rgba(45,225,252,0.3); flex-shrink:0;">🚀</div>
-        <div style="flex:1; min-width:180px;">
-          <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+        <div style="flex:1 1 220px; min-width:180px;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
             <span style="font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:13px; font-weight:700; background:rgba(255,182,39,0.15); color:var(--amber); padding:3px 10px; border-radius:20px;" id="profile-level">LV 1</span>
             <span class="mono" id="profile-xp-label" style="font-size:12px; color:var(--muted);">0 / 50 XP</span>
           </div>
@@ -126,15 +126,17 @@
             <div id="profile-xp-fill" style="height:100%; width:0%; background:linear-gradient(90deg, var(--cyan), var(--green)); border-radius:6px; transition:width 0.6s ease;"></div>
           </div>
         </div>
-        <div style="background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:12px 18px; text-align:center; flex-shrink:0;">
-          <div style="font-size:22px;">🪙</div>
-          <div class="mono" id="profile-coins" style="font-size:20px; font-weight:700; color:var(--amber);">0</div>
-          <div style="font-size:11px; color:var(--muted);">Coins</div>
-        </div>
-        <div style="background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:12px 18px; text-align:center; flex-shrink:0;">
-          <div style="font-size:22px;">⚔️</div>
-          <div class="mono" id="profile-tokens" style="font-size:20px; font-weight:700; color:var(--pink);">0</div>
-          <div style="font-size:11px; color:var(--muted);">Battle Tokens</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; flex:0 1 auto;">
+          <div style="background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:10px 16px; text-align:center; min-width:74px;">
+            <div style="font-size:20px;">🪙</div>
+            <div class="mono" id="profile-coins" style="font-size:18px; font-weight:700; color:var(--amber); white-space:nowrap;">0</div>
+            <div style="font-size:10px; color:var(--muted);">Coins</div>
+          </div>
+          <div style="background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:10px 16px; text-align:center; min-width:74px;">
+            <div style="font-size:20px;">⚔️</div>
+            <div class="mono" id="profile-tokens" style="font-size:18px; font-weight:700; color:var(--pink); white-space:nowrap;">0</div>
+            <div style="font-size:10px; color:var(--muted);">Tokens</div>
+          </div>
         </div>
       </div>
     </div>

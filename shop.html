@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARCADIA — Coin Shop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg-void:#0A0D12; --surface:#12161F; --surface-2:#181D28; --line:#242B38;
+    --amber:#FFB627; --cyan:#2DE1FC; --green:#34D399; --red:#FF5C5C; --pink:#FF5CB6;
+    --text:#F4F6FA; --muted:#8A93A6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html, body{ background:var(--bg-void); color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif; min-height:100%; }
+  .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
+
+  nav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 4vw; border-bottom:1px solid var(--line); background:rgba(10,13,18,0.95);
+    position:sticky; top:0; z-index:20;
+  }
+  .logo{ display:flex; align-items:center; gap:10px; font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:20px; letter-spacing:0.03em; color:var(--text); text-decoration:none; }
+  .logo .dot{width:9px; height:9px; border-radius:2px; background:var(--amber); box-shadow:0 0 10px var(--amber);}
+  .back-link{color:var(--muted); text-decoration:none; font-size:13px; font-weight:600;}
+
+  main{ max-width:1000px; margin:0 auto; padding:40px 20px 80px; }
+
+  .shop-hero{ text-align:center; margin-bottom:36px; }
+  .shop-hero .eyebrow{ font-size:12px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--amber); margin-bottom:10px; }
+  .shop-hero h1{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:50px; letter-spacing:0.02em; margin-bottom:10px; }
+  .shop-hero h1 span{ color:var(--amber); text-shadow:0 0 24px rgba(255,182,39,0.5); }
+  .shop-hero p{ color:var(--muted); font-size:14px; max-width:520px; margin:0 auto; }
+
+  .balance-bar{
+    display:inline-flex; align-items:center; gap:10px; margin-top:18px; padding:10px 22px; border-radius:24px;
+    background:rgba(255,182,39,0.1); border:1px solid rgba(255,182,39,0.3);
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:18px; font-weight:800; color:var(--amber);
+  }
+
+  .status-msg{ max-width:560px; margin:0 auto 26px; padding:14px 18px; border-radius:10px; font-size:14px; font-weight:600; text-align:center; display:none; }
+  .status-msg.show{ display:block; }
+  .status-msg.success{ background:rgba(52,211,153,0.12); color:var(--green); border:1px solid rgba(52,211,153,0.3); }
+  .status-msg.error{ background:rgba(255,92,92,0.12); color:#FF8A8A; border:1px solid rgba(255,92,92,0.3); }
+  .status-msg.info{ background:rgba(45,225,252,0.1); color:var(--cyan); border:1px solid rgba(45,225,252,0.3); }
+
+  .pack-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:20px; }
+  .pack-card{
+    background:var(--surface); border:1.5px solid var(--line); border-radius:14px; padding:26px 20px;
+    text-align:center; position:relative; transition:border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  }
+  .pack-card:hover{ border-color:var(--amber); transform:translateY(-4px); box-shadow:0 10px 40px -12px rgba(255,182,39,0.3); }
+  .pack-card.best{ border-color:var(--amber); }
+  .pack-badge{
+    position:absolute; top:-11px; left:50%; transform:translateX(-50%);
+    background:var(--amber); color:#1A1200; font-size:10px; font-weight:800; letter-spacing:0.08em;
+    padding:4px 12px; border-radius:12px; text-transform:uppercase; white-space:nowrap;
+  }
+  .pack-icon{ font-size:40px; margin-bottom:10px; }
+  .pack-coins{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:34px; color:var(--amber); line-height:1; }
+  .pack-label{ font-size:11px; color:var(--muted); margin-bottom:14px; }
+  .pack-price{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:20px; font-weight:800; margin-bottom:16px; }
+  .pack-card button{
+    width:100%; padding:12px; border-radius:8px; border:none; cursor:pointer;
+    font-weight:800; font-size:13px; background:var(--amber); color:#1A1200;
+  }
+  .pack-card button[disabled]{ opacity:0.5; cursor:not-allowed; }
+
+  .fine-print{ margin-top:34px; text-align:center; color:var(--muted); font-size:12px; line-height:1.7; }
+  .fine-print a{ color:var(--cyan); }
+
+  @media (max-width:600px){
+    .shop-hero h1{ font-size:36px; }
+    .pack-grid{ grid-template-columns:repeat(2,1fr); gap:14px; }
+    .pack-card{ padding:22px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
+  <a href="profile.html" class="back-link">&larr; Back to profile</a>
+</nav>
+
+<main>
+  <div class="shop-hero">
+    <div class="eyebrow">Coin Shop</div>
+    <h1>Top up your <span>coins</span></h1>
+    <p>Coins pay the entry fee on every game. Battle Tokens stay earn-only — you can't buy those.</p>
+    <div class="balance-bar">🪙 <span id="coin-balance">—</span> Coins</div>
+  </div>
+
+  <div class="status-msg" id="status-msg"></div>
+
+  <div class="pack-grid" id="pack-grid"></div>
+
+  <div class="fine-print">
+    Payments are handled by Stripe — Arcadia never sees your card details.<br>
+    Coins are for in-game use only and can't be exchanged for cash.
+  </div>
+</main>
+
+<script>
+  const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // Display only — the server has its own copy and is the source of truth for pricing.
+  const PACKS = [
+    { id:'starter', icon:'🪙', coins:500,   price:'$1.99', badge:null },
+    { id:'plus',    icon:'💰', coins:1500,  price:'$4.99', badge:'Popular' },
+    { id:'pro',     icon:'💎', coins:4000,  price:'$9.99', badge:'Best Value' },
+    { id:'mega',    icon:'👑', coins:10000, price:'$19.99', badge:null }
+  ];
+
+  function showStatus(kind, text){
+    const el = document.getElementById('status-msg');
+    el.className = 'status-msg show ' + kind;
+    el.textContent = text;
+  }
+
+  function renderPacks(signedIn){
+    document.getElementById('pack-grid').innerHTML = PACKS.map(p =>
+      '<div class="pack-card' + (p.badge === 'Best Value' ? ' best' : '') + '">' +
+        (p.badge ? '<div class="pack-badge">' + p.badge + '</div>' : '') +
+        '<div class="pack-icon">' + p.icon + '</div>' +
+        '<div class="pack-coins">' + p.coins.toLocaleString() + '</div>' +
+        '<div class="pack-label">Coins</div>' +
+        '<div class="pack-price">' + p.price + '</div>' +
+        '<button onclick="buyPack(\'' + p.id + '\')"' + (signedIn ? '' : ' disabled') + '>' +
+          (signedIn ? 'Buy Now' : 'Sign in to buy') +
+        '</button>' +
+      '</div>'
+    ).join('');
+  }
+
+  async function buyPack(packId){
+    const buttons = document.querySelectorAll('.pack-card button');
+    buttons.forEach(b => b.disabled = true);
+    showStatus('info', 'Opening secure checkout...');
+
+    try{
+      const { data: sessionData } = await sb.auth.getSession();
+      if(!sessionData.session){
+        showStatus('error', 'Your session expired. Please sign in again.');
+        buttons.forEach(b => b.disabled = false);
+        return;
+      }
+
+      const res = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          packId,
+          accessToken: sessionData.session.access_token
+        })
+      });
+
+      const data = await res.json();
+      if(!res.ok || !data.url){
+        showStatus('error', data.error || 'Could not start checkout. Try again.');
+        buttons.forEach(b => b.disabled = false);
+        return;
+      }
+
+      window.location.href = data.url;
+    } catch(err){
+      showStatus('error', 'Could not reach the checkout server. Try again.');
+      buttons.forEach(b => b.disabled = false);
+    }
+  }
+
+  async function loadBalance(){
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      document.getElementById('coin-balance').textContent = '—';
+      renderPacks(false);
+      showStatus('info', 'Sign in to buy coins.');
+      return;
+    }
+    const user = sessionData.session.user;
+    const { data: profile } = await sb.from('profiles').select('coins').eq('user_id', user.id).maybeSingle();
+    const coins = profile ? (profile.coins || 0) : 100;
+    document.getElementById('coin-balance').textContent = coins.toLocaleString();
+    renderPacks(true);
+  }
+
+  // Stripe sends the shopper back here with a status flag.
+  (function handleReturn(){
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    if(status === 'success'){
+      showStatus('success', 'Payment received — your coins are being added. Refresh in a moment if the balance looks stale.');
+      // The webhook credits asynchronously, so re-check the balance shortly after.
+      setTimeout(loadBalance, 3000);
+    } else if(status === 'cancelled'){
+      showStatus('info', 'Checkout cancelled — no charge was made.');
+    }
+  })();
+
+  loadBalance();
+</script>
+</body>
+</html>

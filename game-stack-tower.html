@@ -347,9 +347,9 @@
     const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
     const finalScore = score;
 
-    const xpEarned = Math.max(5, Math.floor(finalScore / 3));
-    const coinsEarned = Math.max(2, Math.floor(finalScore / 2.2));
-    const tokensEarned = Math.floor(finalScore / 14);
+    const xpEarned = Math.max(5, Math.floor(finalScore * 0.8));
+    const coinsEarned = Math.max(2, Math.floor(finalScore * 1.1));
+    const tokensEarned = Math.floor(finalScore / 5);
 
     try{
       await sb.from('scores').insert({ user_id: user.id, username, game: 'stack-tower', score: finalScore });

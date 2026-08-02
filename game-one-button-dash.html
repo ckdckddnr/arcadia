@@ -218,7 +218,7 @@
     if(!running) return;
 
     distance += speed * 0.05;
-    speed = Math.min(6 + distance * 0.02, 16);
+    speed = Math.min(6 + distance * 0.012, 13);
 
     // player physics
     player.vy += 0.85;
@@ -235,7 +235,7 @@
     if(spawnTimer > nextSpawnGap){
       spawnObstacle();
       spawnTimer = 0;
-      nextSpawnGap = Math.max(38, 75 - distance * 0.05 - Math.random()*15);
+      nextSpawnGap = Math.max(50, 78 - distance * 0.03 - Math.random()*15);
     }
     obstacles.forEach(o => { o.x -= speed; });
     obstacles = obstacles.filter(o => o.x + o.w > -20);
@@ -328,9 +328,9 @@
     const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
     const finalScore = Math.floor(distance);
 
-    const xpEarned = Math.max(5, Math.floor(finalScore / 12));
-    const coinsEarned = Math.max(2, Math.floor(finalScore / 9));
-    const tokensEarned = Math.floor(finalScore / 55);
+    const xpEarned = Math.max(5, Math.floor(finalScore / 20));
+    const coinsEarned = Math.max(2, Math.floor(finalScore / 16));
+    const tokensEarned = Math.floor(finalScore / 90);
 
     try{
       await sb.from('scores').insert({ user_id: user.id, username, game: 'one-button-dash', score: finalScore });

@@ -384,29 +384,38 @@
             </radialGradient>
           </defs>
           <!-- stars -->
-          <circle cx="24" cy="18" r="1.2" fill="#F4F6FA" opacity="0.7"/>
+          <circle cx="24" cy="18" r="1.2" fill="#F4F6FA" opacity="0.7"><animate attributeName="opacity" values="0.7;0.15;0.7" dur="2.4s" repeatCount="indefinite"/></circle>
           <circle cx="70" cy="34" r="0.9" fill="#F4F6FA" opacity="0.5"/>
-          <circle cx="120" cy="14" r="1.1" fill="#F4F6FA" opacity="0.6"/>
+          <circle cx="120" cy="14" r="1.1" fill="#F4F6FA" opacity="0.6"><animate attributeName="opacity" values="0.6;0.1;0.6" dur="3.1s" repeatCount="indefinite"/></circle>
           <circle cx="180" cy="40" r="0.8" fill="#F4F6FA" opacity="0.4"/>
-          <circle cx="230" cy="20" r="1.3" fill="#F4F6FA" opacity="0.7"/>
+          <circle cx="230" cy="20" r="1.3" fill="#F4F6FA" opacity="0.7"><animate attributeName="opacity" values="0.7;0.2;0.7" dur="2.7s" repeatCount="indefinite"/></circle>
           <circle cx="280" cy="50" r="0.9" fill="#F4F6FA" opacity="0.5"/>
-          <circle cx="330" cy="16" r="1.1" fill="#F4F6FA" opacity="0.6"/>
+          <circle cx="330" cy="16" r="1.1" fill="#F4F6FA" opacity="0.6"><animate attributeName="opacity" values="0.6;0.15;0.6" dur="3.5s" repeatCount="indefinite"/></circle>
           <circle cx="370" cy="44" r="0.9" fill="#F4F6FA" opacity="0.5"/>
           <circle cx="50" cy="70" r="0.8" fill="#F4F6FA" opacity="0.4"/>
           <circle cx="300" cy="90" r="1" fill="#F4F6FA" opacity="0.5"/>
 
-          <!-- asteroids -->
+          <!-- asteroids, slowly tumbling -->
           <polygon points="300,28 316,20 332,26 336,42 322,54 306,48 298,36"
-            fill="rgba(24,29,40,0.95)" stroke="rgba(138,147,166,0.7)" stroke-width="1.5"/>
+            fill="rgba(24,29,40,0.95)" stroke="rgba(138,147,166,0.7)" stroke-width="1.5">
+            <animateTransform attributeName="transform" type="rotate" from="0 316 37" to="360 316 37" dur="9s" repeatCount="indefinite"/>
+          </polygon>
           <polygon points="60,78 74,72 88,80 84,96 68,100 54,90"
-            fill="rgba(24,29,40,0.95)" stroke="rgba(138,147,166,0.7)" stroke-width="1.5"/>
+            fill="rgba(24,29,40,0.95)" stroke="rgba(138,147,166,0.7)" stroke-width="1.5">
+            <animateTransform attributeName="transform" type="rotate" from="360 71 86" to="0 71 86" dur="11s" repeatCount="indefinite"/>
+          </polygon>
           <polygon points="230,88 240,82 252,88 248,100 236,104 226,98"
-            fill="rgba(24,29,40,0.9)" stroke="rgba(138,147,166,0.6)" stroke-width="1.2"/>
+            fill="rgba(24,29,40,0.9)" stroke="rgba(138,147,166,0.6)" stroke-width="1.2">
+            <animateTransform attributeName="transform" type="rotate" from="0 239 93" to="360 239 93" dur="7s" repeatCount="indefinite"/>
+          </polygon>
 
-          <!-- ship -->
+          <!-- ship, gently bobbing -->
           <g transform="translate(160,72)">
-            <circle cx="0" cy="20" r="16" fill="url(#shipGlow)"/>
-            <path d="M0 -18 L14 16 L0 9 L-14 16 Z" fill="rgba(45,225,252,0.9)" stroke="#F4F6FA" stroke-width="1.5"/>
+            <g>
+              <animateTransform attributeName="transform" type="translate" values="0 0; 0 -5; 0 0" dur="1.6s" repeatCount="indefinite"/>
+              <circle cx="0" cy="20" r="16" fill="url(#shipGlow)"/>
+              <path d="M0 -18 L14 16 L0 9 L-14 16 Z" fill="rgba(45,225,252,0.9)" stroke="#F4F6FA" stroke-width="1.5"/>
+            </g>
           </g>
         </svg>
       </div>
@@ -425,18 +434,25 @@
 
           <!-- orbit ring + gate -->
           <circle cx="160" cy="60" r="42" fill="none" stroke="rgba(138,147,166,0.35)" stroke-width="1.5"/>
-          <path d="M 190 84 A 42 42 0 0 0 197 45" fill="none" stroke="#34D399" stroke-width="5" stroke-linecap="round"/>
+          <path d="M 190 84 A 42 42 0 0 0 197 45" fill="none" stroke="#34D399" stroke-width="5" stroke-linecap="round">
+            <animate attributeName="opacity" values="1;0.4;1" dur="1.3s" repeatCount="indefinite"/>
+          </path>
 
           <!-- current planet -->
           <circle cx="160" cy="60" r="18" fill="rgba(255,200,100,0.95)" stroke="rgba(255,182,39,0.9)" stroke-width="1.5"/>
 
           <!-- target planet -->
-          <circle cx="330" cy="40" r="24" stroke-dasharray="5 5" fill="none" stroke="rgba(255,92,182,0.7)" stroke-width="2"/>
+          <circle cx="330" cy="40" r="24" stroke-dasharray="5 5" fill="none" stroke="rgba(255,92,182,0.7)" stroke-width="2">
+            <animate attributeName="r" values="24;27;24" dur="2.4s" repeatCount="indefinite"/>
+          </circle>
           <circle cx="330" cy="40" r="13" fill="rgba(255,120,190,0.9)" stroke="rgba(255,92,182,0.9)" stroke-width="1.5"/>
 
-          <!-- ship at gate -->
-          <g transform="translate(197,45) rotate(20)">
-            <path d="M0 -10 L8 9 L0 5 L-8 9 Z" fill="rgba(45,225,252,0.95)" stroke="#F4F6FA" stroke-width="1.2"/>
+          <!-- ship, orbiting the planet -->
+          <g>
+            <animateTransform attributeName="transform" type="rotate" from="0 160 60" to="360 160 60" dur="3s" repeatCount="indefinite"/>
+            <g transform="translate(197,45) rotate(20)">
+              <path d="M0 -10 L8 9 L0 5 L-8 9 Z" fill="rgba(45,225,252,0.95)" stroke="#F4F6FA" stroke-width="1.2"/>
+            </g>
           </g>
         </svg>
       </div>
@@ -468,8 +484,8 @@
 
           <!-- fog of war creeping in from the enemy side -->
           <rect x="230" y="0" width="170" height="180" fill="url(#tcFog)"/>
-          <circle cx="330" cy="60" r="2.5" fill="rgba(255,92,92,0.5)"/>
-          <circle cx="362" cy="118" r="2" fill="rgba(255,92,92,0.35)"/>
+          <circle cx="330" cy="60" r="2.5" fill="rgba(255,92,92,0.5)"><animate attributeName="opacity" values="0.5;0.1;0.5" dur="1.1s" repeatCount="indefinite"/></circle>
+          <circle cx="362" cy="118" r="2" fill="rgba(255,92,92,0.35)"><animate attributeName="opacity" values="0.35;0.05;0.35" dur="1.4s" repeatCount="indefinite"/></circle>
 
           <!-- HEAVY tank, foreground hero, mid-recoil -->
           <g transform="translate(38,58) scale(1.9)">
@@ -484,17 +500,26 @@
           </g>
 
           <!-- muzzle flash bursting off the heavy tank's barrel -->
-          <circle cx="160" cy="100" r="30" fill="url(#tcFlash)"/>
-          <circle cx="160" cy="100" r="9" fill="#FFF3D0"/>
+          <circle cx="160" cy="100" r="30" fill="url(#tcFlash)">
+            <animate attributeName="r" values="24;32;24" dur="0.9s" repeatCount="indefinite"/>
+          </circle>
+          <circle cx="160" cy="100" r="9" fill="#FFF3D0">
+            <animate attributeName="opacity" values="1;0.6;1" dur="0.9s" repeatCount="indefinite"/>
+          </circle>
 
           <!-- tracer streaking into the fog -->
-          <line x1="170" y1="99" x2="300" y2="76" stroke="#FFB627" stroke-width="4" stroke-linecap="round" opacity="0.95"/>
+          <line x1="170" y1="99" x2="300" y2="76" stroke="#FFB627" stroke-width="4" stroke-linecap="round" opacity="0.95">
+            <animate attributeName="opacity" values="0.5;0.95;0.5" dur="0.9s" repeatCount="indefinite"/>
+          </line>
           <line x1="300" y1="76" x2="345" y2="68" stroke="#FFB627" stroke-width="2.5" stroke-linecap="round" opacity="0.5"/>
 
           <!-- impact burst where the shell lands -->
-          <circle cx="348" cy="67" r="20" fill="#FF5C5C" opacity="0.35"/>
+          <circle cx="348" cy="67" r="20" fill="#FF5C5C" opacity="0.35">
+            <animate attributeName="r" values="16;22;16" dur="0.9s" repeatCount="indefinite"/>
+          </circle>
           <circle cx="348" cy="67" r="9" fill="#FFB627" opacity="0.85"/>
           <g stroke="#FFB627" stroke-width="2.5" stroke-linecap="round" opacity="0.8">
+            <animate attributeName="opacity" values="0.5;1;0.5" dur="0.9s" repeatCount="indefinite"/>
             <line x1="348" y1="47" x2="348" y2="38"/><line x1="366" y1="60" x2="376" y2="55"/>
             <line x1="332" y1="78" x2="322" y2="86"/><line x1="362" y1="82" x2="371" y2="90"/>
           </g>
@@ -505,7 +530,7 @@
             <circle cx="8" cy="15" r="1.8" fill="#2a3244"/><circle cx="8" cy="24" r="1.8" fill="#2a3244"/>
             <circle cx="36" cy="15" r="1.8" fill="#2a3244"/><circle cx="36" cy="24" r="1.8" fill="#2a3244"/>
             <path d="M12 14 L30 11 L32 32 L12 32 Z" fill="#2DE1FC" stroke="#0F5C6E" stroke-width="1.5"/>
-            <circle cx="22" cy="23" r="5.4" fill="#0F5C6E"/><circle cx="23.3" cy="21.7" r="2.5" fill="#BFF6FF"/>
+            <circle cx="22" cy="23" r="5.4" fill="#0F5C6E"/><circle cx="23.3" cy="21.7" r="2.5" fill="#BFF6FF"><animate attributeName="opacity" values="1;0.4;1" dur="1.6s" repeatCount="indefinite"/></circle>
             <rect x="30" y="21" width="11" height="2.6" fill="#0F5C6E"/>
           </g>
 
@@ -546,6 +571,10 @@
           <rect x="38" y="62" width="44" height="18" rx="3" fill="#34D399" opacity="0.9"/>
           <rect x="26" y="42" width="52" height="18" rx="3" fill="#FFB627" opacity="0.95"/>
           <rect x="44" y="22" width="30" height="18" rx="3" fill="#FF5CB6" opacity="0.95"/>
+          <!-- moving block sliding above the tower, about to drop -->
+          <rect x="20" y="2" width="30" height="15" rx="3" fill="#7CF9C0" opacity="0.95">
+            <animate attributeName="x" values="10;80;10" dur="2.1s" repeatCount="indefinite"/>
+          </rect>
         </svg>
       </div>
       <div class="game-title">Stack Tower <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>
@@ -555,11 +584,19 @@
     <div class="game-card">
       <div class="game-thumb" style="background:linear-gradient(135deg,#0c1f16,#122a1c); padding:0; overflow:hidden; display:flex; align-items:center; justify-content:center;">
         <svg viewBox="0 0 120 120" width="65%" height="65%">
-          <line x1="10" y1="90" x2="110" y2="90" stroke="#242B38" stroke-width="3"/>
-          <rect x="20" y="46" width="26" height="26" rx="4" fill="#2DE1FC"/>
-          <rect x="26" y="40" width="10" height="8" fill="#0F5C6E"/>
-          <rect x="80" y="62" width="18" height="28" fill="#FF5C5C"/>
-          <rect x="66" y="58" width="10" height="32" fill="#FF9227"/>
+          <line x1="10" y1="90" x2="110" y2="90" stroke="#242B38" stroke-width="3" stroke-dasharray="6 6">
+            <animate attributeName="stroke-dashoffset" values="0;-24" dur="0.8s" repeatCount="indefinite"/>
+          </line>
+          <g>
+            <animateTransform attributeName="transform" type="translate" values="0 0; 0 -14; 0 0" dur="0.7s" repeatCount="indefinite"/>
+            <rect x="20" y="46" width="26" height="26" rx="4" fill="#2DE1FC"/>
+            <rect x="26" y="40" width="10" height="8" fill="#0F5C6E"/>
+          </g>
+          <g>
+            <animateTransform attributeName="transform" type="translate" values="30 0; -15 0; 30 0" dur="1.6s" repeatCount="indefinite"/>
+            <rect x="80" y="62" width="18" height="28" fill="#FF5C5C"/>
+            <rect x="66" y="58" width="10" height="32" fill="#FF9227"/>
+          </g>
         </svg>
       </div>
       <div class="game-title">One-Button Dash <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>

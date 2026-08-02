@@ -97,10 +97,10 @@
   <div class="flash" id="flash-fx"></div>
 
   <div id="hud">
-    <div id="mult-display">1.00×</div>
+    <div id="mult-display">—</div>
     <div id="stat-row">
       <span>AT STAKE <b id="stake-value">100</b></span>
-      <span>EJECT PAYS <b id="payout-value">100</b></span>
+      <span>EJECT PAYS <b id="payout-value">—</b></span>
     </div>
     <div id="tier-ladder"></div>
   </div>
@@ -123,14 +123,16 @@
       <p>The core needle sweeps the dial. Lock in while it's inside the green arc to push the reactor to the next tier. Miss and it's an instant meltdown — you lose your whole stake.</p>
       <ul>
         <li><span style="color:var(--amber);">🎯</span><span><b>Lock In</b> when the needle is inside the green safe arc. No timer — watch a lap or two before you commit.</span></li>
-        <li><span style="color:var(--amber);">📈</span><span>Each tier you clear raises your payout multiplier — and shrinks the next safe arc while speeding up the needle.</span></li>
-        <li><span style="color:var(--green);">⏏</span><span><b>Eject</b> anytime after Tier 1 to bank your current multiplier and walk away.</span></li>
-        <li><span style="color:var(--red);">💥</span><span>Lock in outside the safe arc and the core melts down — <b>full stake lost, nothing banked.</b></span></li>
+        <li><span style="color:var(--red);">☣️</span><span><b>Tiers 1–6 are the gauntlet</b> — no payout, no eject. Fail any one and the core melts down with nothing banked.</span></li>
+        <li><span style="color:var(--amber);">📈</span><span>Clear Tier 7 and payouts unlock, climbing slowly each tier after — and the safe arc keeps shrinking as the needle speeds up.</span></li>
+        <li><span style="color:var(--green);">⏏</span><span><b>Eject</b> becomes available once you clear Tier 7, to bank your current multiplier and walk away.</span></li>
+        <li><span style="color:var(--red);">💥</span><span>Lock in outside the safe arc at any point and the core melts down — <b>full stake lost, nothing banked.</b></span></li>
       </ul>
       <table class="tier-table">
-        <tr><th>Tier</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr>
-        <tr><th>Payout</th><td class="mult">1.4×</td><td class="mult">2×</td><td class="mult">3×</td><td class="mult">4.5×</td><td class="mult">7×</td><td class="mult">11×</td><td class="mult">18×</td><td class="mult">30×</td></tr>
+        <tr><th>Tier</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th></tr>
+        <tr><th>Payout</th><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="mult">1.2×</td><td class="mult">1.8×</td><td class="mult">2.8×</td><td class="mult">4.5×</td></tr>
       </table>
+      <p style="font-size:11px; color:var(--muted); margin-top:-8px; margin-bottom:14px;">Tiers 1–6: pure risk, no reward — fail and you lose the full stake. Survive to Tier 7 and payouts (and Eject) unlock.</p>
       <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">🪙 Entry costs <b style="color:var(--amber);">100 Coins</b> per run.</div>
       <div class="submit-msg" id="entry-msg"></div>
       <button class="btn btn-primary start-action-btn" onclick="startGame()">Fire Up Reactor</button>
@@ -229,17 +231,23 @@
   function sfxGameStart(){ playClip(GAME_START_AUDIO, 0.5); }
 
   // ---------- Tiers ----------
+  // Tiers 1-6 are a pure gauntlet: no payout, no eject — fail any of them and lose the stake.
+  // Payouts only start once Tier 7 is cleared, then climb slowly.
   const TIERS = [
-    { arc:120, degPerSec:250, mult:1.4 },
-    { arc:100, degPerSec:310, mult:2.0 },
-    { arc:84,  degPerSec:375, mult:3.0 },
-    { arc:68,  degPerSec:445, mult:4.5 },
-    { arc:54,  degPerSec:520, mult:7.0 },
-    { arc:42,  degPerSec:610, mult:11.0 },
-    { arc:32,  degPerSec:710, mult:18.0 },
-    { arc:24,  degPerSec:820, mult:30.0 }
+    { arc:130, degPerSec:230, mult:null },
+    { arc:115, degPerSec:270, mult:null },
+    { arc:100, degPerSec:315, mult:null },
+    { arc:86,  degPerSec:365, mult:null },
+    { arc:74,  degPerSec:420, mult:null },
+    { arc:62,  degPerSec:480, mult:null },
+    { arc:50,  degPerSec:550, mult:1.2 },
+    { arc:40,  degPerSec:630, mult:1.8 },
+    { arc:30,  degPerSec:730, mult:2.8 },
+    { arc:22,  degPerSec:850, mult:4.5 }
   ];
-  const DANGER_FROM_TIER = 4; // 0-indexed tier attempt count that starts the alarm
+  const GAUNTLET_TIERS = 6; // tiers that must be cleared before any payout exists
+  const EJECT_MIN_TIER = GAUNTLET_TIERS + 1; // clearedTier needed before eject unlocks
+  const DANGER_FROM_TIER = GAUNTLET_TIERS; // 0-indexed tier attempt count that starts the alarm
   const ENTRY_FEE_COINS = 100;
 
   // ---------- Canvas ----------
@@ -279,15 +287,16 @@
     safeStart = randomSafeStart();
     acceptingInput = true;
     document.getElementById('lock-btn').disabled = false;
-    document.getElementById('eject-btn').disabled = clearedTier < 1;
+    document.getElementById('eject-btn').disabled = clearedTier < EJECT_MIN_TIER;
     const msg = document.getElementById('status-msg');
+    const tierNum = clearedTier + 1;
     if(clearedTier >= DANGER_FROM_TIER){
       if(!dangerActive){ dangerActive = true; startAlarm(); }
       msg.className = 'danger';
-      msg.textContent = '⚠ DANGER ZONE — Tier ' + (clearedTier + 1) + ': lock in on the green or lose it all.';
+      msg.textContent = '⚠ DANGER ZONE — Tier ' + tierNum + ': lock in on the green for ' + TIERS[clearedTier].mult.toFixed(2) + '× or lose it all.';
     } else {
       msg.className = '';
-      msg.textContent = 'Tier ' + (clearedTier + 1) + ': lock in when the needle hits the green arc.';
+      msg.textContent = 'Gauntlet ' + tierNum + '/' + GAUNTLET_TIERS + ' — no payout yet, just survive.';
     }
   }
 
@@ -323,8 +332,8 @@
   }
 
   function tierColor(tierIndex){
-    if(tierIndex < 2) return '#2DE1FC';
-    if(tierIndex < 5) return '#FFB627';
+    if(tierIndex < 3) return '#2DE1FC';
+    if(tierIndex < 7) return '#FFB627';
     return '#FF5C5C';
   }
 
@@ -403,9 +412,9 @@
 
   function updateHud(){
     const cfg = clearedTier > 0 ? TIERS[clearedTier - 1] : null;
-    const mult = cfg ? cfg.mult : 1.0;
-    document.getElementById('mult-display').textContent = mult.toFixed(2) + '×';
-    document.getElementById('payout-value').textContent = Math.floor(ENTRY_FEE_COINS * mult).toLocaleString();
+    const hasPayout = !!(cfg && cfg.mult != null);
+    document.getElementById('mult-display').textContent = hasPayout ? cfg.mult.toFixed(2) + '×' : '—';
+    document.getElementById('payout-value').textContent = hasPayout ? Math.floor(ENTRY_FEE_COINS * cfg.mult).toLocaleString() : '—';
     const ladder = document.getElementById('tier-ladder');
     ladder.innerHTML = '';
     TIERS.forEach((t, i) => {
@@ -455,7 +464,7 @@
   }
 
   function ejectNow(){
-    if(!running || !acceptingInput || clearedTier < 1) return;
+    if(!running || !acceptingInput || clearedTier < EJECT_MIN_TIER) return;
     acceptingInput = false;
     document.getElementById('lock-btn').disabled = true;
     document.getElementById('eject-btn').disabled = true;
@@ -491,9 +500,9 @@
     stopAlarm();
 
     const cfg = clearedTier > 0 ? TIERS[clearedTier - 1] : null;
-    const mult = cfg ? cfg.mult : 0;
+    const mult = (cfg && cfg.mult != null) ? cfg.mult : 0;
     const payout = outcome === 'meltdown' ? 0 : Math.floor(ENTRY_FEE_COINS * mult);
-    const scoreValue = Math.round((cfg ? cfg.mult : 0) * 100);
+    const scoreValue = clearedTier * 100;
 
     const eyebrow = document.getElementById('over-eyebrow');
     const finalMult = document.getElementById('final-mult');
@@ -506,7 +515,7 @@
     } else if(outcome === 'fullclear'){
       eyebrow.style.color = 'var(--amber)'; eyebrow.textContent = 'CORE STABILIZED — JACKPOT';
       finalMult.style.color = 'var(--amber)'; finalMult.textContent = '+' + payout.toLocaleString() + ' Coins';
-      finalLabel.textContent = 'All 8 tiers cleared at ' + mult.toFixed(2) + '×!';
+      finalLabel.textContent = 'All ' + TIERS.length + ' tiers cleared at ' + mult.toFixed(2) + '×!';
       sfxJackpot();
       spawnBurst(W / 2, H / 2, '#FFB627', 60);
     } else {

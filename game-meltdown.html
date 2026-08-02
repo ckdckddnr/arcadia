@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ARCADIA — Meltdown</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg-void:#0A0D12; --surface:#12161F; --surface-2:#181D28; --line:#242B38;
+    --amber:#FFB627; --cyan:#2DE1FC; --green:#34D399; --red:#FF5C5C; --pink:#FF5CB6;
+    --text:#F4F6FA; --muted:#8A93A6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; user-select:none;}
+  html, body{ background:var(--bg-void); color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif; height:100%; width:100%; overflow:hidden; position:fixed; inset:0; overscroll-behavior:none; }
+  .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
+
+  nav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 4vw; border-bottom:1px solid var(--line); background:rgba(10,13,18,0.95);
+    position:relative; z-index:40;
+  }
+  .logo{ display:flex; align-items:center; gap:10px; font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:20px; letter-spacing:0.03em; color:var(--text); text-decoration:none; }
+  .logo .dot{width:9px; height:9px; border-radius:2px; background:var(--amber); box-shadow:0 0 10px var(--amber);}
+  .back-link{color:var(--muted); text-decoration:none; font-size:13px; font-weight:600;}
+  .game-title{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:18px; letter-spacing:0.04em; color:var(--muted);}
+
+  #stage{ position:relative; width:100%; height:calc(100vh - 49px); height:calc(100dvh - 49px); display:flex; flex-direction:column; overflow:hidden; }
+  #stage.shake{ animation: shakeAnim 0.4s; }
+  @keyframes shakeAnim{
+    10%,90%{transform:translateX(-2px);} 20%,80%{transform:translateX(4px);}
+    30%,50%,70%{transform:translateX(-9px);} 40%,60%{transform:translateX(9px);}
+  }
+
+  .flash{ position:absolute; inset:0; pointer-events:none; z-index:25; opacity:0; transition:opacity 0.5s ease-out; }
+
+  #hud{ display:flex; flex-direction:column; align-items:center; padding:10px 18px 2px; gap:6px; }
+  #mult-display{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:52px; line-height:1; color:var(--amber); text-shadow:0 0 22px rgba(255,182,39,0.5); }
+  #stat-row{ display:flex; gap:18px; font-size:11px; color:var(--muted); font-weight:600; }
+  #stat-row b{ color:var(--text); }
+  #tier-ladder{ display:flex; gap:6px; margin-top:2px; }
+  .tier-pip{ width:16px; height:6px; border-radius:3px; background:var(--surface-2); border:1px solid var(--line); transition:background 0.2s, box-shadow 0.2s; }
+  .tier-pip.cleared{ background:var(--amber); border-color:var(--amber); box-shadow:0 0 8px rgba(255,182,39,0.6); }
+  .tier-pip.current{ background:var(--cyan); border-color:var(--cyan); box-shadow:0 0 8px rgba(45,225,252,0.7); }
+
+  #canvas-wrap{ flex:1; position:relative; display:flex; align-items:center; justify-content:center; min-height:0; }
+  canvas{ touch-action:none; }
+
+  #status-msg{ text-align:center; padding:6px 12px 2px; color:var(--muted); font-size:13px; font-weight:600; min-height:18px; }
+  #status-msg.danger{ color:var(--red); }
+  #status-msg.good{ color:var(--green); }
+
+  #control-row{ display:flex; gap:10px; padding:12px 16px calc(14px + env(safe-area-inset-bottom)); }
+  .action-btn{ flex:1; font-family:'Inter','Noto Sans KR',sans-serif; font-weight:800; font-size:14px; padding:15px 10px; border-radius:10px; border:none; cursor:pointer; letter-spacing:0.02em; }
+  .action-btn[disabled]{ opacity:0.4; cursor:not-allowed; }
+  #lock-btn{ background:var(--amber); color:#1A1200; flex:1.2; }
+  #eject-btn{ background:transparent; color:var(--green); border:1.5px solid var(--green); }
+  #eject-btn[disabled]{ color:var(--muted); border-color:var(--line); }
+
+  .overlay{ position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center; background:rgba(10,13,18,0.92); backdrop-filter:blur(4px); }
+  .overlay.hidden{ display:none; }
+  .panel{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:32px; max-width:440px; width:90%; text-align:center; box-shadow:0 40px 100px -20px rgba(0,0,0,0.7); max-height:86vh; overflow-y:auto; }
+  .panel .eyebrow{ display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--amber); margin-bottom:10px; }
+  .panel h1{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:36px; margin-bottom:12px; }
+  .panel h1 span{ color:var(--amber); }
+  .panel p{ color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:14px; }
+  .panel ul{ text-align:left; list-style:none; margin-bottom:16px; }
+  .panel li{ display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted); }
+  .panel li b{ color:var(--text); }
+  .tier-table{ width:100%; border-collapse:collapse; margin-bottom:16px; font-size:11px; }
+  .tier-table th, .tier-table td{ padding:5px 4px; border-bottom:1px solid var(--line); color:var(--muted); }
+  .tier-table th{ color:var(--text); font-size:10px; text-transform:uppercase; letter-spacing:0.06em; }
+  .tier-table td.mult{ color:var(--amber); font-weight:700; }
+  .btn{ font-family:'Inter','Noto Sans KR',sans-serif; font-weight:700; font-size:14px; padding:12px 20px; border-radius:8px; border:none; cursor:pointer; width:100%; margin-bottom:9px; }
+  .btn-primary{ background:var(--amber); color:#1A1200; }
+  .btn-ghost{ background:transparent; color:var(--text); border:1px solid var(--line); }
+  .btn[disabled]{ opacity:0.5; cursor:not-allowed; }
+  .submit-msg{ font-size:11px; font-weight:600; margin-bottom:10px; min-height:14px; }
+  .submit-msg.error{ color:#FF8A8A; }
+  .submit-msg.success{ color:var(--green); }
+  .submit-msg .link-text{ color:var(--cyan); font-weight:700; text-decoration:underline; }
+  .outcome-display{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:56px; color:var(--amber); margin:6px 0; }
+  .outcome-label{ color:var(--muted); font-size:12px; margin-bottom:14px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
+  <div class="game-title">MELTDOWN</div>
+  <a href="hub.html" class="back-link">&larr; Exit</a>
+</nav>
+
+<div id="stage">
+  <div class="flash" id="flash-fx"></div>
+
+  <div id="hud">
+    <div id="mult-display">1.00×</div>
+    <div id="stat-row">
+      <span>AT STAKE <b id="stake-value">100</b></span>
+      <span>EJECT PAYS <b id="payout-value">100</b></span>
+    </div>
+    <div id="tier-ladder"></div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <div id="status-msg">Pay in to fire up the reactor.</div>
+
+  <div id="control-row">
+    <button class="action-btn" id="lock-btn" disabled>🔒 LOCK IN</button>
+    <button class="action-btn" id="eject-btn" disabled>⏏ EJECT</button>
+  </div>
+
+  <div class="overlay" id="start-overlay">
+    <div class="panel">
+      <div class="eyebrow">Solo &middot; High Stakes</div>
+      <h1>MELT<span>DOWN</span></h1>
+      <p>The core needle sweeps the dial. Lock in while it's inside the green arc to push the reactor to the next tier. Miss and it's an instant meltdown — you lose your whole stake.</p>
+      <ul>
+        <li><span style="color:var(--amber);">🎯</span><span><b>Lock In</b> when the needle is inside the green safe arc. No timer — watch a lap or two before you commit.</span></li>
+        <li><span style="color:var(--amber);">📈</span><span>Each tier you clear raises your payout multiplier — and shrinks the next safe arc while speeding up the needle.</span></li>
+        <li><span style="color:var(--green);">⏏</span><span><b>Eject</b> anytime after Tier 1 to bank your current multiplier and walk away.</span></li>
+        <li><span style="color:var(--red);">💥</span><span>Lock in outside the safe arc and the core melts down — <b>full stake lost, nothing banked.</b></span></li>
+      </ul>
+      <table class="tier-table">
+        <tr><th>Tier</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr>
+        <tr><th>Payout</th><td class="mult">1.4×</td><td class="mult">2×</td><td class="mult">3×</td><td class="mult">4.5×</td><td class="mult">7×</td><td class="mult">11×</td><td class="mult">18×</td><td class="mult">30×</td></tr>
+      </table>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">🪙 Entry costs <b style="color:var(--amber);">100 Coins</b> per run.</div>
+      <div class="submit-msg" id="entry-msg"></div>
+      <button class="btn btn-primary start-action-btn" onclick="startGame()">Fire Up Reactor</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="over-overlay">
+    <div class="panel">
+      <div class="eyebrow" id="over-eyebrow" style="color:var(--red);">Core Meltdown</div>
+      <div class="outcome-display" id="final-mult">1.00×</div>
+      <div class="outcome-label" id="final-label">Coins Won</div>
+      <div class="submit-msg" id="submit-msg"></div>
+      <button class="btn btn-primary" id="submit-btn" disabled>Submitting...</button>
+      <button class="btn btn-ghost start-action-btn" onclick="startGame()">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function xpForLevel(level){ return 25 * level * (level - 1); }
+  function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
+
+  // ---------- Sound: procedural ----------
+  let audioCtx = null;
+  function getAudioCtx(){ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+  function playTone(freq, duration, type, startGain, endFreq){
+    try{
+      const ctx = getAudioCtx();
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.type = type || 'sine'; osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      if(endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, ctx.currentTime + duration);
+      gain.gain.setValueAtTime(startGain || 0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + duration);
+    } catch(e){}
+  }
+  function sfxArpeggio(freqs, gap, type, gain){
+    freqs.forEach((f, i) => setTimeout(() => playTone(f, 0.16, type || 'sine', gain || 0.14, f * 1.3), i * gap));
+  }
+
+  // ---------- Sound: real clips ----------
+  const audioClipCache = {};
+  function playClip(url, volume){
+    try{
+      if(!audioClipCache[url]){ const a = new Audio(url); a.preload = 'auto'; audioClipCache[url] = a; }
+      const clip = audioClipCache[url].cloneNode();
+      clip.volume = volume !== undefined ? volume : 0.7;
+      clip.play().catch(() => {});
+    } catch(e){}
+  }
+  const EXPLOSION_CLIPS = ['explosion_large_001.wav','explosion_large_002.wav','explosion_large_003.wav','explosion_large_004.wav','explosion_large_005.wav'];
+  const LOCK_TICK_AUDIO = 'gui_003.wav';
+  const TIER_SUCCESS_AUDIO = 'shield_up_002.wav';
+  const STABILIZE_AUDIO = 'mechanical_004.wav';
+  const DANGER_ALARM_AUDIO = 'bonus_alarm_003.wav';
+  const GAME_START_AUDIO = 'engine_start_003.wav';
+  const EJECT_AUDIO = 'weapon_lightning_001.wav';
+  const JACKPOT_AUDIO = 'weapon_railgun_001.wav';
+  const AFTERMATH_AUDIO = 'ambience_damaged_burning_metal_scratching_001.wav';
+  const HUM_AUDIO = 'hum_pulsating.wav';
+  [...EXPLOSION_CLIPS, LOCK_TICK_AUDIO, TIER_SUCCESS_AUDIO, STABILIZE_AUDIO, DANGER_ALARM_AUDIO, GAME_START_AUDIO, EJECT_AUDIO, JACKPOT_AUDIO, AFTERMATH_AUDIO, HUM_AUDIO]
+    .forEach(url => { if(!audioClipCache[url]){ const a = new Audio(url); a.preload = 'auto'; audioClipCache[url] = a; } });
+
+  let humEl = null, alarmEl = null;
+  function startHum(){
+    stopHum();
+    humEl = new Audio(HUM_AUDIO); humEl.loop = true; humEl.volume = 0.22; humEl.playbackRate = 0.9;
+    humEl.play().catch(() => {});
+  }
+  function updateHum(tierIndex){ if(humEl) humEl.playbackRate = Math.min(2.0, 0.9 + tierIndex * 0.13); }
+  function stopHum(){ if(humEl){ humEl.pause(); humEl = null; } }
+  function startAlarm(){
+    if(alarmEl) return;
+    alarmEl = new Audio(DANGER_ALARM_AUDIO); alarmEl.loop = true; alarmEl.volume = 0.3;
+    alarmEl.play().catch(() => {});
+  }
+  function stopAlarm(){ if(alarmEl){ alarmEl.pause(); alarmEl = null; } }
+
+  function sfxLockAttempt(){ playClip(LOCK_TICK_AUDIO, 0.5); }
+  function sfxTierSuccess(tierIndex){
+    playClip(TIER_SUCCESS_AUDIO, 0.55);
+    sfxArpeggio([440 + tierIndex * 40, 660 + tierIndex * 40], 60, 'sine', 0.12);
+  }
+  function sfxStabilize(){ playClip(STABILIZE_AUDIO, 0.4); }
+  function sfxMeltdown(){
+    playClip(EXPLOSION_CLIPS[Math.floor(Math.random() * EXPLOSION_CLIPS.length)], 0.8);
+    playTone(140, 0.5, 'sawtooth', 0.18, 40);
+    setTimeout(() => playClip(AFTERMATH_AUDIO, 0.35), 400);
+  }
+  function sfxEject(){ playClip(EJECT_AUDIO, 0.6); sfxArpeggio([520, 780, 1040], 70, 'triangle', 0.16); }
+  function sfxJackpot(){ playClip(JACKPOT_AUDIO, 0.7); sfxArpeggio([440, 660, 880, 1320], 90, 'triangle', 0.18); }
+  function sfxGameStart(){ playClip(GAME_START_AUDIO, 0.5); }
+
+  // ---------- Tiers ----------
+  const TIERS = [
+    { arc:120, degPerSec:250, mult:1.4 },
+    { arc:100, degPerSec:310, mult:2.0 },
+    { arc:84,  degPerSec:375, mult:3.0 },
+    { arc:68,  degPerSec:445, mult:4.5 },
+    { arc:54,  degPerSec:520, mult:7.0 },
+    { arc:42,  degPerSec:610, mult:11.0 },
+    { arc:32,  degPerSec:710, mult:18.0 },
+    { arc:24,  degPerSec:820, mult:30.0 }
+  ];
+  const DANGER_FROM_TIER = 4; // 0-indexed tier attempt count that starts the alarm
+  const ENTRY_FEE_COINS = 100;
+
+  // ---------- Canvas ----------
+  const canvas = document.getElementById('game-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, DPR;
+
+  function resizeCanvas(){
+    const wrap = document.getElementById('canvas-wrap');
+    W = wrap.clientWidth; H = wrap.clientHeight;
+    DPR = window.devicePixelRatio || 1;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  // ---------- Game state ----------
+  let running = false;
+  let acceptingInput = false;
+  let clearedTier = 0; // number of tiers successfully cleared (0..8)
+  let needleAngle = 0; // degrees, 0 = top, clockwise
+  let safeStart = 0;
+  let lastTs = null;
+  let particles = [];
+  let dangerActive = false;
+
+  function angleInArc(angle, start, width){
+    const a = ((angle - start) % 360 + 360) % 360;
+    return a < width;
+  }
+
+  function randomSafeStart(){ return Math.floor(Math.random() * 360); }
+
+  function beginTierAttempt(){
+    needleAngle = 0;
+    safeStart = randomSafeStart();
+    acceptingInput = true;
+    document.getElementById('lock-btn').disabled = false;
+    document.getElementById('eject-btn').disabled = clearedTier < 1;
+    const msg = document.getElementById('status-msg');
+    if(clearedTier >= DANGER_FROM_TIER){
+      if(!dangerActive){ dangerActive = true; startAlarm(); }
+      msg.className = 'danger';
+      msg.textContent = '⚠ DANGER ZONE — Tier ' + (clearedTier + 1) + ': lock in on the green or lose it all.';
+    } else {
+      msg.className = '';
+      msg.textContent = 'Tier ' + (clearedTier + 1) + ': lock in when the needle hits the green arc.';
+    }
+  }
+
+  function currentTierConfig(){ return TIERS[clearedTier]; }
+
+  function loop(ts){
+    if(!running) return;
+    if(lastTs === null) lastTs = ts;
+    const dt = Math.min(0.05, (ts - lastTs) / 1000);
+    lastTs = ts;
+    if(acceptingInput){
+      const cfg = currentTierConfig();
+      needleAngle = (needleAngle + cfg.degPerSec * dt) % 360;
+    }
+    updateParticles(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  function updateParticles(dt){
+    particles.forEach(p => {
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 260 * dt; p.life -= dt;
+    });
+    particles = particles.filter(p => p.life > 0);
+  }
+
+  function spawnBurst(cx, cy, color, count){
+    for(let i = 0; i < count; i++){
+      const ang = Math.random() * Math.PI * 2;
+      const spd = 90 + Math.random() * 220;
+      particles.push({ x:cx, y:cy, vx:Math.cos(ang) * spd, vy:Math.sin(ang) * spd, life:0.5 + Math.random() * 0.4, color });
+    }
+  }
+
+  function tierColor(tierIndex){
+    if(tierIndex < 2) return '#2DE1FC';
+    if(tierIndex < 5) return '#FFB627';
+    return '#FF5C5C';
+  }
+
+  function render(){
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0A0D12';
+    ctx.fillRect(0, 0, W, H);
+
+    const cx = W / 2, cy = H / 2;
+    const radius = Math.min(W, H) * 0.36;
+    const core = tierColor(clearedTier);
+
+    // outer track
+    ctx.lineWidth = 14;
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.stroke();
+
+    // safe arc
+    if(running){
+      const cfg = currentTierConfig();
+      const startRad = (safeStart - 90) * Math.PI / 180;
+      const endRad = (safeStart + cfg.arc - 90) * Math.PI / 180;
+      ctx.save();
+      ctx.shadowColor = 'rgba(52,211,153,0.8)'; ctx.shadowBlur = 16;
+      ctx.lineWidth = 14; ctx.strokeStyle = 'var(--green)'.trim();
+      ctx.strokeStyle = '#34D399';
+      ctx.beginPath(); ctx.arc(cx, cy, radius, startRad, endRad); ctx.stroke();
+      ctx.restore();
+    }
+
+    // core glow
+    const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, radius * 0.62);
+    grad.addColorStop(0, core); grad.addColorStop(1, 'rgba(10,13,18,0)');
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(cx, cy, radius * 0.62, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = core;
+    ctx.beginPath(); ctx.arc(cx, cy, 16, 0, Math.PI * 2); ctx.fill();
+
+    // needle
+    if(running){
+      const rad = (needleAngle - 90) * Math.PI / 180;
+      const nx = cx + Math.cos(rad) * radius * 0.94;
+      const ny = cy + Math.sin(rad) * radius * 0.94;
+      ctx.save();
+      ctx.shadowColor = '#F4F6FA'; ctx.shadowBlur = 8;
+      ctx.strokeStyle = '#F4F6FA'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(nx, ny); ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = '#F4F6FA';
+      ctx.beginPath(); ctx.arc(nx, ny, 5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // particles
+    particles.forEach(p => {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - 2.5, p.y - 2.5, 5, 5);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  function flash(color){
+    const el = document.getElementById('flash-fx');
+    el.style.background = color;
+    el.style.opacity = '0.42';
+    requestAnimationFrame(() => setTimeout(() => { el.style.opacity = '0'; }, 30));
+  }
+
+  function shakeStage(){
+    const stage = document.getElementById('stage');
+    stage.classList.remove('shake'); void stage.offsetWidth; stage.classList.add('shake');
+  }
+
+  function updateHud(){
+    const cfg = clearedTier > 0 ? TIERS[clearedTier - 1] : null;
+    const mult = cfg ? cfg.mult : 1.0;
+    document.getElementById('mult-display').textContent = mult.toFixed(2) + '×';
+    document.getElementById('payout-value').textContent = Math.floor(ENTRY_FEE_COINS * mult).toLocaleString();
+    const ladder = document.getElementById('tier-ladder');
+    ladder.innerHTML = '';
+    TIERS.forEach((t, i) => {
+      const pip = document.createElement('div');
+      pip.className = 'tier-pip' + (i < clearedTier ? ' cleared' : (i === clearedTier && running ? ' current' : ''));
+      ladder.appendChild(pip);
+    });
+  }
+
+  // ---------- Input ----------
+  function lockIn(){
+    if(!running || !acceptingInput) return;
+    acceptingInput = false;
+    document.getElementById('lock-btn').disabled = true;
+    document.getElementById('eject-btn').disabled = true;
+    sfxLockAttempt();
+
+    const cfg = currentTierConfig();
+    const success = angleInArc(needleAngle, safeStart, cfg.arc);
+    const cx = W / 2, cy = H / 2;
+
+    if(!success){
+      spawnBurst(cx, cy, '#FF5C5C', 40);
+      flash('#FF5C5C');
+      shakeStage();
+      sfxMeltdown();
+      endRun('meltdown');
+      return;
+    }
+
+    clearedTier++;
+    spawnBurst(cx, cy, '#34D399', 24);
+    flash('#34D399');
+    sfxTierSuccess(clearedTier);
+    updateHud();
+    updateHum(clearedTier);
+
+    if(clearedTier >= TIERS.length){
+      endRun('fullclear');
+      return;
+    }
+
+    document.getElementById('status-msg').className = 'good';
+    document.getElementById('status-msg').textContent = 'Tier ' + clearedTier + ' cleared — stabilizing...';
+    sfxStabilize();
+    setTimeout(() => { if(running) beginTierAttempt(); }, 700);
+  }
+
+  function ejectNow(){
+    if(!running || !acceptingInput || clearedTier < 1) return;
+    acceptingInput = false;
+    document.getElementById('lock-btn').disabled = true;
+    document.getElementById('eject-btn').disabled = true;
+    flash('#FFB627');
+    sfxEject();
+    endRun('eject');
+  }
+
+  document.getElementById('lock-btn').addEventListener('click', lockIn);
+  document.getElementById('eject-btn').addEventListener('click', ejectNow);
+  window.addEventListener('keydown', (e) => {
+    if(e.code === 'Space'){ e.preventDefault(); lockIn(); }
+    if(e.code === 'KeyE') ejectNow();
+  });
+
+  // ---------- Run lifecycle ----------
+  function resetGame(){
+    resizeCanvas();
+    running = false;
+    acceptingInput = false;
+    clearedTier = 0;
+    particles = [];
+    dangerActive = false;
+    lastTs = null;
+    updateHud();
+    document.getElementById('status-msg').className = '';
+    document.getElementById('status-msg').textContent = 'Reactor priming...';
+  }
+
+  function endRun(outcome){
+    running = false;
+    stopHum();
+    stopAlarm();
+
+    const cfg = clearedTier > 0 ? TIERS[clearedTier - 1] : null;
+    const mult = cfg ? cfg.mult : 0;
+    const payout = outcome === 'meltdown' ? 0 : Math.floor(ENTRY_FEE_COINS * mult);
+    const scoreValue = Math.round((cfg ? cfg.mult : 0) * 100);
+
+    const eyebrow = document.getElementById('over-eyebrow');
+    const finalMult = document.getElementById('final-mult');
+    const finalLabel = document.getElementById('final-label');
+
+    if(outcome === 'meltdown'){
+      eyebrow.style.color = 'var(--red)'; eyebrow.textContent = 'Core Meltdown';
+      finalMult.style.color = 'var(--red)'; finalMult.textContent = '0 Coins';
+      finalLabel.textContent = 'Reached Tier ' + clearedTier + ' before the core blew — stake lost.';
+    } else if(outcome === 'fullclear'){
+      eyebrow.style.color = 'var(--amber)'; eyebrow.textContent = 'CORE STABILIZED — JACKPOT';
+      finalMult.style.color = 'var(--amber)'; finalMult.textContent = '+' + payout.toLocaleString() + ' Coins';
+      finalLabel.textContent = 'All 8 tiers cleared at ' + mult.toFixed(2) + '×!';
+      sfxJackpot();
+      spawnBurst(W / 2, H / 2, '#FFB627', 60);
+    } else {
+      eyebrow.style.color = 'var(--green)'; eyebrow.textContent = 'Ejected Safely';
+      finalMult.style.color = 'var(--green)'; finalMult.textContent = '+' + payout.toLocaleString() + ' Coins';
+      finalLabel.textContent = 'Banked at ' + mult.toFixed(2) + '× — Tier ' + clearedTier + ' cleared.';
+    }
+
+    document.getElementById('over-overlay').classList.remove('hidden');
+    document.getElementById('submit-msg').className = 'submit-msg';
+    document.getElementById('submit-msg').textContent = '';
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('submit-btn').textContent = 'Submitting...';
+
+    submitResult(scoreValue, payout, clearedTier);
+  }
+
+  async function submitResult(scoreValue, coinsEarned, tierReached){
+    const msg = document.getElementById('submit-msg');
+    const btn = document.getElementById('submit-btn');
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      msg.className = 'submit-msg error';
+      msg.innerHTML = 'Result not saved — <a href="auth.html" class="link-text">log in</a> to appear on the leaderboard.';
+      btn.style.display = 'none';
+      return;
+    }
+    const user = sessionData.session.user;
+    const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+
+    const xpEarned = Math.max(5, tierReached * 10);
+    const tokensEarned = tierReached;
+
+    try{
+      await sb.from('scores').insert({ user_id: user.id, username, game: 'meltdown', score: scoreValue });
+
+      const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', user.id).maybeSingle();
+      const prevXp = existing ? existing.xp : 0;
+      const prevCoins = existing ? existing.coins : 100;
+      const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
+      const newXp = prevXp + xpEarned, newCoins = prevCoins + coinsEarned, newTokens = prevTokens + tokensEarned;
+
+      if(existing) await sb.from('profiles').update({ xp: newXp, coins: newCoins, battle_tokens: newTokens, username, updated_at: new Date().toISOString() }).eq('user_id', user.id);
+      else await sb.from('profiles').insert({ user_id: user.id, username, xp: newXp, coins: newCoins, battle_tokens: newTokens });
+
+      const leveledUp = levelFromXp(newXp) > levelFromXp(prevXp);
+      msg.className = 'submit-msg success';
+      msg.textContent = (coinsEarned > 0 ? '+' + coinsEarned + ' coins, ' : '') + '+' + xpEarned + ' XP, +' + tokensEarned + ' tokens' + (leveledUp ? ' — LEVEL UP to ' + levelFromXp(newXp) + '!' : '');
+      btn.style.display = 'none';
+    } catch(e){
+      msg.className = 'submit-msg error';
+      msg.textContent = 'Could not submit your result this time.';
+      btn.style.display = 'none';
+    }
+  }
+
+  async function startGame(){
+    document.getElementById('over-overlay').classList.add('hidden');
+    document.getElementById('start-overlay').classList.remove('hidden');
+    const entryMsg = document.getElementById('entry-msg');
+    const actionBtns = document.querySelectorAll('.start-action-btn');
+    entryMsg.className = 'submit-msg'; entryMsg.textContent = '';
+    actionBtns.forEach(b => b.disabled = true);
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to play — each run costs 100 Coins.';
+      actionBtns.forEach(b => b.disabled = false);
+      return;
+    }
+    const user = sessionData.session.user;
+    const { data: profile } = await sb.from('profiles').select('coins').eq('user_id', user.id).maybeSingle();
+    const currentCoins = profile ? profile.coins : 100;
+
+    if(currentCoins < ENTRY_FEE_COINS){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.textContent = 'Not enough Coins (you have ' + currentCoins + ', need ' + ENTRY_FEE_COINS + ').';
+      actionBtns.forEach(b => b.disabled = false);
+      return;
+    }
+
+    const newCoins = currentCoins - ENTRY_FEE_COINS;
+    if(profile) await sb.from('profiles').update({ coins: newCoins }).eq('user_id', user.id);
+    else {
+      const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+      await sb.from('profiles').insert({ user_id: user.id, username, xp: 0, coins: newCoins, battle_tokens: 0 });
+    }
+
+    actionBtns.forEach(b => b.disabled = false);
+    document.getElementById('start-overlay').classList.add('hidden');
+    document.getElementById('over-overlay').classList.add('hidden');
+    document.getElementById('stake-value').textContent = ENTRY_FEE_COINS;
+    resetGame();
+    sfxGameStart();
+    startHum();
+    running = true;
+    setTimeout(() => { if(running) beginTierAttempt(); }, 500);
+    requestAnimationFrame(loop);
+  }
+
+  resizeCanvas();
+  updateHud();
+</script>
+</body>
+</html>

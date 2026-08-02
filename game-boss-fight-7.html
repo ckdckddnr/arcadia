@@ -1576,10 +1576,12 @@
       return;
     }
     const user = sessionData.session.user;
-    const { data: profile, error } = await sb.from('profiles').select('boss_tanks_owned').eq('user_id', user.id).maybeSingle();
-    if(error) console.error('boss_tanks_owned fetch error', error);
+    const { data: profile, error } = await sb.from('profiles').select('boss_tanks_owned,boss_tower_floor').eq('user_id', user.id).maybeSingle();
+    if(error) console.error('profile fetch error', error);
     ownedTanks = profile ? (profile.boss_tanks_owned || []) : [];
-    if(!TYPE_ORDER.every(k => ownedTanks.includes(k))){
+    const clearedFloor = profile ? (profile.boss_tower_floor || 0) : 0;
+    const TESTING_UNLOCK_ALL = true; // set to false to re-enable normal sequential floor gating
+    if(!TYPE_ORDER.every(k => ownedTanks.includes(k)) || (!TESTING_UNLOCK_ALL && clearedFloor < 6)){
       window.location.href = 'game-boss-battle.html';
       return;
     }

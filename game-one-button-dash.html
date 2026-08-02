@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ARCADIA — One-Button Dash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg-void:#0A0D12; --surface:#12161F; --surface-2:#181D28; --line:#242B38;
+    --amber:#FFB627; --cyan:#2DE1FC; --green:#34D399; --red:#FF5C5C; --pink:#FF5CB6;
+    --text:#F4F6FA; --muted:#8A93A6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; user-select:none;}
+  html, body{ background:var(--bg-void); color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif; height:100%; width:100%; overflow:hidden; position:fixed; inset:0; overscroll-behavior:none; }
+  .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
+
+  nav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 4vw; border-bottom:1px solid var(--line); background:rgba(10,13,18,0.95);
+  }
+  .logo{ display:flex; align-items:center; gap:10px; font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:20px; letter-spacing:0.03em; color:var(--text); text-decoration:none; }
+  .logo .dot{width:9px; height:9px; border-radius:2px; background:var(--green); box-shadow:0 0 10px var(--green);}
+  .back-link{color:var(--muted); text-decoration:none; font-size:13px; font-weight:600;}
+  .game-title{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:18px; letter-spacing:0.04em; color:var(--muted);}
+
+  #stage{ position:relative; width:100%; height:calc(100vh - 49px); height:calc(100dvh - 49px); display:flex; flex-direction:column; overflow:hidden; }
+
+  #hud{ display:flex; align-items:center; justify-content:space-between; padding:10px 18px; }
+  #dist-display{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:32px; color:var(--green); }
+  #best-tag{ font-size:12px; font-weight:700; color:var(--muted); }
+
+  #canvas-wrap{ flex:1; position:relative; }
+  canvas{ touch-action:none; width:100%; height:100%; display:block; }
+
+  .overlay{ position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center; background:rgba(10,13,18,0.92); backdrop-filter:blur(4px); }
+  .overlay.hidden{ display:none; }
+  .panel{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:32px; max-width:420px; width:90%; text-align:center; box-shadow:0 40px 100px -20px rgba(0,0,0,0.7); max-height:86vh; overflow-y:auto; }
+  .panel .eyebrow{ display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--green); margin-bottom:10px; }
+  .panel h1{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:36px; margin-bottom:12px; }
+  .panel h1 span{ color:var(--green); }
+  .panel p{ color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:14px; }
+  .panel ul{ text-align:left; list-style:none; margin-bottom:16px; }
+  .panel li{ display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted); }
+  .panel li b{ color:var(--text); }
+  .btn{ font-family:'Inter','Noto Sans KR',sans-serif; font-weight:700; font-size:14px; padding:12px 20px; border-radius:8px; border:none; cursor:pointer; width:100%; margin-bottom:9px; }
+  .btn-primary{ background:var(--green); color:#04150E; }
+  .btn-ghost{ background:transparent; color:var(--text); border:1px solid var(--line); }
+  .btn[disabled]{ opacity:0.5; cursor:not-allowed; }
+  .submit-msg{ font-size:11px; font-weight:600; margin-bottom:10px; min-height:14px; }
+  .submit-msg.error{ color:#FF8A8A; }
+  .submit-msg.success{ color:var(--green); }
+  .submit-msg .link-text{ color:var(--cyan); font-weight:700; text-decoration:underline; }
+  .score-display{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:56px; color:var(--green); margin:6px 0; }
+  .score-label{ color:var(--muted); font-size:12px; margin-bottom:14px; }
+
+  #tap-hint{ text-align:center; padding:12px; color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
+  <div class="game-title">ONE-BUTTON DASH</div>
+  <a href="hub.html" class="back-link">&larr; Exit</a>
+</nav>
+
+<div id="stage">
+  <div id="hud">
+    <div id="dist-display">0m</div>
+    <div id="best-tag"></div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <div id="tap-hint">Tap anywhere to jump</div>
+
+  <div class="overlay" id="start-overlay">
+    <div class="panel">
+      <div class="eyebrow">Solo &middot; Battle Tokens</div>
+      <h1>ONE-BUTTON <span>DASH</span></h1>
+      <p>Your tank auto-runs. One button, one job: jump the obstacles.</p>
+      <ul>
+        <li><span style="color:var(--green);">⬛</span><span><b>Tap or click</b> to jump. Tap again mid-air for a short double-jump.</span></li>
+        <li><span style="color:var(--green);">⬛</span><span><b>Speed ramps up</b> the longer you survive — obstacles get tighter together.</span></li>
+        <li><span style="color:var(--green);">⬛</span><span><b>Score = distance.</b> Hit an obstacle and the run ends.</span></li>
+      </ul>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">🪙 Entry costs <b style="color:var(--amber);">20 Coins</b> per run.</div>
+      <div class="submit-msg" id="entry-msg"></div>
+      <button class="btn btn-primary start-action-btn" onclick="startGame()">Start Run</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="over-overlay">
+    <div class="panel">
+      <div class="eyebrow" style="color:var(--red);">Run Over</div>
+      <div class="score-display" id="final-score">0m</div>
+      <div class="score-label">Distance Reached</div>
+      <div class="submit-msg" id="submit-msg"></div>
+      <button class="btn btn-primary" id="submit-btn" disabled>Submitting...</button>
+      <button class="btn btn-ghost start-action-btn" onclick="startGame()">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function xpForLevel(level){ return 25 * level * (level - 1); }
+  function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
+
+  // ---------- Sound ----------
+  let audioCtx = null;
+  function getAudioCtx(){ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+  function playTone(freq, duration, type, startGain, endFreq){
+    try{
+      const ctx = getAudioCtx();
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.type = type || 'sine'; osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      if(endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, ctx.currentTime + duration);
+      gain.gain.setValueAtTime(startGain || 0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + duration);
+    } catch(e){}
+  }
+  function playNoise(duration, startGain, filterFreq){
+    try{
+      const ctx = getAudioCtx();
+      const bufferSize = Math.floor(ctx.sampleRate * duration);
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for(let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      const noise = ctx.createBufferSource(); noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = filterFreq || 1200;
+      const gain = ctx.createGain(); gain.gain.setValueAtTime(startGain || 0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      noise.connect(filter); filter.connect(gain); gain.connect(ctx.destination); noise.start();
+    } catch(e){}
+  }
+  function sfxJump(){ playTone(300, 0.12, 'square', 0.12, 520); }
+  function sfxDoubleJump(){ playTone(420, 0.1, 'square', 0.12, 700); }
+  function sfxCrash(){ playNoise(0.25, 0.22, 400); playTone(120, 0.3, 'sawtooth', 0.15, 60); }
+  function sfxMilestone(){ playTone(660, 0.08, 'sine', 0.1, 880); }
+  function sfxGameStart(){ playTone(440, 0.1, 'sine', 0.12, 660); }
+
+  // ---------- Game state ----------
+  const canvas = document.getElementById('game-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, DPR;
+  const GROUND_Y_RATIO = 0.72;
+  let groundY;
+
+  let player, obstacles, particles;
+  let distance = 0;
+  let speed = 6;
+  let running = false;
+  let gameOverFlag = false;
+  let spawnTimer = 0;
+  let nextSpawnGap = 70;
+  let lastMilestone = 0;
+
+  function resizeCanvas(){
+    const wrap = document.getElementById('canvas-wrap');
+    W = wrap.clientWidth; H = wrap.clientHeight;
+    DPR = window.devicePixelRatio || 1;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    groundY = H * GROUND_Y_RATIO;
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function resetGame(){
+    resizeCanvas();
+    player = { x: W * 0.22, y: groundY - 34, w: 34, h: 34, vy: 0, jumps: 0, maxJumps: 2, onGround: true };
+    obstacles = [];
+    particles = [];
+    distance = 0;
+    speed = 6;
+    spawnTimer = 0;
+    nextSpawnGap = 70;
+    lastMilestone = 0;
+    gameOverFlag = false;
+    document.getElementById('dist-display').textContent = '0m';
+  }
+
+  function doJump(){
+    if(!running || gameOverFlag) return;
+    if(player.jumps < player.maxJumps){
+      player.vy = player.jumps === 0 ? -14.5 : -11.5;
+      player.jumps++;
+      player.onGround = false;
+      if(player.jumps === 1) sfxJump(); else sfxDoubleJump();
+      for(let i=0;i<6;i++) particles.push({ x: player.x + player.w/2, y: player.y + player.h, vx: (Math.random()-0.5)*3, vy: Math.random()*2, alpha:1, color:'#34D399' });
+    }
+  }
+  document.getElementById('canvas-wrap').addEventListener('pointerdown', doJump);
+  document.getElementById('tap-hint').addEventListener('pointerdown', doJump);
+  window.addEventListener('keydown', (e) => { if(e.code === 'Space') doJump(); });
+
+  function spawnObstacle(){
+    const types = ['low','tall','gap'];
+    const type = types[Math.floor(Math.random()*types.length)];
+    let h, w, y;
+    if(type === 'tall'){ h = 54; w = 22; y = groundY - h; }
+    else if(type === 'gap'){ h = 30; w = 30; y = groundY - h - 46; } // floating obstacle requiring a timed jump-through
+    else { h = 28; w = 26; y = groundY - h; }
+    obstacles.push({ x: W + 20, y, w, h, type, passed:false });
+  }
+
+  function update(){
+    if(!running) return;
+
+    distance += speed * 0.05;
+    speed = Math.min(6 + distance * 0.02, 16);
+
+    // player physics
+    player.vy += 0.85;
+    player.y += player.vy;
+    if(player.y >= groundY - player.h){
+      player.y = groundY - player.h;
+      player.vy = 0;
+      player.jumps = 0;
+      player.onGround = true;
+    }
+
+    // obstacles
+    spawnTimer++;
+    if(spawnTimer > nextSpawnGap){
+      spawnObstacle();
+      spawnTimer = 0;
+      nextSpawnGap = Math.max(38, 75 - distance * 0.05 - Math.random()*15);
+    }
+    obstacles.forEach(o => { o.x -= speed; });
+    obstacles = obstacles.filter(o => o.x + o.w > -20);
+
+    // collision (simple AABB with a little forgiveness)
+    for(const o of obstacles){
+      const pad = 5;
+      if(player.x + pad < o.x + o.w && player.x + player.w - pad > o.x &&
+         player.y + pad < o.y + o.h && player.y + player.h - pad > o.y){
+        crash();
+        return;
+      }
+    }
+
+    // milestone chime every 100m
+    const milestone = Math.floor(distance / 100);
+    if(milestone > lastMilestone){ lastMilestone = milestone; sfxMilestone(); }
+
+    particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.alpha -= 0.04; });
+    particles = particles.filter(p => p.alpha > 0);
+
+    document.getElementById('dist-display').textContent = Math.floor(distance) + 'm';
+
+    render();
+    requestAnimationFrame(update);
+  }
+
+  function render(){
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0A0D12';
+    ctx.fillRect(0, 0, W, H);
+
+    // ground line
+    ctx.strokeStyle = '#242B38';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); ctx.stroke();
+
+    // scrolling ground dashes for a sense of speed
+    ctx.strokeStyle = 'rgba(138,147,166,0.35)';
+    ctx.lineWidth = 3;
+    const dashOffset = (distance * 8) % 40;
+    for(let x = -40 + (W - dashOffset % 40); x < W; x += 40){
+      ctx.beginPath(); ctx.moveTo(x, groundY + 8); ctx.lineTo(x + 20, groundY + 8); ctx.stroke();
+    }
+
+    // obstacles
+    obstacles.forEach(o => {
+      ctx.fillStyle = o.type === 'tall' ? '#FF5C5C' : (o.type === 'gap' ? '#FFB627' : '#FF9227');
+      ctx.fillRect(o.x, o.y, o.w, o.h);
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.strokeRect(o.x, o.y, o.w, o.h);
+    });
+
+    // player tank
+    ctx.fillStyle = '#2DE1FC';
+    ctx.fillRect(player.x, player.y, player.w, player.h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.strokeRect(player.x, player.y, player.w, player.h);
+    ctx.fillStyle = '#0F5C6E';
+    ctx.fillRect(player.x + player.w*0.3, player.y - 6, player.w*0.4, 8);
+
+    particles.forEach(p => {
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, 4, 4);
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  function crash(){
+    running = false;
+    gameOverFlag = true;
+    sfxCrash();
+    document.getElementById('final-score').textContent = Math.floor(distance) + 'm';
+    document.getElementById('over-overlay').classList.remove('hidden');
+    submitScore();
+  }
+
+  async function submitScore(){
+    const msg = document.getElementById('submit-msg');
+    const btn = document.getElementById('submit-btn');
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      msg.className = 'submit-msg error';
+      msg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to save your score and earn rewards.';
+      btn.style.display = 'none';
+      return;
+    }
+    const user = sessionData.session.user;
+    const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+    const finalScore = Math.floor(distance);
+
+    const xpEarned = Math.max(5, Math.floor(finalScore / 12));
+    const coinsEarned = Math.max(2, Math.floor(finalScore / 9));
+    const tokensEarned = Math.floor(finalScore / 55);
+
+    try{
+      await sb.from('scores').insert({ user_id: user.id, username, game: 'one-button-dash', score: finalScore });
+
+      const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', user.id).maybeSingle();
+      const prevXp = existing ? existing.xp : 0;
+      const prevCoins = existing ? existing.coins : 100;
+      const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
+      const newXp = prevXp + xpEarned, newCoins = prevCoins + coinsEarned, newTokens = prevTokens + tokensEarned;
+
+      if(existing) await sb.from('profiles').update({ xp: newXp, coins: newCoins, battle_tokens: newTokens, username, updated_at: new Date().toISOString() }).eq('user_id', user.id);
+      else await sb.from('profiles').insert({ user_id: user.id, username, xp: newXp, coins: newCoins, battle_tokens: newTokens });
+
+      const leveledUp = levelFromXp(newXp) > levelFromXp(prevXp);
+      msg.className = 'submit-msg success';
+      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, +' + tokensEarned + ' tokens' + (leveledUp ? ' — LEVEL UP to ' + levelFromXp(newXp) + '!' : '');
+      btn.style.display = 'none';
+    } catch(e){
+      msg.className = 'submit-msg error';
+      msg.textContent = 'Could not submit your score this time.';
+      btn.style.display = 'none';
+    }
+  }
+
+  const ENTRY_FEE_COINS = 20;
+
+  async function startGame(){
+    document.getElementById('over-overlay').classList.add('hidden');
+    document.getElementById('start-overlay').classList.remove('hidden');
+    const entryMsg = document.getElementById('entry-msg');
+    const actionBtns = document.querySelectorAll('.start-action-btn');
+    entryMsg.className = 'submit-msg'; entryMsg.textContent = '';
+    actionBtns.forEach(b => b.disabled = true);
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to play — each run costs 20 Coins.';
+      actionBtns.forEach(b => b.disabled = false);
+      return;
+    }
+    const user = sessionData.session.user;
+    const { data: profile } = await sb.from('profiles').select('coins').eq('user_id', user.id).maybeSingle();
+    const currentCoins = profile ? profile.coins : 100;
+
+    if(currentCoins < ENTRY_FEE_COINS){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.textContent = 'Not enough Coins (you have ' + currentCoins + ', need ' + ENTRY_FEE_COINS + ').';
+      actionBtns.forEach(b => b.disabled = false);
+      return;
+    }
+
+    const newCoins = currentCoins - ENTRY_FEE_COINS;
+    if(profile) await sb.from('profiles').update({ coins: newCoins }).eq('user_id', user.id);
+    else {
+      const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+      await sb.from('profiles').insert({ user_id: user.id, username, xp: 0, coins: newCoins, battle_tokens: 0 });
+    }
+
+    actionBtns.forEach(b => b.disabled = false);
+    document.getElementById('start-overlay').classList.add('hidden');
+    document.getElementById('over-overlay').classList.add('hidden');
+    resetGame();
+    running = true;
+    sfxGameStart();
+    requestAnimationFrame(update);
+  }
+
+  resizeCanvas();
+</script>
+</body>
+</html>

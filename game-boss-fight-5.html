@@ -307,6 +307,7 @@
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">3 phases:</b> more simultaneous attack zones appear as its HP drops — plan ahead.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 30.</span></li>
       </ul>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);">50 Battle Tokens</b> — win to earn more back.</div>
       <div class="submit-msg" id="entry-msg"></div>
       <button class="btn btn-primary" id="deploy-btn" onclick="startGame()">Deploy Squad</button>
       <button class="btn btn-ghost" onclick="window.location.href='game-boss-battle.html'">Back to Tower</button>
@@ -1459,7 +1460,9 @@
       else await sb.from('profiles').insert({ user_id:user.id, username, xp:newXp, coins:newCoins, battle_tokens:newTokens, boss_tower_floor:newFloor });
       const leveledUp = levelFromXp(newXp) > levelFromXp(prevXp);
       msg.className = 'submit-msg success';
-      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, +' + tokensEarned + ' tokens' + (leveledUp ? ' — LEVEL UP to ' + levelFromXp(newXp) + '!' : '');
+      const netTokens = tokensEarned - ENTRY_FEE_TOKENS;
+      const netTag = (netTokens >= 0 ? '+' : '') + netTokens + ' net tokens (paid ' + ENTRY_FEE_TOKENS + ', earned ' + tokensEarned + ')';
+      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, ' + netTag + (leveledUp ? ' — LEVEL UP to ' + levelFromXp(newXp) + '!' : '');
     } catch(e){
       msg.className = 'submit-msg error';
       msg.textContent = 'Could not record your rewards this time.';
@@ -1550,10 +1553,12 @@
       return;
     }
     const user = sessionData.session.user;
-    const { data: profile, error } = await sb.from('profiles').select('boss_tanks_owned').eq('user_id', user.id).maybeSingle();
-    if(error) console.error('boss_tanks_owned fetch error', error);
+    const { data: profile, error } = await sb.from('profiles').select('boss_tanks_owned,boss_tower_floor').eq('user_id', user.id).maybeSingle();
+    if(error) console.error('profile fetch error', error);
     ownedTanks = profile ? (profile.boss_tanks_owned || []) : [];
-    if(!TYPE_ORDER.every(k => ownedTanks.includes(k))){
+    const clearedFloor = profile ? (profile.boss_tower_floor || 0) : 0;
+    const TESTING_UNLOCK_ALL = true; // set to false to re-enable normal sequential floor gating
+    if(!TYPE_ORDER.every(k => ownedTanks.includes(k)) || (!TESTING_UNLOCK_ALL && clearedFloor < 4)){
       window.location.href = 'game-boss-battle.html';
       return;
     }
@@ -1582,7 +1587,35 @@
     '</svg>';
   }
 
-  function startGame(){
+  const ENTRY_FEE_TOKENS = 50;
+
+  async function startGame(){
+    const entryMsg = document.getElementById('entry-msg');
+    const deployBtn = document.getElementById('deploy-btn');
+    entryMsg.className = 'submit-msg'; entryMsg.textContent = '';
+    deployBtn.disabled = true; deployBtn.textContent = 'Checking Battle Tokens...';
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to enter — this floor requires ' + ENTRY_FEE_TOKENS + ' Battle Tokens.';
+      deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad';
+      return;
+    }
+    const user = sessionData.session.user;
+    const { data: profile } = await sb.from('profiles').select('battle_tokens').eq('user_id', user.id).maybeSingle();
+    const currentTokens = profile ? (profile.battle_tokens || 0) : 0;
+
+    if(currentTokens < ENTRY_FEE_TOKENS){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.textContent = 'Not enough Battle Tokens (you have ' + currentTokens + ', need ' + ENTRY_FEE_TOKENS + ').';
+      deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad';
+      return;
+    }
+
+    await sb.from('profiles').update({ battle_tokens: currentTokens - ENTRY_FEE_TOKENS }).eq('user_id', user.id);
+
+    deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad';
     document.getElementById('start-overlay').classList.add('hidden');
     document.getElementById('over-overlay').classList.add('hidden');
     resetGame();

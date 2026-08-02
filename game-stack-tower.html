@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ARCADIA — Stack Tower</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg-void:#0A0D12; --surface:#12161F; --surface-2:#181D28; --line:#242B38;
+    --amber:#FFB627; --cyan:#2DE1FC; --green:#34D399; --red:#FF5C5C; --pink:#FF5CB6;
+    --text:#F4F6FA; --muted:#8A93A6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; user-select:none;}
+  html, body{ background:var(--bg-void); color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif; height:100%; width:100%; overflow:hidden; position:fixed; inset:0; overscroll-behavior:none; }
+  .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
+
+  nav{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 4vw; border-bottom:1px solid var(--line); background:rgba(10,13,18,0.95);
+  }
+  .logo{ display:flex; align-items:center; gap:10px; font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:20px; letter-spacing:0.03em; color:var(--text); text-decoration:none; }
+  .logo .dot{width:9px; height:9px; border-radius:2px; background:var(--amber); box-shadow:0 0 10px var(--amber);}
+  .back-link{color:var(--muted); text-decoration:none; font-size:13px; font-weight:600;}
+  .game-title{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:18px; letter-spacing:0.04em; color:var(--muted);}
+
+  #stage{ position:relative; width:100%; height:calc(100vh - 49px); height:calc(100dvh - 49px); display:flex; flex-direction:column; overflow:hidden; }
+
+  #hud{ display:flex; align-items:center; justify-content:space-between; padding:10px 18px; }
+  #score-display{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:32px; color:var(--amber); }
+  #combo-tag{ font-size:12px; font-weight:800; color:var(--cyan); opacity:0; transition:opacity 0.2s; }
+  #combo-tag.show{ opacity:1; }
+
+  #canvas-wrap{ flex:1; position:relative; display:flex; align-items:center; justify-content:center; }
+  canvas{ touch-action:none; }
+
+  .overlay{ position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center; background:rgba(10,13,18,0.92); backdrop-filter:blur(4px); }
+  .overlay.hidden{ display:none; }
+  .panel{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:32px; max-width:420px; width:90%; text-align:center; box-shadow:0 40px 100px -20px rgba(0,0,0,0.7); max-height:86vh; overflow-y:auto; }
+  .panel .eyebrow{ display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--amber); margin-bottom:10px; }
+  .panel h1{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:36px; margin-bottom:12px; }
+  .panel h1 span{ color:var(--amber); }
+  .panel p{ color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:14px; }
+  .panel ul{ text-align:left; list-style:none; margin-bottom:16px; }
+  .panel li{ display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted); }
+  .panel li b{ color:var(--text); }
+  .btn{ font-family:'Inter','Noto Sans KR',sans-serif; font-weight:700; font-size:14px; padding:12px 20px; border-radius:8px; border:none; cursor:pointer; width:100%; margin-bottom:9px; }
+  .btn-primary{ background:var(--amber); color:#1A1200; }
+  .btn-ghost{ background:transparent; color:var(--text); border:1px solid var(--line); }
+  .btn[disabled]{ opacity:0.5; cursor:not-allowed; }
+  .submit-msg{ font-size:11px; font-weight:600; margin-bottom:10px; min-height:14px; }
+  .submit-msg.error{ color:#FF8A8A; }
+  .submit-msg.success{ color:var(--green); }
+  .submit-msg .link-text{ color:var(--cyan); font-weight:700; text-decoration:underline; }
+  .score-display{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:56px; color:var(--amber); margin:6px 0; }
+  .score-label{ color:var(--muted); font-size:12px; margin-bottom:14px; }
+
+  #tap-hint{ text-align:center; padding:12px; color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
+  <div class="game-title">STACK TOWER</div>
+  <a href="hub.html" class="back-link">&larr; Exit</a>
+</nav>
+
+<div id="stage">
+  <div id="hud">
+    <div id="score-display">0</div>
+    <div id="combo-tag">PERFECT COMBO!</div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <div id="tap-hint">Tap anywhere to drop the block</div>
+
+  <div class="overlay" id="start-overlay">
+    <div class="panel">
+      <div class="eyebrow">Solo &middot; Battle Tokens</div>
+      <h1>STACK <span>TOWER</span></h1>
+      <p>Drop each block right on top of the last one. Miss the edge and it gets cut down to size — miss entirely and the tower falls.</p>
+      <ul>
+        <li><span style="color:var(--amber);">⬛</span><span><b>Tap or click</b> to drop the moving block onto the tower.</span></li>
+        <li><span style="color:var(--amber);">⬛</span><span><b>Perfect drops</b> (near pixel-perfect) don't shrink the block and stack up combo bonus points.</span></li>
+        <li><span style="color:var(--amber);">⬛</span><span><b>It speeds up</b> the higher you climb — stay precise.</span></li>
+      </ul>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">🪙 Entry costs <b style="color:var(--amber);">20 Coins</b> per run.</div>
+      <div class="submit-msg" id="entry-msg"></div>
+      <button class="btn btn-primary start-action-btn" onclick="startGame()">Start Tower</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="over-overlay">
+    <div class="panel">
+      <div class="eyebrow" style="color:var(--red);">Tower Collapsed</div>
+      <div class="score-display" id="final-score">0</div>
+      <div class="score-label">Blocks Stacked</div>
+      <div class="submit-msg" id="submit-msg"></div>
+      <button class="btn btn-primary" id="submit-btn" disabled>Submitting...</button>
+      <button class="btn btn-ghost start-action-btn" onclick="startGame()">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function xpForLevel(level){ return 25 * level * (level - 1); }
+  function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
+
+  // ---------- Sound ----------
+  let audioCtx = null;
+  function getAudioCtx(){ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+  function playTone(freq, duration, type, startGain, endFreq){
+    try{
+      const ctx = getAudioCtx();
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
+      osc.type = type || 'sine'; osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      if(endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, ctx.currentTime + duration);
+      gain.gain.setValueAtTime(startGain || 0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain); gain.connect(ctx.destination); osc.start(); osc.stop(ctx.currentTime + duration);
+    } catch(e){}
+  }
+  function playNoise(duration, startGain, filterFreq){
+    try{
+      const ctx = getAudioCtx();
+      const bufferSize = Math.floor(ctx.sampleRate * duration);
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for(let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      const noise = ctx.createBufferSource(); noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = filterFreq || 1200;
+      const gain = ctx.createGain(); gain.gain.setValueAtTime(startGain || 0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      noise.connect(filter); filter.connect(gain); gain.connect(ctx.destination); noise.start();
+    } catch(e){}
+  }
+  function sfxDrop(){ playNoise(0.09, 0.18, 500); playTone(140, 0.08, 'square', 0.08, 90); }
+  function sfxPerfect(){ playTone(660, 0.08, 'sine', 0.14, 880); setTimeout(() => playTone(880, 0.1, 'sine', 0.12, 1100), 60); }
+  function sfxCut(){ playNoise(0.12, 0.1, 900); }
+  function sfxGameOver(){ playTone(220, 0.4, 'sawtooth', 0.15, 80); }
+  function sfxGameStart(){ playTone(440, 0.1, 'sine', 0.12, 660); }
+
+  // ---------- Game state ----------
+  const canvas = document.getElementById('game-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, DPR;
+  let blocks = []; // {x, w, y, h, color}
+  let current = null; // {x, w, dir, speed}
+  let cameraY = 0;
+  let score = 0;
+  let comboCount = 0;
+  let running = false;
+  let gameOverFlag = false;
+  const BLOCK_H = 34;
+  let baseSpeed = 2.4;
+
+  const COLORS = ['#2DE1FC','#34D399','#FFB627','#FF5CB6','#FF9227','#7CF9C0'];
+
+  function resizeCanvas(){
+    const wrap = document.getElementById('canvas-wrap');
+    W = wrap.clientWidth; H = wrap.clientHeight;
+    DPR = window.devicePixelRatio || 1;
+    canvas.width = W * DPR; canvas.height = H * DPR;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resizeCanvas);
+
+  function resetGame(){
+    resizeCanvas();
+    const baseW = Math.min(180, W * 0.5);
+    blocks = [{ x: W/2 - baseW/2, w: baseW, y: H - 60, h: BLOCK_H, color: '#B8C4D9' }];
+    cameraY = 0;
+    score = 0;
+    comboCount = 0;
+    baseSpeed = 2.4;
+    gameOverFlag = false;
+    spawnNext();
+    document.getElementById('score-display').textContent = '0';
+    document.getElementById('combo-tag').classList.remove('show');
+  }
+
+  function spawnNext(){
+    const last = blocks[blocks.length - 1];
+    const speed = Math.min(baseSpeed + score * 0.06, 8.5);
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    const startX = dir === 1 ? -last.w : W;
+    current = {
+      x: startX, w: last.w, dir, speed,
+      y: last.y - BLOCK_H, h: BLOCK_H,
+      color: COLORS[blocks.length % COLORS.length]
+    };
+  }
+
+  function update(){
+    if(!running) return;
+    current.x += current.dir * current.speed;
+    if(current.x < -current.w - 20) current.dir = 1;
+    if(current.x > W + 20) current.dir = -1;
+    render();
+    requestAnimationFrame(update);
+  }
+
+  function render(){
+    ctx.clearRect(0, 0, W, H);
+    // background subtle grid
+    ctx.fillStyle = '#0A0D12';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.save();
+    ctx.translate(0, -cameraY);
+
+    blocks.forEach(b => {
+      ctx.fillStyle = b.color;
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.strokeRect(b.x, b.y, b.w, b.h);
+    });
+
+    if(current){
+      ctx.fillStyle = current.color;
+      ctx.fillRect(current.x, current.y, current.w, current.h);
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.strokeRect(current.x, current.y, current.w, current.h);
+    }
+
+    fallingPieces.forEach(p => {
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+      ctx.globalAlpha = 1;
+    });
+
+    ctx.restore();
+  }
+
+  let fallingPieces = [];
+  function animateFallingPieces(){
+    let any = false;
+    fallingPieces.forEach(p => {
+      p.vy += 0.9;
+      p.y += p.vy;
+      p.x += p.vx;
+      p.alpha -= 0.02;
+      if(p.alpha > 0) any = true;
+    });
+    fallingPieces = fallingPieces.filter(p => p.alpha > 0);
+    render();
+    if(any) requestAnimationFrame(animateFallingPieces);
+  }
+
+  function dropBlock(){
+    if(!running || gameOverFlag) return;
+    const last = blocks[blocks.length - 1];
+    const curLeft = current.x, curRight = current.x + current.w;
+    const lastLeft = last.x, lastRight = last.x + last.w;
+
+    const overlapLeft = Math.max(curLeft, lastLeft);
+    const overlapRight = Math.min(curRight, lastRight);
+    const overlapW = overlapRight - overlapLeft;
+
+    if(overlapW <= 2){
+      // total miss
+      sfxGameOver();
+      fallingPieces.push({ x: current.x, y: current.y, w: current.w, h: current.h, color: current.color, vy: 0, vx: current.dir * 2, alpha: 1 });
+      animateFallingPieces();
+      finishGame();
+      return;
+    }
+
+    const isPerfect = Math.abs(curLeft - lastLeft) < 4 && Math.abs(curRight - lastRight) < 4;
+
+    let newBlock;
+    if(isPerfect){
+      newBlock = { x: lastLeft, w: last.w, y: current.y, h: BLOCK_H, color: current.color };
+      comboCount++;
+      sfxPerfect();
+      document.getElementById('combo-tag').textContent = comboCount > 1 ? ('COMBO x' + comboCount + '!') : 'PERFECT!';
+      document.getElementById('combo-tag').classList.add('show');
+      score += 1 + comboCount;
+    } else {
+      newBlock = { x: overlapLeft, w: overlapW, y: current.y, h: BLOCK_H, color: current.color };
+      comboCount = 0;
+      document.getElementById('combo-tag').classList.remove('show');
+      sfxDrop();
+      // the cut-off piece falls away
+      if(curLeft < overlapLeft){
+        const cutW = overlapLeft - curLeft;
+        fallingPieces.push({ x: curLeft, y: current.y, w: cutW, h: current.h, color: current.color, vy: 0, vx: -2, alpha: 1 });
+        sfxCut();
+      }
+      if(curRight > overlapRight){
+        const cutW = curRight - overlapRight;
+        fallingPieces.push({ x: overlapRight, y: current.y, w: cutW, h: current.h, color: current.color, vy: 0, vx: 2, alpha: 1 });
+        sfxCut();
+      }
+      animateFallingPieces();
+    }
+
+    blocks.push(newBlock);
+    score += 1;
+    document.getElementById('score-display').textContent = score;
+
+    // scroll camera once tower gets tall, keeping the current top block in view
+    const towerTopY = newBlock.y;
+    const idealTopVisible = H * 0.42;
+    if(towerTopY - cameraY < idealTopVisible){
+      cameraY = towerTopY - idealTopVisible;
+    }
+
+    spawnNext();
+  }
+
+  document.getElementById('canvas-wrap').addEventListener('pointerdown', dropBlock);
+  document.getElementById('tap-hint').addEventListener('pointerdown', dropBlock);
+  window.addEventListener('keydown', (e) => { if(e.code === 'Space') dropBlock(); });
+
+  function finishGame(){
+    running = false;
+    gameOverFlag = true;
+    document.getElementById('final-score').textContent = score;
+    document.getElementById('over-overlay').classList.remove('hidden');
+    submitScore();
+  }
+
+  async function submitScore(){
+    const msg = document.getElementById('submit-msg');
+    const btn = document.getElementById('submit-btn');
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      msg.className = 'submit-msg error';
+      msg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to save your score and earn rewards.';
+      btn.style.display = 'none';
+      return;
+    }
+    const user = sessionData.session.user;
+    const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+    const finalScore = score;
+
+    const xpEarned = Math.max(5, Math.floor(finalScore / 3));
+    const coinsEarned = Math.max(2, Math.floor(finalScore / 2.2));
+    const tokensEarned = Math.floor(finalScore / 14);
+
+    try{
+      await sb.from('scores').insert({ user_id: user.id, username, game: 'stack-tower', score: finalScore });
+
+      const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', user.id).maybeSingle();
+      const prevXp = existing ? existing.xp : 0;
+      const prevCoins = existing ? existing.coins : 100;
+      const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
+      const newXp = prevXp + xpEarned, newCoins = prevCoins + coinsEarned, newTokens = prevTokens + tokensEarned;
+
+      if(existing) await sb.from('profiles').update({ xp: newXp, coins: newCoins, battle_tokens: newTokens, username, updated_at: new Date().toISOString() }).eq('user_id', user.id);
+      else await sb.from('profiles').insert({ user_id: user.id, username, xp: newXp, coins: newCoins, battle_tokens: newTokens });
+
+      const leveledUp = levelFromXp(newXp) > levelFromXp(prevXp);
+      msg.className = 'submit-msg success';
+      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, +' + tokensEarned + ' tokens' + (leveledUp ? ' — LEVEL UP to ' + levelFromXp(newXp) + '!' : '');
+      btn.style.display = 'none';
+    } catch(e){
+      msg.className = 'submit-msg error';
+      msg.textContent = 'Could not submit your score this time.';
+      btn.style.display = 'none';
+    }
+  }
+
+  const ENTRY_FEE_COINS = 20;
+
+  async function startGame(){
+    document.getElementById('over-overlay').classList.add('hidden');
+    document.getElementById('start-overlay').classList.remove('hidden');
+    const entryMsg = document.getElementById('entry-msg');
+    const actionBtns = document.querySelectorAll('.start-action-btn');
+    entryMsg.className = 'submit-msg'; entryMsg.textContent = '';
+    actionBtns.forEach(b => b.disabled = true);
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to play — each run costs 20 Coins.';
+      actionBtns.forEach(b => b.disabled = false);
+      return;
+    }
+    const user = sessionData.session.user;
+    const { data: profile } = await sb.from('profiles').select('coins').eq('user_id', user.id).maybeSingle();
+    const currentCoins = profile ? profile.coins : 100;
+
+    if(currentCoins < ENTRY_FEE_COINS){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.textContent = 'Not enough Coins (you have ' + currentCoins + ', need ' + ENTRY_FEE_COINS + ').';
+      actionBtns.forEach(b => b.disabled = false);
+      return;
+    }
+
+    const newCoins = currentCoins - ENTRY_FEE_COINS;
+    if(profile) await sb.from('profiles').update({ coins: newCoins }).eq('user_id', user.id);
+    else {
+      const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
+      await sb.from('profiles').insert({ user_id: user.id, username, xp: 0, coins: newCoins, battle_tokens: 0 });
+    }
+
+    actionBtns.forEach(b => b.disabled = false);
+    document.getElementById('start-overlay').classList.add('hidden');
+    document.getElementById('over-overlay').classList.add('hidden');
+    resetGame();
+    running = true;
+    sfxGameStart();
+    requestAnimationFrame(update);
+  }
+
+  resizeCanvas();
+</script>
+</body>
+</html>

@@ -139,7 +139,9 @@
     { num:3, name:'Ashwyrm', desc:'A molten horror born from a furnace of melted armor.', href:'game-boss-fight-3.html', live:true },
     { num:4, name:'Nullreaper', desc:'A void-touched wraith that erases what it strikes.', href:'game-boss-fight-4.html', live:true },
     { num:5, name:'Prime Eater', desc:'The final form, combining every scrap horror’s power.', href:'game-boss-fight-5.html', live:true },
-    { num:6, name:'Coming Soon', desc:'The tower keeps climbing.', href:null, live:false }
+    { num:6, name:'Voidwell', desc:'A gravity-well entity that pulls the battlefield toward it.', href:'game-boss-fight-6.html', live:true },
+    { num:7, name:'Ashen Coil', desc:'A segmented nanite serpent coiled around a toxic core.', href:'game-boss-fight-7.html', live:true },
+    { num:8, name:'Coming Soon', desc:'The tower keeps climbing.', href:null, live:false }
   ];
 
   let ownedTanks = [];
@@ -167,14 +169,18 @@
     }).join('');
   }
 
+  const TESTING_UNLOCK_ALL = true; // set to false to re-enable normal sequential floor gating
+
   function renderFloors(){
     const squadReady = TYPE_ORDER.every(k => ownedTanks.includes(k));
     document.getElementById('floor-list').innerHTML = FLOORS.map(f => {
       const cleared = f.live && clearedFloor >= f.num;
-      const enterable = f.live && squadReady;
+      const unlocked = TESTING_UNLOCK_ALL || f.num === 1 || clearedFloor >= f.num - 1;
+      const enterable = f.live && squadReady && unlocked;
       const cls = enterable ? 'floor-card enterable' : 'floor-card locked';
       const tag = !f.live ? '<span class="floor-tag locked-tag">Coming Soon</span>'
         : cleared ? '<span class="floor-tag cleared">★ Cleared</span>'
+        : !unlocked ? '<span class="floor-tag locked-tag">Clear Floor ' + (f.num - 1) + ' First</span>'
         : squadReady ? '<span class="floor-tag ready">Ready</span>'
         : '<span class="floor-tag locked-tag">Need Full Squad</span>';
       const tagEl = f.live && enterable

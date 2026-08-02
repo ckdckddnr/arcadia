@@ -206,6 +206,8 @@
   <div class="game-tabs">
     <button class="game-tab active" data-game="asteroid-run" onclick="switchGame('asteroid-run')">Asteroid Run</button>
     <button class="game-tab" data-game="orbit-snap" onclick="switchGame('orbit-snap')">Orbit Snap</button>
+    <button class="game-tab" data-game="stack-tower" onclick="switchGame('stack-tower')">Stack Tower</button>
+    <button class="game-tab" data-game="one-button-dash" onclick="switchGame('one-button-dash')">One-Button Dash</button>
   </div>
 
   <div class="my-rank-box" id="my-rank-box" style="display:none;">
@@ -300,7 +302,7 @@
     }
 
     if(!data || data.length === 0){
-      const gameLink = CURRENT_GAME === 'orbit-snap' ? 'game-orbit-snap.html' : 'game-asteroid-run.html';
+      const gameLink = { 'orbit-snap':'game-orbit-snap.html', 'stack-tower':'game-stack-tower.html', 'one-button-dash':'game-one-button-dash.html' }[CURRENT_GAME] || 'game-asteroid-run.html';
       body.innerHTML = '<div class="empty-state">No scores yet today. <a href="' + gameLink + '">Be the first to play →</a></div>';
       document.getElementById('my-rank-box').style.display = 'none';
       return;
@@ -329,7 +331,7 @@
       } else {
         myRankBox.style.display = 'flex';
         document.getElementById('my-rank-value').textContent = 'Not ranked yet';
-        const gameLink = CURRENT_GAME === 'orbit-snap' ? 'game-orbit-snap.html' : 'game-asteroid-run.html';
+        const gameLink = { 'orbit-snap':'game-orbit-snap.html', 'stack-tower':'game-stack-tower.html', 'one-button-dash':'game-one-button-dash.html' }[CURRENT_GAME] || 'game-asteroid-run.html';
         document.getElementById('my-rank-score').innerHTML = '<a href="' + gameLink + '">Play now →</a>';
       }
     } else {

@@ -47,7 +47,68 @@
   .shop-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:14px; }
   .shop-card{ background:var(--surface-2); border:1.5px solid var(--line); border-radius:12px; padding:14px; text-align:center; }
   .shop-card.owned{ border-color:var(--green); }
-  .shop-card img{ width:68px; height:68px; object-fit:contain; image-rendering:pixelated; margin-bottom:8px; }
+  /* Fixed-height stage keeps every card's text aligned while the tanks inside
+     render at their true relative sizes (Heavy largest -> Light smallest). */
+  .shop-card .tank-img-box{ height:74px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:8px; }
+  .shop-card .tank-img-box img{ width:auto; object-fit:contain; image-rendering:pixelated; }
+  .shop-card img.size-light{ height:47px; }
+  .shop-card img.size-medium{ height:63px; }
+  .shop-card img.size-heavy{ height:74px; }
+  .shop-card img.size-guardian{ height:61px; }
+  .shop-card img.size-medic{ height:66px; }
+  .shop-card img.size-raider{ height:54px; }
+
+  /* ---- Deploy squad picker ---- */
+  .squad-grid{ display:flex; flex-wrap:wrap; gap:10px; }
+  .squad-chip{
+    display:flex; align-items:center; gap:9px; padding:8px 13px 8px 9px; border-radius:11px;
+    background:var(--surface-2); border:2px solid var(--line); cursor:pointer; transition:border-color .12s, background .12s;
+  }
+  /* fixed-width column so the labels line up while heights keep the size hierarchy */
+  .squad-chip img{ width:44px; object-fit:contain; image-rendering:pixelated; }
+  .squad-chip img.size-light{ height:26px; }
+  .squad-chip img.size-medium{ height:33px; }
+  .squad-chip img.size-heavy{ height:38px; }
+  .squad-chip img.size-guardian{ height:32px; }
+  .squad-chip img.size-medic{ height:35px; }
+  .squad-chip img.size-raider{ height:28px; }
+  .squad-chip .cn{ font-size:12px; font-weight:800; }
+  .squad-chip .cr{ font-size:10px; color:var(--muted); }
+  .squad-chip.picked{ border-color:var(--cyan); background:rgba(45,225,252,0.10); }
+  .squad-chip.locked{ opacity:0.38; cursor:not-allowed; }
+  .squad-chip .tick{ margin-left:4px; font-size:13px; color:var(--cyan); font-weight:900; }
+  .squad-count{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; font-size:13px; margin-bottom:10px; }
+
+  /* ---- Runes ---- */
+  .rune-legend{ display:flex; flex-wrap:wrap; gap:12px; font-size:10px; margin-bottom:12px; }
+  .rune-legend span{ display:flex; align-items:center; gap:4px; color:var(--muted); }
+  .rune-legend i{ width:9px; height:9px; border-radius:50%; display:inline-block; font-style:normal; }
+  .rune-inv{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:6px; }
+  .rune-pill{
+    display:flex; align-items:center; gap:7px; padding:6px 11px 6px 8px; border-radius:20px;
+    background:var(--surface-2); border:2px solid var(--line); cursor:pointer; transition:border-color .12s, transform .12s;
+  }
+  .rune-pill:hover{ transform:translateY(-2px); }
+  .rune-pill.sel{ border-color:var(--amber); background:rgba(255,182,39,0.12); }
+  .rune-pill.none{ opacity:0.32; cursor:not-allowed; transform:none; }
+  .rune-dot{ width:14px; height:14px; border-radius:50%; flex-shrink:0; box-shadow:0 0 7px currentColor; }
+  .rune-pill .rn{ font-size:11px; font-weight:800; }
+  .rune-pill .rx{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:11px; color:var(--muted); font-weight:800; }
+  .rune-hint{ font-size:11px; color:var(--muted); margin-bottom:14px; min-height:15px; }
+
+  .rune-tank-row{
+    display:flex; align-items:center; gap:12px; padding:9px 4px; border-top:1px solid var(--line);
+  }
+  .rune-tank-row img{ width:40px; height:34px; object-fit:contain; image-rendering:pixelated; flex-shrink:0; }
+  .rune-tank-row .rtn{ font-size:12px; font-weight:800; width:104px; flex-shrink:0; }
+  .rune-tank-row.off{ opacity:0.34; }
+  .rune-slots{ display:flex; gap:7px; flex-wrap:wrap; }
+  .rune-slot{
+    width:112px; height:32px; border-radius:8px; border:1.5px dashed var(--line); background:var(--surface);
+    display:flex; align-items:center; gap:6px; padding:0 8px; cursor:pointer; font-size:10px; color:var(--muted);
+  }
+  .rune-slot.filled{ border-style:solid; background:var(--surface-2); color:var(--text); font-weight:700; }
+  .rune-slot .rune-dot{ width:11px; height:11px; }
   .shop-card .name{ font-weight:800; font-size:13px; margin-bottom:2px; }
   .shop-card .role{ font-size:10px; color:var(--muted); margin-bottom:10px; min-height:26px; }
   .shop-card .price{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; color:var(--pink); font-size:13px; margin-bottom:10px; }
@@ -114,6 +175,23 @@
   </div>
 
   <div class="card">
+    <div class="section-title">Deploy Squad</div>
+    <div class="section-sub">Own any 4 of the 6 tanks to enter the tower, then pick exactly 4 to take into the fight.</div>
+    <div class="squad-count" id="squad-count">0 / 4 selected</div>
+    <div class="submit-msg" id="squad-msg"></div>
+    <div class="squad-grid" id="squad-grid"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Runes</div>
+    <div class="section-sub">Clearing floor 2 and above drops 2 random runes. Each tank can hold up to 3.</div>
+    <div class="rune-legend" id="rune-legend"></div>
+    <div class="rune-inv" id="rune-inv"></div>
+    <div class="rune-hint" id="rune-hint"></div>
+    <div id="rune-tanks"></div>
+  </div>
+
+  <div class="card">
     <div class="section-title">Floors</div>
     <div class="section-sub">Climb as high as you can. New floors are added over time.</div>
     <div class="floor-list" id="floor-list"></div>
@@ -129,9 +207,47 @@
     light: { name:'Light Tank', img:'boss_light_tank.png', price:75, role:'Sustained poison damage' },
     medium: { name:'Medium Tank', img:'boss_medium_tank.png', price:100, role:'Single devastating burst' },
     heavy: { name:'Heavy Tank', img:'boss_heavy_tank.png', price:125, role:'Braces for +50% damage' },
-    guardian: { name:'Guardian Tank', img:'boss_guardian_tank.png', price:100, role:'Shields the whole squad' }
+    guardian: { name:'Guardian Tank', img:'boss_guardian_tank.png', price:100, role:'Shields the whole squad' },
+    medic: { name:'Medic Tank', img:'medic_tank.png', price:110, role:'Heals and wards an ally' },
+    raider: { name:'Raider Tank', img:'raider_tank.png', price:120, role:'Moves 2 tiles, rallies the squad' }
   };
-  const TYPE_ORDER = ['light','medium','heavy','guardian'];
+  const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider'];
+  const SQUAD_SIZE = 4;
+  const SQUAD_KEY = 'arcadia-raid-squad';
+  const TANK_RUNES_KEY = 'arcadia-tank-runes';
+  const MAX_RUNES_PER_TANK = 3;
+
+  // ---------- Runes ---------- (drop weights are percentages and sum to 100)
+  const RUNE_TIERS = {
+    common:    { label:'Common',    weight:54, color:'#8A93A6' },
+    uncommon:  { label:'Uncommon',  weight:30, color:'#2DE1FC' },
+    epic:      { label:'Epic',      weight:10, color:'#A78BFA' },
+    legendary: { label:'Legendary', weight:5,  color:'#FFD9A0' },
+    mythic:    { label:'Mythic',    weight:1,  color:'#FF5CB6' }
+  };
+  const RUNES = {
+    r_green:  { name:'Green Rune',   tier:'common', color:'#34D399', desc:'Max HP +200',                   fx:{ hp:200 } },
+    r_red:    { name:'Red Rune',     tier:'common', color:'#FF5C5C', desc:'Damage +5%',                    fx:{ atk:0.05 } },
+    r_yellow: { name:'Yellow Rune',  tier:'common', color:'#FFB627', desc:'Skill power +20%',              fx:{ skill:0.20 } },
+    r_grey:   { name:'Grey Rune',    tier:'common', color:'#8A93A6', desc:'Damage taken -3%',              fx:{ dr:0.03 } },
+    r_brown:  { name:'Brown Rune',   tier:'common', color:'#B08968', desc:'Max HP +150, damage taken -2%', fx:{ hp:150, dr:0.02 } },
+    r_white:  { name:'White Rune',   tier:'common', color:'#E8ECF4', desc:'Heals 40 HP each turn',         fx:{ regen:40 } },
+    r_sky:    { name:'Sky Rune',     tier:'common', color:'#7CC7FF', desc:'Damage +3%, Max HP +100',       fx:{ atk:0.03, hp:100 } },
+    r_moss:   { name:'Moss Rune',    tier:'common', color:'#7CF9C0', desc:'Heals 5% of damage dealt',      fx:{ leech:0.05 } },
+    r_blue:   { name:'Blue Rune',    tier:'uncommon', color:'#2DE1FC', desc:'Max HP +400',                 fx:{ hp:400 } },
+    r_teal:   { name:'Teal Rune',    tier:'uncommon', color:'#22D3C5', desc:'Damage +10%',                 fx:{ atk:0.10 } },
+    r_lime:   { name:'Lime Rune',    tier:'uncommon', color:'#A3E635', desc:'Skill power +35%',            fx:{ skill:0.35 } },
+    r_steel:  { name:'Steel Rune',   tier:'uncommon', color:'#9FB3C8', desc:'Damage taken -7%',            fx:{ dr:0.07 } },
+    r_amber:  { name:'Amber Rune',   tier:'uncommon', color:'#FFC978', desc:'Heals 90 HP each turn',       fx:{ regen:90 } },
+    r_rose:   { name:'Rose Rune',    tier:'uncommon', color:'#FF8FB1', desc:'Heals 8% of damage dealt',    fx:{ leech:0.08 } },
+    r_violet: { name:'Violet Rune',  tier:'epic', color:'#A78BFA', desc:'Damage +18%, Max HP +300',        fx:{ atk:0.18, hp:300 } },
+    r_indigo: { name:'Indigo Rune',  tier:'epic', color:'#818CF8', desc:'Damage taken -12%, Max HP +250',  fx:{ dr:0.12, hp:250 } },
+    r_magenta:{ name:'Magenta Rune', tier:'epic', color:'#E879F9', desc:'Skill power +60%',                fx:{ skill:0.60 } },
+    r_pearl:  { name:'Pearl Rune',   tier:'legendary', color:'#FFF3D0', desc:'Max HP +700, damage taken -15%',      fx:{ hp:700, dr:0.15 } },
+    r_gold:   { name:'Gold Rune',    tier:'legendary', color:'#FFD700', desc:'Damage +30%, heals 12% of damage dealt', fx:{ atk:0.30, leech:0.12 } },
+    r_rainbow:{ name:'Rainbow Rune', tier:'mythic', color:'#FF5CB6', desc:'Damage +25%, Max HP +600, damage taken -15%, skill power +50%', fx:{ atk:0.25, hp:600, dr:0.15, skill:0.50 } }
+  };
+  const RUNE_IDS = Object.keys(RUNES);
 
   const FLOORS = [
     { num:1, name:'Core-Eater', desc:'A scrap-devouring horror built from fallen tanks.', href:'game-boss-fight-1.html', live:true },
@@ -147,6 +263,65 @@
   let ownedTanks = [];
   let currentTokens = 0;
   let clearedFloor = 0;
+  let selectedSquad = [];
+
+  // ---------- Squad selection ----------
+  function loadSquad(){
+    let saved = [];
+    try{ saved = JSON.parse(localStorage.getItem(SQUAD_KEY) || '[]'); } catch(e){ saved = []; }
+    // drop anything no longer owned, then top up from whatever is owned
+    selectedSquad = saved.filter(k => BOSS_TANK_TYPES[k] && ownedTanks.includes(k)).slice(0, SQUAD_SIZE);
+    for(const k of ownedTanks){
+      if(selectedSquad.length >= SQUAD_SIZE) break;
+      if(!selectedSquad.includes(k)) selectedSquad.push(k);
+    }
+    saveSquad();
+  }
+
+  function saveSquad(){
+    try{ localStorage.setItem(SQUAD_KEY, JSON.stringify(selectedSquad)); } catch(e){}
+  }
+
+  function toggleSquad(key){
+    if(!ownedTanks.includes(key)) return;
+    const i = selectedSquad.indexOf(key);
+    if(i >= 0) selectedSquad.splice(i, 1);
+    else if(selectedSquad.length < SQUAD_SIZE) selectedSquad.push(key);
+    else {
+      const msg = document.getElementById('squad-msg');
+      msg.className = 'submit-msg error';
+      msg.textContent = 'Squad is full — deselect a tank first.';
+      setTimeout(() => { msg.textContent = ''; }, 2200);
+      return;
+    }
+    saveSquad();
+    renderSquad();
+    renderFloors();
+  }
+
+  function renderSquad(){
+    const grid = document.getElementById('squad-grid');
+    const count = document.getElementById('squad-count');
+    if(ownedTanks.length < SQUAD_SIZE){
+      count.innerHTML = '<span style="color:var(--red);">You own ' + ownedTanks.length + ' / ' + SQUAD_SIZE +
+        ' — buy ' + (SQUAD_SIZE - ownedTanks.length) + ' more tank(s) to unlock the tower.</span>';
+    } else {
+      count.innerHTML = '<span style="color:' + (selectedSquad.length === SQUAD_SIZE ? 'var(--green)' : 'var(--amber)') + ';">' +
+        selectedSquad.length + ' / ' + SQUAD_SIZE + ' selected</span>';
+    }
+    grid.innerHTML = TYPE_ORDER.map(key => {
+      const def = BOSS_TANK_TYPES[key];
+      const owned = ownedTanks.includes(key);
+      const picked = selectedSquad.includes(key);
+      const cls = 'squad-chip' + (picked ? ' picked' : '') + (owned ? '' : ' locked');
+      const click = owned ? ' onclick="toggleSquad(\'' + key + '\')"' : '';
+      return '<div class="' + cls + '"' + click + '>' +
+        '<img class="size-' + key + '" src="' + def.img + '" alt="">' +
+        '<div><div class="cn">' + def.name + '</div><div class="cr">' + (owned ? def.role : 'Not owned') + '</div></div>' +
+        (picked ? '<div class="tick">✓</div>' : '') +
+      '</div>';
+    }).join('');
+  }
 
   function renderShop(){
     document.getElementById('shop-token-balance').textContent = currentTokens.toLocaleString();
@@ -160,7 +335,7 @@
       else if(canAfford) btnHtml = '<button onclick="buyTank(\'' + key + '\')">Buy — ' + def.price + ' ⚔</button>';
       else btnHtml = '<button class="cant-afford" disabled>Need ' + def.price + ' ⚔</button>';
       return '<div class="shop-card' + (owned?' owned':'') + '">' +
-        '<img src="' + def.img + '" alt="">' +
+        '<div class="tank-img-box"><img class="size-' + key + '" src="' + def.img + '" alt=""></div>' +
         '<div class="name">' + def.name + '</div>' +
         '<div class="role">' + def.role + '</div>' +
         '<div class="price">' + (owned ? 'Owned' : def.price + ' Battle Tokens') + '</div>' +
@@ -171,8 +346,111 @@
 
   const TESTING_UNLOCK_ALL = true; // set to false to re-enable normal sequential floor gating
 
+  // ---------- Runes: inventory and per-tank loadout ----------
+  let runeInventory = [];  // rune ids, duplicates allowed
+  let tankRunes = {};      // { tankKey: [runeId, ...] }
+  let selectedRune = null;
+
+  function ownedCount(id){ return runeInventory.filter(x => x === id).length; }
+  function equippedCount(id){
+    let n = 0;
+    for(const k in tankRunes) n += (tankRunes[k] || []).filter(x => x === id).length;
+    return n;
+  }
+  function freeCount(id){ return ownedCount(id) - equippedCount(id); }
+
+  // Keep the loadout honest if the inventory ever shrinks or holds unknown ids.
+  function normaliseRunes(){
+    for(const k in tankRunes){
+      tankRunes[k] = (tankRunes[k] || []).filter(id => RUNES[id]).slice(0, MAX_RUNES_PER_TANK);
+    }
+    RUNE_IDS.forEach(id => {
+      let excess = equippedCount(id) - ownedCount(id);
+      for(const k in tankRunes){
+        for(let i = tankRunes[k].length - 1; i >= 0 && excess > 0; i--){
+          if(tankRunes[k][i] === id){ tankRunes[k].splice(i, 1); excess--; }
+        }
+      }
+    });
+  }
+
+  async function saveRunes(){
+    // mirrored to localStorage because the fight pages read the loadout from there
+    try{ localStorage.setItem(TANK_RUNES_KEY, JSON.stringify(tankRunes)); } catch(e){}
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session) return;
+    await sb.from('profiles').update({ tank_runes: tankRunes }).eq('user_id', sessionData.session.user.id);
+  }
+
+  function selectRune(id){
+    if(freeCount(id) <= 0) return;
+    selectedRune = (selectedRune === id) ? null : id;
+    renderRunes();
+  }
+
+  function slotClick(tankKey, idx){
+    if(!ownedTanks.includes(tankKey)) return;
+    const list = tankRunes[tankKey] || (tankRunes[tankKey] = []);
+    if(list[idx]){
+      list.splice(idx, 1);                       // tap a fitted rune to pull it back off
+    } else if(selectedRune && freeCount(selectedRune) > 0){
+      if(list.length >= MAX_RUNES_PER_TANK) return;
+      list.push(selectedRune);
+    } else {
+      const h = document.getElementById('rune-hint');
+      h.textContent = 'Pick a rune above first.';
+      return;
+    }
+    saveRunes();
+    renderRunes();
+  }
+
+  function renderRunes(){
+    document.getElementById('rune-legend').innerHTML = Object.keys(RUNE_TIERS).map(k => {
+      const t = RUNE_TIERS[k];
+      return '<span><i style="background:' + t.color + '"></i>' + t.label + ' ' + t.weight + '%</span>';
+    }).join('');
+
+    const inv = document.getElementById('rune-inv');
+    const owned = RUNE_IDS.filter(id => ownedCount(id) > 0);
+    inv.innerHTML = owned.length === 0
+      ? '<div style="font-size:12px;color:var(--muted);">No runes yet — clear floor 2 or higher to find some.</div>'
+      : owned.map(id => {
+          const r = RUNES[id], free = freeCount(id);
+          const cls = 'rune-pill' + (selectedRune === id ? ' sel' : '') + (free <= 0 ? ' none' : '');
+          return '<div class="' + cls + '" onclick="selectRune(\'' + id + '\')" title="' + r.desc + '">' +
+            '<span class="rune-dot" style="background:' + r.color + '; color:' + r.color + '"></span>' +
+            '<span class="rn">' + r.name.replace(' Rune', '') + '</span>' +
+            '<span class="rx">' + free + '/' + ownedCount(id) + '</span></div>';
+        }).join('');
+
+    document.getElementById('rune-hint').textContent = selectedRune
+      ? RUNES[selectedRune].name + ' — ' + RUNES[selectedRune].desc + '. Tap a slot to fit it.'
+      : (owned.length ? 'Tap a rune, then tap a slot on a tank below. Tap a fitted rune to remove it.' : '');
+
+    document.getElementById('rune-tanks').innerHTML = TYPE_ORDER.map(key => {
+      const def = BOSS_TANK_TYPES[key];
+      const has = ownedTanks.includes(key);
+      const list = tankRunes[key] || [];
+      let slots = '';
+      for(let i = 0; i < MAX_RUNES_PER_TANK; i++){
+        const id = list[i];
+        slots += id
+          ? '<div class="rune-slot filled" onclick="slotClick(\'' + key + '\',' + i + ')" title="' + RUNES[id].desc + '">' +
+              '<span class="rune-dot" style="background:' + RUNES[id].color + '; color:' + RUNES[id].color + '"></span>' +
+              RUNES[id].name.replace(' Rune', '') + '</div>'
+          : '<div class="rune-slot" onclick="slotClick(\'' + key + '\',' + i + ')">+ empty</div>';
+      }
+      return '<div class="rune-tank-row' + (has ? '' : ' off') + '">' +
+        '<img src="' + def.img + '" alt="">' +
+        '<div class="rtn">' + def.name + (has ? '' : '<br><span style="font-size:9px;color:var(--muted);">not owned</span>') + '</div>' +
+        '<div class="rune-slots">' + slots + '</div></div>';
+    }).join('');
+  }
+
   function renderFloors(){
-    const squadReady = TYPE_ORDER.every(k => ownedTanks.includes(k));
+    // Any 4 of the 6 tanks gets you in, as long as exactly 4 are picked to deploy.
+    const squadReady = ownedTanks.length >= SQUAD_SIZE && selectedSquad.length === SQUAD_SIZE;
     document.getElementById('floor-list').innerHTML = FLOORS.map(f => {
       const cleared = f.live && clearedFloor >= f.num;
       const unlocked = TESTING_UNLOCK_ALL || f.num === 1 || clearedFloor >= f.num - 1;
@@ -182,7 +460,9 @@
         : cleared ? '<span class="floor-tag cleared">★ Cleared</span>'
         : !unlocked ? '<span class="floor-tag locked-tag">Clear Floor ' + (f.num - 1) + ' First</span>'
         : squadReady ? '<span class="floor-tag ready">Ready</span>'
-        : '<span class="floor-tag locked-tag">Need Full Squad</span>';
+        : ownedTanks.length < SQUAD_SIZE
+          ? '<span class="floor-tag locked-tag">Need ' + SQUAD_SIZE + ' Tanks</span>'
+          : '<span class="floor-tag locked-tag">Pick ' + SQUAD_SIZE + ' to Deploy</span>';
       const tagEl = f.live && enterable
         ? '<a href="' + f.href + '" class="' + cls + '">'
         : '<div class="' + cls + '">';
@@ -241,7 +521,10 @@
     currentTokens = newTokens;
     shopMsg.className = 'submit-msg success';
     shopMsg.textContent = BOSS_TANK_TYPES[key].name + ' acquired!';
+    loadSquad(); // a fresh tank fills an empty deploy slot automatically
     renderShop();
+    renderSquad();
+    renderRunes(); // the new tank becomes eligible for rune slots
     renderFloors();
   }
 
@@ -249,6 +532,8 @@
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
       renderShop();
+      renderSquad();
+      renderRunes();
       renderFloors();
       const shopMsg = document.getElementById('shop-msg');
       shopMsg.className = 'submit-msg error';
@@ -257,10 +542,14 @@
     }
     const user = sessionData.session.user;
 
-    const { data: profile, error: coreError } = await sb.from('profiles').select('battle_tokens,boss_tanks_owned').eq('user_id', user.id).maybeSingle();
-    if(coreError) console.error('profile fetch error', coreError);
+    const { data: profile, error: coreError } = await sb.from('profiles').select('battle_tokens,boss_tanks_owned,runes,tank_runes').eq('user_id', user.id).maybeSingle();
+    if(coreError) console.error('profile fetch error (run the runes/tank_runes SQL migration)', coreError);
     currentTokens = profile ? (profile.battle_tokens || 0) : 0;
     ownedTanks = profile ? (profile.boss_tanks_owned || []) : [];
+    runeInventory = (profile && Array.isArray(profile.runes)) ? profile.runes : [];
+    tankRunes = (profile && profile.tank_runes && typeof profile.tank_runes === 'object') ? profile.tank_runes : {};
+    normaliseRunes();
+    try{ localStorage.setItem(TANK_RUNES_KEY, JSON.stringify(tankRunes)); } catch(e){}
 
     try{
       const { data: floorData, error: floorError } = await sb.from('profiles').select('boss_tower_floor').eq('user_id', user.id).maybeSingle();
@@ -268,7 +557,10 @@
       clearedFloor = floorData ? (floorData.boss_tower_floor || 0) : 0;
     } catch(e){ clearedFloor = 0; }
 
+    loadSquad();
     renderShop();
+    renderSquad();
+    renderRunes();
     renderFloors();
   }
 

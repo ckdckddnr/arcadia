@@ -902,7 +902,8 @@
       btn.onclick = submitScore;
     } else {
       const xpEarned = Math.max(5, Math.floor(finalScore / 55));
-      const coinsEarned = Math.max(2, Math.floor(finalScore / 100));
+      // Capped below the 20-coin entry fee so a run is always a net coin loss.
+      const coinsEarned = Math.min(19, Math.max(2, Math.floor(finalScore / 200)));
       const tokensEarned = Math.floor(finalScore / 1200);
       const progress = await awardProgress(user.id, username, xpEarned, coinsEarned, tokensEarned);
       await checkAndAwardOwnerBonus(GAME_ID);

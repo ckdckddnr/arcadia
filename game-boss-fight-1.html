@@ -92,10 +92,12 @@
   }
   .tile .shield-badge{ position:absolute; top:1px; left:1px; z-index:3; font-size:11px; }
   .tank-sprite-wrap{ width:100%; height:100%; }
-  .tank-sprite-wrap.size-light{ width:70%; height:70%; }
-  .tank-sprite-wrap.size-medium{ width:96%; height:96%; }
-  .tank-sprite-wrap.size-heavy{ width:122%; height:122%; }
-  .tank-sprite-wrap.size-guardian{ width:96%; height:96%; }
+  .tank-sprite-wrap.size-light{ width:53%; height:53%; }
+  .tank-sprite-wrap.size-medium{ width:71%; height:71%; }
+  .tank-sprite-wrap.size-heavy{ width:82%; height:82%; }
+  .tank-sprite-wrap.size-guardian{ width:67%; height:67%; }
+  .tank-sprite-wrap.size-medic{ width:73%; height:73%; }
+  .tank-sprite-wrap.size-raider{ width:60%; height:60%; }
   .tank-sprite-wrap img{ transform:rotate(90deg); }
   .tank-sprite-wrap img{ width:100%; height:100%; object-fit:contain; image-rendering:pixelated; }
   .tank-sprite-wrap.siege-active img, .roster-tank img.siege-active{
@@ -162,6 +164,12 @@
   .roster-tank.dead{ opacity:0.3; cursor:not-allowed; }
   .roster-tank.selected{ border-color:var(--amber); transform:translateY(-3px); }
   .roster-tank img{ width:100%; height:40px; object-fit:contain; image-rendering:pixelated; }
+  .roster-tank img.size-light{ height:26px; }
+  .roster-tank img.size-medium{ height:34px; }
+  .roster-tank img.size-heavy{ height:40px; }
+  .roster-tank img.size-guardian{ height:33px; }
+  .roster-tank img.size-medic{ height:36px; }
+  .roster-tank img.size-raider{ height:29px; }
   .roster-tank .name{ font-size:10px; font-weight:800; margin-top:3px; }
   .roster-tank .hpbar{ height:5px; border-radius:3px; background:var(--surface); margin-top:4px; overflow:hidden; }
   .roster-tank .hpbar-fill{ height:100%; background:var(--green); }
@@ -228,7 +236,14 @@
   .shop-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
   .shop-card{ background:var(--surface-2); border:1.5px solid var(--line); border-radius:12px; padding:12px; text-align:center; }
   .shop-card.owned{ border-color:var(--green); }
-  .shop-card img{ width:64px; height:64px; object-fit:contain; image-rendering:pixelated; margin-bottom:6px; }
+  .shop-card .tank-img-box{ height:70px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:6px; }
+  .shop-card .tank-img-box img{ width:auto; object-fit:contain; image-rendering:pixelated; }
+  .shop-card img.size-light{ height:45px; }
+  .shop-card img.size-medium{ height:60px; }
+  .shop-card img.size-heavy{ height:70px; }
+  .shop-card img.size-guardian{ height:57px; }
+  .shop-card img.size-medic{ height:63px; }
+  .shop-card img.size-raider{ height:51px; }
   .shop-card .name{ font-weight:800; font-size:13px; margin-bottom:2px; }
   .shop-card .role{ font-size:10px; color:var(--muted); margin-bottom:8px; min-height:26px; }
   .shop-card .price{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; color:var(--pink); font-size:13px; margin-bottom:8px; }
@@ -427,6 +442,75 @@
     }
   }
 
+  const FLOOR_NUM = 1;
+
+  // ---------- Runes ----------
+  // Tier weights are drop chances out of 100 and must sum to 100.
+  const RUNE_TIERS = {
+    common:    { label:'Common',    weight:54, color:'#8A93A6' },
+    uncommon:  { label:'Uncommon',  weight:30, color:'#2DE1FC' },
+    epic:      { label:'Epic',      weight:10, color:'#A78BFA' },
+    legendary: { label:'Legendary', weight:5,  color:'#FFD9A0' },
+    mythic:    { label:'Mythic',    weight:1,  color:'#FF5CB6' }
+  };
+  const RUNES = {
+    r_green:  { name:'Green Rune',   tier:'common', color:'#34D399', desc:'Max HP +200',                   fx:{ hp:200 } },
+    r_red:    { name:'Red Rune',     tier:'common', color:'#FF5C5C', desc:'Damage +5%',                    fx:{ atk:0.05 } },
+    r_yellow: { name:'Yellow Rune',  tier:'common', color:'#FFB627', desc:'Skill power +20%',              fx:{ skill:0.20 } },
+    r_grey:   { name:'Grey Rune',    tier:'common', color:'#8A93A6', desc:'Damage taken -3%',              fx:{ dr:0.03 } },
+    r_brown:  { name:'Brown Rune',   tier:'common', color:'#B08968', desc:'Max HP +150, damage taken -2%', fx:{ hp:150, dr:0.02 } },
+    r_white:  { name:'White Rune',   tier:'common', color:'#E8ECF4', desc:'Heals 40 HP each turn',         fx:{ regen:40 } },
+    r_sky:    { name:'Sky Rune',     tier:'common', color:'#7CC7FF', desc:'Damage +3%, Max HP +100',       fx:{ atk:0.03, hp:100 } },
+    r_moss:   { name:'Moss Rune',    tier:'common', color:'#7CF9C0', desc:'Heals 5% of damage dealt',      fx:{ leech:0.05 } },
+    r_blue:   { name:'Blue Rune',    tier:'uncommon', color:'#2DE1FC', desc:'Max HP +400',                 fx:{ hp:400 } },
+    r_teal:   { name:'Teal Rune',    tier:'uncommon', color:'#22D3C5', desc:'Damage +10%',                 fx:{ atk:0.10 } },
+    r_lime:   { name:'Lime Rune',    tier:'uncommon', color:'#A3E635', desc:'Skill power +35%',            fx:{ skill:0.35 } },
+    r_steel:  { name:'Steel Rune',   tier:'uncommon', color:'#9FB3C8', desc:'Damage taken -7%',            fx:{ dr:0.07 } },
+    r_amber:  { name:'Amber Rune',   tier:'uncommon', color:'#FFC978', desc:'Heals 90 HP each turn',       fx:{ regen:90 } },
+    r_rose:   { name:'Rose Rune',    tier:'uncommon', color:'#FF8FB1', desc:'Heals 8% of damage dealt',    fx:{ leech:0.08 } },
+    r_violet: { name:'Violet Rune',  tier:'epic', color:'#A78BFA', desc:'Damage +18%, Max HP +300',        fx:{ atk:0.18, hp:300 } },
+    r_indigo: { name:'Indigo Rune',  tier:'epic', color:'#818CF8', desc:'Damage taken -12%, Max HP +250',  fx:{ dr:0.12, hp:250 } },
+    r_magenta:{ name:'Magenta Rune', tier:'epic', color:'#E879F9', desc:'Skill power +60%',                fx:{ skill:0.60 } },
+    r_pearl:  { name:'Pearl Rune',   tier:'legendary', color:'#FFF3D0', desc:'Max HP +700, damage taken -15%',      fx:{ hp:700, dr:0.15 } },
+    r_gold:   { name:'Gold Rune',    tier:'legendary', color:'#FFD700', desc:'Damage +30%, heals 12% of damage dealt', fx:{ atk:0.30, leech:0.12 } },
+    r_rainbow:{ name:'Rainbow Rune', tier:'mythic', color:'#FF5CB6', desc:'Damage +25%, Max HP +600, damage taken -15%, skill power +50%', fx:{ atk:0.25, hp:600, dr:0.15, skill:0.50 } }
+  };
+  const RUNE_IDS = Object.keys(RUNES);
+  const MAX_RUNES_PER_TANK = 3;
+  const TANK_RUNES_KEY = 'arcadia-tank-runes';
+
+  function rollRune(){
+    let roll = Math.random() * 100;
+    let tier = 'common';
+    for(const key in RUNE_TIERS){
+      if(roll < RUNE_TIERS[key].weight){ tier = key; break; }
+      roll -= RUNE_TIERS[key].weight;
+    }
+    const pool = RUNE_IDS.filter(id => RUNES[id].tier === tier);
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function runeBonuses(ids){
+    const b = { hp:0, atk:0, skill:0, dr:0, regen:0, leech:0 };
+    (ids || []).forEach(id => {
+      const r = RUNES[id];
+      if(!r) return;
+      for(const k in r.fx) b[k] += r.fx[k];
+    });
+    b.dr = Math.min(0.6, b.dr); // stacking must never reach immunity
+    return b;
+  }
+
+  function loadTankRunes(){
+    try{
+      const raw = JSON.parse(localStorage.getItem(TANK_RUNES_KEY) || '{}');
+      const out = {};
+      for(const k in raw) out[k] = (raw[k] || []).filter(id => RUNES[id]).slice(0, MAX_RUNES_PER_TANK);
+      return out;
+    } catch(e){ return {}; }
+  }
+  const EQUIPPED_RUNES = loadTankRunes();
+
   // ---------- Boss Tank roster ----------
   const BOSS_TANK_TYPES = {
     light: { key:'light', name:'Light Tank', img:'boss_light_tank.png', hp:1200, atk:120, moveCost:1, attackCost:1, price:75,
@@ -436,16 +520,33 @@
     heavy: { key:'heavy', name:'Heavy Tank', img:'boss_heavy_tank.png', hp:2800, atk:300, moveCost:2, attackCost:3, price:125,
       skill:{ key:'siegemode', name:'Siege Mode', cost:3, desc:"+50% damage for 3 turns — can't move while active." } },
     guardian: { key:'guardian', name:'Guardian Tank', img:'boss_guardian_tank.png', hp:2000, atk:100, moveCost:1, attackCost:2, price:100,
-      skill:{ key:'shieldall', name:'Shield All', cost:4, desc:'Shields every ally tank for 200 damage, lasting 1 boss turn.' } }
+      skill:{ key:'shieldall', name:'Shield All', cost:4, desc:'Shields every ally tank for 200 damage, lasting 1 boss turn.' } },
+    medic: { key:'medic', name:'Medic Tank', img:'medic_tank.png', hp:1800, atk:90, moveCost:1, attackCost:2, price:110,
+      skill:{ key:'repair', name:'Repair Pulse', cost:4, desc:'Heals the most wounded ally for 500 and cuts the damage it takes by 15% for 2 turns.' } },
+    raider: { key:'raider', name:'Raider Tank', img:'raider_tank.png', hp:1000, atk:200, moveCost:1, attackCost:2, moveRange:2, price:120,
+      skill:{ key:'warcry', name:'Warcry', cost:4, desc:'Rallies the squad — every ally deals +20% damage for 3 turns.' } }
   };
-  const TYPE_ORDER = ['light','medium','heavy','guardian'];
+  const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider'];
   const ROLE_TEXT = {
-    light:'Sustained poison damage', medium:'Single devastating burst', heavy:'Brace for +50% damage', guardian:'Shields the whole squad'
+    light:'Sustained poison damage', medium:'Single devastating burst', heavy:'Brace for +50% damage', guardian:'Shields the whole squad',
+    medic:'Heals and wards an ally', raider:'Moves 2 tiles, rallies the squad'
   };
 
   // ---------- Board config ----------
   const COLS = 8, ROWS = 6;
-  const START_POS = { light:[1,1], medium:[1,6], heavy:[4,1], guardian:[4,6] };
+  // Positions belong to deploy slots rather than tank types, so any four of the
+  // six tanks can take the field in any combination.
+  const SQUAD_SLOTS = [[1,1],[1,6],[4,1],[4,6]];
+  const SQUAD_SIZE = SQUAD_SLOTS.length;
+
+  function getSquad(){
+    try{
+      const saved = JSON.parse(localStorage.getItem('arcadia-raid-squad') || '[]');
+      const valid = saved.filter(k => BOSS_TANK_TYPES[k]);
+      if(valid.length === SQUAD_SIZE) return valid;
+    } catch(e){}
+    return TYPE_ORDER.slice(0, SQUAD_SIZE);
+  }
 
   const BOSS_MAX_HP = 7000;
   const PHASE_THRESHOLDS = { p2: 0.6, p3: 0.3 };
@@ -496,17 +597,20 @@
   let board, playerTanks, telegraphQueue;
   let boss, turn, turnCount, gameOver, phase, enraged;
   let selectedTankId = null, skillMode = null, uidCounter = 0;
-  let playerMana = 0, playerMaxMana = 0;
+  let playerMana = 0, playerMaxMana = 0, teamDmgBuffTurns = 0;
 
   function inBounds(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS; }
 
-  function makeTank(typeKey){
+  function makeTank(typeKey, slot){
     uidCounter++;
     const def = BOSS_TANK_TYPES[typeKey];
-    const [r,c] = START_POS[typeKey];
-    return { uid:'t'+uidCounter, type:typeKey, name:def.name, img:def.img, hp:def.hp, maxHp:def.hp,
-      atk:def.atk, moveCost:def.moveCost, attackCost:def.attackCost, skill:def.skill,
-      skillUsed:false, siegeModeTurnsLeft:0, shield:0, r, c, alive:true };
+    const [r,c] = SQUAD_SLOTS[slot % SQUAD_SIZE];
+    const rb = runeBonuses(EQUIPPED_RUNES[typeKey]);
+    const maxHp = def.hp + rb.hp;
+    return { uid:'t'+uidCounter, type:typeKey, name:def.name, img:def.img, hp:maxHp, maxHp:maxHp,
+      atk:Math.round(def.atk * (1 + rb.atk)), moveCost:def.moveCost, attackCost:def.attackCost,
+      moveRange:def.moveRange || 1, skill:def.skill, runes:rb,
+      skillUsed:false, siegeModeTurnsLeft:0, shield:0, wardTurnsLeft:0, r, c, alive:true };
   }
 
   function formatHp(hp){
@@ -863,8 +967,9 @@
     document.getElementById('combat-log').innerHTML = '';
     document.getElementById('boss-enrage-tag').style.display = 'none';
 
-    TYPE_ORDER.forEach(key => {
-      const t = makeTank(key);
+    teamDmgBuffTurns = 0;
+    getSquad().forEach((key, i) => {
+      const t = makeTank(key, i);
       playerTanks.push(t);
       board[t.r][t.c].occupant = t;
     });
@@ -934,13 +1039,20 @@
     if(!first) turnCount++;
     playerMaxMana = Math.min(playerMaxMana + 1, 10);
     playerMana = playerMaxMana;
+    if(teamDmgBuffTurns > 0) teamDmgBuffTurns--;
     for(const t of playerTanks){
+      if(t.alive && t.runes && t.runes.regen > 0 && t.hp < t.maxHp){
+        t.hp = Math.min(t.maxHp, t.hp + t.runes.regen);
+      }
       if(t.siegeModeTurnsLeft > 0) t.siegeModeTurnsLeft--;
+      if(t.wardTurnsLeft > 0) t.wardTurnsLeft--;
       t.skillUsed = false;
     }
     selectedTankId = null; skillMode = null;
     showTurnBanner('YOUR TURN');
-    document.getElementById('action-hint').textContent = 'Select one of your tanks to move or act.';
+    document.getElementById('action-hint').textContent = (teamDmgBuffTurns > 0
+      ? '\u2694 Warcry +20% (' + teamDmgBuffTurns + ' turn' + (teamDmgBuffTurns > 1 ? 's' : '') + ' left) \u2014 '
+      : '') + 'Select one of your tanks to move or act.';
     render();
     checkDefeatByTurnLimit();
   }
@@ -979,6 +1091,8 @@
           const occ = board[r][c].occupant;
           if(occ && occ.alive){
             let actualDmg = hitDmg;
+            if(occ.wardTurnsLeft > 0) actualDmg = Math.round(actualDmg * 0.85); // Medic's ward
+            if(occ.runes && occ.runes.dr > 0) actualDmg = Math.round(actualDmg * (1 - occ.runes.dr));
             if(occ.shield > 0){
               const absorbed = Math.min(occ.shield, actualDmg);
               actualDmg -= absorbed;
@@ -1102,7 +1216,7 @@
     if(!attacker) return;
 
     const dist = Math.abs(attacker.r-r) + Math.abs(attacker.c-c);
-    if(dist !== 1) return;
+    if(dist < 1 || dist > (attacker.moveRange || 1)) return;
     if(board[r][c].occupant) return;
     if(playerMana < attacker.moveCost) return;
     if(attacker.siegeModeTurnsLeft > 0) return;
@@ -1118,7 +1232,7 @@
     render();
   }
 
-  const TANK_PROJECTILE_COLOR = { light:'#2DE1FC', medium:'#FFB627', heavy:'#FF5C5C', guardian:'#FF5CB6' };
+  const TANK_PROJECTILE_COLOR = { light:'#2DE1FC', medium:'#FFB627', heavy:'#FF5C5C', guardian:'#FF5CB6', medic:'#34D399', raider:'#A78BFA' };
 
   function quickAttack(uid){
     if(turn !== 'player' || gameOver) return;
@@ -1128,11 +1242,16 @@
     playerMana -= t.attackCost;
     let dmg = t.atk;
     if(t.siegeModeTurnsLeft > 0) dmg = Math.round(dmg * 1.5);
+    if(teamDmgBuffTurns > 0) dmg = Math.round(dmg * 1.2); // Raider's Warcry
     sfxAttack(t.type, t.siegeModeTurnsLeft > 0);
     render();
     animateProjectileToBoss(t.r, t.c, TANK_PROJECTILE_COLOR[t.type], () => {
       boss.hp -= dmg;
       boss.turnsSinceDamage = 0;
+      if(t.runes && t.runes.leech > 0 && t.alive){
+        const drained = Math.min(Math.round(dmg * t.runes.leech), t.maxHp - t.hp);
+        if(drained > 0){ t.hp += drained; fxFloatText(t.r, t.c, '+' + drained, '#7CF9C0'); }
+      }
       fxFlashBossHit();
       triggerBoardShake(0.2);
       const costTag = '<span class="mono" style="font-size:0.55em;color:var(--muted);"> (&minus;' + t.attackCost + ' MP)</span>';
@@ -1166,10 +1285,11 @@
       sfxRailgun();
       render();
       animateProjectileToBoss(t.r, t.c, '#FFB627', () => {
-        boss.hp -= 500; boss.turnsSinceDamage = 0;
+        const rgDmg = Math.round(500 * (1 + (t.runes ? t.runes.skill : 0)));
+        boss.hp -= rgDmg; boss.turnsSinceDamage = 0;
         fxFlashBossHit(); triggerBoardShake(0.35);
-        showAction('YOUR ' + t.name.toUpperCase() + ' FIRES THE RAILGUN FOR 500!', 'a-dmg');
-        log('Your ' + t.name + ' railgun hits the boss for 500.');
+        showAction('YOUR ' + t.name.toUpperCase() + ' FIRES THE RAILGUN FOR ' + rgDmg + '!', 'a-dmg');
+        log('Your ' + t.name + ' railgun hits the boss for ' + rgDmg + '.');
         checkBossDefeated();
         render();
       });
@@ -1183,9 +1303,30 @@
     } else if(sk.key === 'shieldall'){
       playerMana -= sk.cost; t.skillUsed = true;
       sfxShield();
-      playerTanks.forEach(a => { if(a.alive) a.shield = 200; });
-      showAction('YOUR ' + t.name.toUpperCase() + ' SHIELDS THE SQUAD (200)', 'a-heal');
-      log('Your ' + t.name + ' shields every ally for 200 damage.');
+      const shieldAmt = Math.round(200 * (1 + (t.runes ? t.runes.skill : 0)));
+      playerTanks.forEach(a => { if(a.alive) a.shield = shieldAmt; });
+      showAction('YOUR ' + t.name.toUpperCase() + ' SHIELDS THE SQUAD (' + shieldAmt + ')', 'a-heal');
+      log('Your ' + t.name + ' shields every ally for ' + shieldAmt + ' damage.');
+      render();
+    } else if(sk.key === 'repair'){
+      // Heal whoever is furthest from full, so the pulse never lands on a healthy tank.
+      const hurt = playerTanks.filter(a => a.alive).sort((a,b) => (a.hp/a.maxHp) - (b.hp/b.maxHp))[0];
+      if(!hurt) return;
+      playerMana -= sk.cost; t.skillUsed = true;
+      const healed = Math.min(Math.round(500 * (1 + (t.runes ? t.runes.skill : 0))), hurt.maxHp - hurt.hp);
+      hurt.hp += healed;
+      hurt.wardTurnsLeft = 2;
+      sfxShield();
+      fxFloatText(hurt.r, hurt.c, '+' + healed, '#34D399');
+      showAction('YOUR ' + t.name.toUpperCase() + ' REPAIRS ' + hurt.name.toUpperCase() + ' (+' + healed + ')', 'a-heal');
+      log('Your ' + t.name + ' repairs ' + hurt.name + ' for ' + healed + ' and wards it for 2 turns.');
+      render();
+    } else if(sk.key === 'warcry'){
+      playerMana -= sk.cost; t.skillUsed = true;
+      teamDmgBuffTurns = 3;
+      sfxSiege();
+      showAction('YOUR ' + t.name.toUpperCase() + ' SOUNDS THE WARCRY (+20% SQUAD DAMAGE)', 'a-warn');
+      log('Your ' + t.name + ' rallies the squad — +20% damage for 3 turns.');
       render();
     }
   }
@@ -1244,7 +1385,7 @@
         }
         if(selected && !occ){
           const dist = Math.abs(selected.r-r) + Math.abs(selected.c-c);
-          if(dist === 1 && playerMana >= selected.moveCost && selected.siegeModeTurnsLeft === 0){
+          if(dist >= 1 && dist <= (selected.moveRange || 1) && playerMana >= selected.moveCost && selected.siegeModeTurnsLeft === 0){
             cls += ' move-target';
             content += '<div class="cost-badge">' + selected.moveCost + '</div>';
           }
@@ -1260,7 +1401,8 @@
       const deadCls = t.alive ? '' : ' dead';
       const selCls = (selectedTankId === t.uid) ? ' selected' : '';
       const onclick = t.alive ? 'onclick="selectTank(\'' + t.uid + '\')"' : '';
-      const shieldTag = t.shield > 0 ? '<div class="shield-tag">🛡 ' + t.shield + '</div>' : '';
+      const shieldTag = (t.shield > 0 ? '<div class="shield-tag">🛡 ' + t.shield + '</div>' : '') +
+        (t.wardTurnsLeft > 0 ? '<div class="shield-tag" style="color:var(--green);">✚ x' + t.wardTurnsLeft + '</div>' : '');
       const siegeTag = t.siegeModeTurnsLeft > 0 ? '<div class="siege-tag">⚡x' + t.siegeModeTurnsLeft + '</div>' : '';
 
       const canAct = t.alive && turn === 'player' && !gameOver;
@@ -1270,7 +1412,7 @@
       const skillCostLabel = t.skillUsed ? 'used' : t.skill.cost;
 
       return '<div class="roster-tank' + deadCls + selCls + '" ' + onclick + '>' +
-        '<img class="' + (t.siegeModeTurnsLeft > 0 ? 'siege-active' : '') + '" src="' + t.img + '" alt="">' +
+        '<img class="size-' + t.type + ' ' + (t.siegeModeTurnsLeft > 0 ? 'siege-active' : '') + '" src="' + t.img + '" alt="">' +
         '<div class="name">' + t.name + '</div>' +
         shieldTag + siegeTag +
         '<div class="hpbar"><div class="hpbar-fill" style="width:' + Math.max(0,(t.hp/t.maxHp*100)) + '%;"></div></div>' +
@@ -1335,18 +1477,26 @@
     const tokensEarned = result === 'win' ? 40 : 10;
 
     try{
-      const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens,boss_tower_floor').eq('user_id', user.id).maybeSingle();
+      const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens,boss_tower_floor,runes').eq('user_id', user.id).maybeSingle();
       const prevXp = existing ? existing.xp : 0;
       const prevCoins = existing ? existing.coins : 100;
       const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
       const prevFloor = existing ? (existing.boss_tower_floor || 0) : 0;
       const newXp = prevXp + xpEarned, newCoins = prevCoins + coinsEarned, newTokens = prevTokens + tokensEarned;
+      // Floors from 2 up drop two runes per clear.
+      const prevRunes = (existing && Array.isArray(existing.runes)) ? existing.runes : [];
+      const dropped = (result === 'win' && FLOOR_NUM >= 2) ? [rollRune(), rollRune()] : [];
+      const newRunes = prevRunes.concat(dropped);
       const newFloor = result === 'win' ? Math.max(prevFloor, 1) : prevFloor;
-      if(existing) await sb.from('profiles').update({ xp:newXp, coins:newCoins, battle_tokens:newTokens, boss_tower_floor:newFloor, username, updated_at:new Date().toISOString() }).eq('user_id', user.id);
-      else await sb.from('profiles').insert({ user_id:user.id, username, xp:newXp, coins:newCoins, battle_tokens:newTokens, boss_tower_floor:newFloor });
+      if(existing) await sb.from('profiles').update({ xp:newXp, coins:newCoins, battle_tokens:newTokens, boss_tower_floor:newFloor, runes:newRunes, username, updated_at:new Date().toISOString() }).eq('user_id', user.id);
+      else await sb.from('profiles').insert({ user_id:user.id, username, xp:newXp, coins:newCoins, battle_tokens:newTokens, boss_tower_floor:newFloor, runes:newRunes });
       const leveledUp = levelFromXp(newXp) > levelFromXp(prevXp);
       msg.className = 'submit-msg success';
-      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, +' + tokensEarned + ' tokens' + (leveledUp ? ' — LEVEL UP to ' + levelFromXp(newXp) + '!' : '');
+      const runeLine = dropped.length
+        ? ' 🔮 Runes found: ' + dropped.map(id => RUNES[id].name).join(' + ') + '!'
+        : '';
+      msg.innerHTML = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, +' + tokensEarned + ' tokens' +
+        (leveledUp ? ' — LEVEL UP to ' + levelFromXp(newXp) + '!' : '') + runeLine;
     } catch(e){
       msg.className = 'submit-msg error';
       msg.textContent = 'Could not record your rewards this time.';
@@ -1368,7 +1518,7 @@
       else if(canAfford) btnHtml = '<button onclick="buyTank(\'' + key + '\')">Buy — ' + def.price + ' ⚔</button>';
       else btnHtml = '<button class="cant-afford" disabled>Need ' + def.price + ' ⚔</button>';
       return '<div class="shop-card' + (owned?' owned':'') + '">' +
-        '<img src="' + def.img + '" alt="">' +
+        '<div class="tank-img-box"><img class="size-' + key + '" src="' + def.img + '" alt=""></div>' +
         '<div class="name">' + def.name + '</div>' +
         '<div class="role">' + ROLE_TEXT[key] + '</div>' +
         '<div class="price">' + (owned ? 'Owned' : def.price + ' Battle Tokens') + '</div>' +

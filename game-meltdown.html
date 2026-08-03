@@ -133,7 +133,8 @@
         <tr><th>Payout</th><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="mult">1.2×</td><td class="mult">1.8×</td><td class="mult">2.8×</td><td class="mult">4.5×</td></tr>
       </table>
       <p style="font-size:11px; color:var(--muted); margin-top:-8px; margin-bottom:14px;">Tiers 1–6: pure risk, no reward — fail and you lose the full stake. Survive to Tier 7 and payouts (and Eject) unlock.</p>
-      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">🪙 Entry costs <b style="color:var(--amber);">100 Coins</b> per run.</div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:4px;">🪙 Entry costs <b style="color:var(--amber);">100 Coins</b> per run.</div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⏱ Limited to <b style="color:var(--cyan);">3 runs per day</b><span id="runs-left"></span></div>
       <div class="submit-msg" id="entry-msg"></div>
       <button class="btn btn-primary start-action-btn" onclick="startGame()">Fire Up Reactor</button>
     </div>
@@ -249,6 +250,31 @@
   const EJECT_MIN_TIER = GAUNTLET_TIERS + 1; // clearedTier needed before eject unlocks
   const DANGER_FROM_TIER = GAUNTLET_TIERS; // 0-indexed tier attempt count that starts the alarm
   const ENTRY_FEE_COINS = 100;
+  const MAX_RUNS_PER_DAY = 3;
+
+  function startOfTodayUTC(){
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    return d;
+  }
+
+  // Every finished run writes a scores row, so counting today's rows is enough
+  // to enforce the daily cap without any extra bookkeeping.
+  async function runsUsedToday(userId){
+    const { count, error } = await sb.from('scores')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('game', 'meltdown')
+      .gte('created_at', startOfTodayUTC().toISOString());
+    if(error) return null; // on a lookup failure, don't lock the player out
+    return count || 0;
+  }
+
+  function hoursUntilResetUTC(){
+    const next = startOfTodayUTC();
+    next.setUTCDate(next.getUTCDate() + 1);
+    return Math.max(1, Math.ceil((next - new Date()) / 3600000));
+  }
 
   // ---------- Canvas ----------
   const canvas = document.getElementById('game-canvas');
@@ -566,6 +592,7 @@
       msg.className = 'submit-msg success';
       msg.textContent = (coinsEarned > 0 ? '+' + coinsEarned + ' coins, ' : '') + '+' + xpEarned + ' XP, +' + tokensEarned + ' tokens' + (leveledUp ? ' — LEVEL UP to ' + levelFromXp(newXp) + '!' : '');
       btn.style.display = 'none';
+      refreshRunsLeft(); // this run now counts against today's cap
     } catch(e){
       msg.className = 'submit-msg error';
       msg.textContent = 'Could not submit your result this time.';
@@ -589,6 +616,16 @@
       return;
     }
     const user = sessionData.session.user;
+
+    const used = await runsUsedToday(user.id);
+    if(used !== null && used >= MAX_RUNS_PER_DAY){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.textContent = 'Daily limit reached — ' + MAX_RUNS_PER_DAY + '/' + MAX_RUNS_PER_DAY +
+        ' runs used. Resets in ' + hoursUntilResetUTC() + 'h.';
+      actionBtns.forEach(b => b.disabled = false);
+      return;
+    }
+
     const { data: profile } = await sb.from('profiles').select('coins').eq('user_id', user.id).maybeSingle();
     const currentCoins = profile ? profile.coins : 100;
 
@@ -618,8 +655,21 @@
     requestAnimationFrame(loop);
   }
 
+  async function refreshRunsLeft(){
+    const el = document.getElementById('runs-left');
+    if(!el) return;
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){ el.textContent = ''; return; }
+    const used = await runsUsedToday(sessionData.session.user.id);
+    if(used === null){ el.textContent = ''; return; }
+    const left = Math.max(0, MAX_RUNS_PER_DAY - used);
+    el.innerHTML = ' — <b style="color:' + (left > 0 ? 'var(--green)' : 'var(--red)') + ';">' +
+      left + ' left today</b>' + (left === 0 ? ' (resets in ' + hoursUntilResetUTC() + 'h)' : '');
+  }
+
   resizeCanvas();
   updateHud();
+  refreshRunsLeft();
 </script>
 </body>
 </html>

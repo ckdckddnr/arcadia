@@ -329,7 +329,8 @@
     const finalScore = Math.floor(distance);
 
     const xpEarned = Math.max(5, Math.floor(finalScore / 20));
-    const coinsEarned = Math.max(2, Math.floor(finalScore / 16));
+    // Capped below the 20-coin entry fee so a run is always a net coin loss.
+    const coinsEarned = Math.min(19, Math.max(2, Math.floor(finalScore / 32)));
     const tokensEarned = Math.floor(finalScore / 90);
 
     try{

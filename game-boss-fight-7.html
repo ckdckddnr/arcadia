@@ -396,8 +396,10 @@
     } catch(e){}
   }
 
-  const TANK_CLICK_SOUND = { light:'gui_041.wav', medium:'weapon_outofammo_008.wav', heavy:'weapon_outofammo_005.wav', guardian:'gui_036.wav' };
-  const TANK_FIRE_SOUND = { light:'weapon_mortar_003.wav', medium:'explosion_med_015.wav', heavy:'explosion_large_005.wav', guardian:'explosion_small_014.wav' };
+  const TANK_CLICK_SOUND = { light:'gui_041.wav', medium:'weapon_outofammo_008.wav', heavy:'weapon_outofammo_005.wav', guardian:'gui_036.wav',
+    medic:'gui_006.wav', raider:'gui_009.wav' };
+  const TANK_FIRE_SOUND = { light:'weapon_mortar_003.wav', medium:'explosion_med_015.wav', heavy:'explosion_large_005.wav', guardian:'explosion_small_014.wav',
+    medic:'weapon_laser_003.wav', raider:'weapon_blaster_002.wav' };
 
   function sfxTankClick(type){ playClip(TANK_CLICK_SOUND[type], 0.6); }
   function sfxMove(){ playTone(150, 0.13, 'square', 0.06, 90); playNoise(0.08, 0.05, 400); }
@@ -408,6 +410,8 @@
   function sfxPoison(){ playClipTimed('ambience_damaged_burning_metal_scratching_001.wav', 0.55, 2000); }
   function sfxRailgun(){ playClip('weapon_railgun_001.wav', 0.8); }
   function sfxShield(){ playClip('shield_up_002.wav', 0.7); }
+  function sfxRepair(){ playClip('shield_recharge.wav', 0.75); }
+  function sfxWarcry(){ playClip('bonus_powerup.wav', 0.7); }
   function sfxBossHit(){ playNoise(0.15, 0.18, 1500); playTone(220, 0.1, 'square', 0.1, 110); }
   const PATTERN_SOUND = {
     cross: 'explosion_large_008.wav',
@@ -1346,6 +1350,14 @@
     if(turn !== 'player' || gameOver) return;
 
     const clicked = board[r][c].occupant;
+
+    if(skillMode && skillMode.key === 'repair'){
+      const healer = playerTanks.find(x => x.uid === skillMode.uid && x.alive);
+      if(!healer){ skillMode = null; render(); return; }
+      if(clicked && clicked.alive){ castRepair(healer, clicked); return; }
+      skillMode = null; render(); return;   // tapping empty ground cancels
+    }
+
     if(clicked && clicked.alive){ selectTank(clicked.uid); return; }
 
     if(!selectedTankId) return;
@@ -1399,6 +1411,22 @@
     });
   }
 
+  function castRepair(healer, target){
+    const sk = healer.skill;
+    skillMode = null;
+    if(healer.skillUsed || playerMana < sk.cost){ render(); return; }
+    playerMana -= sk.cost;
+    healer.skillUsed = true;
+    const healed = Math.min(Math.round(500 * (1 + (healer.runes ? healer.runes.skill : 0))), target.maxHp - target.hp);
+    target.hp += healed;
+    target.wardTurnsLeft = 2;
+    sfxRepair();
+    fxFloatText(target.r, target.c, '+' + healed, '#34D399');
+    showAction('YOUR ' + healer.name.toUpperCase() + ' REPAIRS ' + target.name.toUpperCase() + ' (+' + healed + ')', 'a-heal');
+    log('Your ' + healer.name + ' repairs ' + target.name + ' for ' + healed + ' and wards it for 2 turns.');
+    render();
+  }
+
   function quickSkill(uid){
     if(turn !== 'player' || gameOver) return;
     const t = playerTanks.find(x => x.uid === uid && x.alive);
@@ -1446,22 +1474,17 @@
       log('Your ' + t.name + ' shields every ally for ' + shieldAmt + ' damage.');
       render();
     } else if(sk.key === 'repair'){
-      // Heal whoever is furthest from full, so the pulse never lands on a healthy tank.
-      const hurt = playerTanks.filter(a => a.alive).sort((a,b) => (a.hp/a.maxHp) - (b.hp/b.maxHp))[0];
-      if(!hurt) return;
-      playerMana -= sk.cost; t.skillUsed = true;
-      const healed = Math.min(Math.round(500 * (1 + (t.runes ? t.runes.skill : 0))), hurt.maxHp - hurt.hp);
-      hurt.hp += healed;
-      hurt.wardTurnsLeft = 2;
-      sfxShield();
-      fxFloatText(hurt.r, hurt.c, '+' + healed, '#34D399');
-      showAction('YOUR ' + t.name.toUpperCase() + ' REPAIRS ' + hurt.name.toUpperCase() + ' (+' + healed + ')', 'a-heal');
-      log('Your ' + t.name + ' repairs ' + hurt.name + ' for ' + healed + ' and wards it for 2 turns.');
+      // Arm targeting instead of firing — the player taps the ally to heal.
+      skillMode = (skillMode && skillMode.uid === t.uid) ? null : { uid:t.uid, key:'repair' };
+      selectedTankId = t.uid;
+      document.getElementById('action-hint').textContent = skillMode
+        ? 'Repair Pulse — tap any ally tank to heal it (tap the skill again to cancel).'
+        : 'Select one of your tanks to move or act.';
       render();
     } else if(sk.key === 'warcry'){
       playerMana -= sk.cost; t.skillUsed = true;
       teamDmgBuffTurns = 3;
-      sfxSiege();
+      sfxWarcry();
       showAction('YOUR ' + t.name.toUpperCase() + ' SOUNDS THE WARCRY (+20% SQUAD DAMAGE)', 'a-warn');
       log('Your ' + t.name + ' rallies the squad — +20% damage for 3 turns.');
       render();
@@ -1519,6 +1542,7 @@
             (occ.shield > 0 ? '<div class="shield-badge">🛡</div>' : '') +
             '<div class="hp-mini"><div class="hp-mini-fill" style="width:' + Math.max(0,(occ.hp/occ.maxHp*100)) + '%;"></div></div>';
           if(occ.uid === selectedTankId) cls += ' selected-tank';
+          if(skillMode && skillMode.key === 'repair' && occ.alive) cls += ' skill-target';
         }
         if(selected && !occ){
           const dist = Math.abs(selected.r-r) + Math.abs(selected.c-c);

@@ -247,7 +247,7 @@
       if(!owner) return;
       const { data: existing } = await sb.from('profiles').select('coins').eq('user_id', owner.user_id).maybeSingle();
       const prevCoins = existing ? existing.coins : 0;
-      await sb.from('profiles').update({ coins: prevCoins + 2 }).eq('user_id', owner.user_id);
+      await sb.from('profiles').update({ coins: prevCoins + 1 }).eq('user_id', owner.user_id);
     } catch(e){ /* non-critical, fail silently */ }
   }
 

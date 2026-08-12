@@ -73,6 +73,24 @@
     box-shadow:inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -2px 0 rgba(0,0,0,0.2);
   }
   .tile:nth-child(odd){ background:#1e2434; }
+
+  /* ---- Terrain ---- */
+  .tile.terrain-conveyor{ background:rgba(255,182,39,0.08); }
+  .tile.terrain-conveyor::after{
+    content:''; position:absolute; inset:0; z-index:0; pointer-events:none; border-radius:5px; opacity:0.55;
+    background:repeating-linear-gradient(90deg, rgba(255,182,39,0.55) 0 5px, transparent 5px 13px);
+  }
+  .tile.conv-right::after{ animation:conv-scroll 0.85s linear infinite; }
+  .tile.conv-left::after{ animation:conv-scroll 0.85s linear infinite reverse; }
+  @keyframes conv-scroll{ from{ background-position:0 0; } to{ background-position:13px 0; } }
+  .tile.terrain-rubble{ background:#241f18 !important; box-shadow:inset 0 0 0 2px rgba(140,116,88,0.45); }
+  .tile.terrain-rubble::after{
+    content:'▨'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:rgba(160,136,104,0.55); font-size:16px; pointer-events:none;
+  }
+  .tile.terrain-hazard{ background:rgba(255,92,92,0.18) !important; }
+  .tile.terrain-cover{ background:rgba(45,225,252,0.12) !important; box-shadow:inset 0 0 0 2px rgba(45,225,252,0.4); }
+  .tile.terrain-repair{ background:rgba(52,211,153,0.14) !important; }
   .tile.move-target{ cursor:pointer; box-shadow:inset 0 0 0 3px var(--cyan), 0 0 8px rgba(45,225,252,0.6); background:rgba(45,225,252,0.14) !important; }
   .tile.telegraph{ animation:telegraph-pulse 1s ease-in-out infinite; }
   #board.full-incoming{ animation:full-map-warning 0.7s ease-in-out infinite; }
@@ -611,6 +629,48 @@
 
   // ---------- Board config ----------
   const COLS = 8, ROWS = 6;
+
+  // ---------- Terrain ----------
+  // Opt-in per floor. An empty table means a bare arena, which is how every
+  // floor up to 10 plays, so this layer costs them nothing.
+  const TERRAIN = {};
+
+  function terrainAt(r, c){ return TERRAIN[r + ',' + c] || null; }
+  function blocksMove(r, c){ const t = terrainAt(r, c); return !!t && t.type === 'rubble'; }
+
+  // Resolved when the player commits their turn, so a tile that looked safe
+  // can still hand you to the boss before it fires.
+  function applyTerrainEffects(){
+    const shoved = [];
+    for(const t of playerTanks){
+      if(!t.alive) continue;
+      const ter = terrainAt(t.r, t.c);
+      if(!ter) continue;
+
+      if(ter.type === 'conveyor'){
+        const nc = t.c + ter.dx;
+        if(nc < 0 || nc >= COLS) continue;
+        if(board[t.r][nc].occupant || blocksMove(t.r, nc)) continue;
+        board[t.r][t.c].occupant = null;
+        t.c = nc;
+        board[t.r][nc].occupant = t;
+        shoved.push(t);
+      } else if(ter.type === 'hazard'){
+        const dmg = ter.dmg || 120;
+        t.hp -= dmg;
+        fxFloatText(t.r, t.c, '-' + dmg, '#FF5C5C');
+        if(t.hp <= 0){ t.alive = false; board[t.r][t.c].occupant = null; log('Your ' + t.name + ' burned down on the hazard.'); }
+      } else if(ter.type === 'repair'){
+        const heal = Math.min(ter.heal || 120, t.maxHp - t.hp);
+        if(heal > 0){ t.hp += heal; fxFloatText(t.r, t.c, '+' + heal, '#34D399'); }
+      }
+    }
+    if(shoved.length){
+      sfxMove();
+      shoved.forEach(t => fxFloatText(t.r, t.c, '⇢', '#FFB627'));
+      log(shoved.length + ' tank(s) dragged along the conveyor.');
+    }
+  }
   // Positions belong to deploy slots rather than tank types, so any four of the
   // six tanks can take the field in any combination.
   const SQUAD_SLOTS = [[1,1],[1,6],[4,1],[4,6]];
@@ -1231,6 +1291,7 @@
   function endPlayerTurn(){
     if(turn !== 'player' || gameOver) return;
     selectedTankId = null; skillMode = null;
+    applyTerrainEffects();
     turn = 'boss';
     render();
     setTimeout(runBossTurn, 500);
@@ -1402,6 +1463,7 @@
     const dist = Math.abs(attacker.r-r) + Math.abs(attacker.c-c);
     if(dist < 1 || dist > (attacker.moveRange || 1)) return;
     if(attacker.type === 'sniper' && attacker.firedThisTurn) return; // rooted by its own recoil
+    if(blocksMove(r, c)) return;
     if(board[r][c].occupant) return;
     if(playerMana < attacker.moveCost) return;
     if(attacker.siegeModeTurnsLeft > 0) return;
@@ -1593,6 +1655,8 @@
     for(let r=0;r<ROWS;r++){
       for(let c=0;c<COLS;c++){
         let cls = 'tile';
+        const ter = terrainAt(r, c);
+        if(ter) cls += ' terrain-' + ter.type + (ter.dx > 0 ? ' conv-right' : ter.dx < 0 ? ' conv-left' : '');
         const occ = board[r][c].occupant;
         let tileStyle = '';
         const patternsHere = (warningMap.get(r+'_'+c) || []).filter(t => t !== 'full');
@@ -1620,7 +1684,7 @@
         // while a skill is picking a target, movement tiles would only confuse the board
         if(selected && !occ && !skillMode && !(selected.type === 'sniper' && selected.firedThisTurn)){
           const dist = Math.abs(selected.r-r) + Math.abs(selected.c-c);
-          if(dist >= 1 && dist <= (selected.moveRange || 1) && playerMana >= selected.moveCost && selected.siegeModeTurnsLeft === 0){
+          if(dist >= 1 && dist <= (selected.moveRange || 1) && playerMana >= selected.moveCost && selected.siegeModeTurnsLeft === 0 && !blocksMove(r, c)){
             cls += ' move-target';
             content += '<div class="cost-badge">' + selected.moveCost + '</div>';
           }

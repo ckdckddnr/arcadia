@@ -469,7 +469,7 @@
     try{ localStorage.setItem(TANK_RUNES_KEY, JSON.stringify(tankRunes)); } catch(e){}
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session) return;
-    await sb.from('profiles').update({ tank_runes: tankRunes }).eq('user_id', sessionData.session.user.id);
+    await sb.rpc('set_tank_runes', { p_loadout: tankRunes });
   }
 
   function selectRune(id){
@@ -579,37 +579,18 @@
       shopMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to purchase boss tanks.';
       return;
     }
-    const user = sessionData.session.user;
-    const { data: profile } = await sb.from('profiles').select('battle_tokens,boss_tanks_owned').eq('user_id', user.id).maybeSingle();
-    const tokens = profile ? (profile.battle_tokens || 0) : 0;
-    const owned = profile ? (profile.boss_tanks_owned || []) : [];
-    const price = BOSS_TANK_TYPES[key].price;
-
-    if(owned.includes(key)) return;
-    if(tokens < price){
+    const { data: buyRes, error: buyErr } = await sb.rpc('buy_tank', { p_tank: key });
+    if(buyErr || !buyRes || !buyRes.ok){
+      const why = buyRes && buyRes.error;
+      if(why === 'already owned') return;
       shopMsg.className = 'submit-msg error';
-      shopMsg.textContent = 'Not enough Battle Tokens for ' + BOSS_TANK_TYPES[key].name + '.';
+      shopMsg.textContent = why === 'not enough tokens'
+        ? 'Not enough Battle Tokens for ' + BOSS_TANK_TYPES[key].name + '.'
+        : 'Purchase failed — please try again.';
       return;
     }
-
-    const newOwned = owned.concat([key]);
-    const newTokens = tokens - price;
-    let dbError = null;
-    if(profile){
-      const { error } = await sb.from('profiles').update({ battle_tokens:newTokens, boss_tanks_owned:newOwned }).eq('user_id', user.id);
-      dbError = error;
-    } else {
-      const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
-      const { error } = await sb.from('profiles').insert({ user_id:user.id, username, battle_tokens:newTokens, boss_tanks_owned:newOwned });
-      dbError = error;
-    }
-    if(dbError){
-      shopMsg.className = 'submit-msg error';
-      shopMsg.textContent = 'Purchase failed: ' + dbError.message;
-      return;
-    }
-    ownedTanks = newOwned;
-    currentTokens = newTokens;
+    ownedTanks = buyRes.owned || [];
+    currentTokens = buyRes.tokens;
     shopMsg.className = 'submit-msg success';
     shopMsg.textContent = BOSS_TANK_TYPES[key].name + ' acquired!';
     loadSquad(); // a fresh tank fills an empty deploy slot automatically

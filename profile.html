@@ -449,27 +449,21 @@
     const eligible = key === 'bonus' ? allQuestsDone() : (weeklyQuests.p[key] || 0) >= quest.goal;
     if(!eligible){ renderQuests(); return; }
 
-    const coins  = (fresh ? (fresh.coins || 0) : 0) + (reward.coins || 0);
-    const tokens = (fresh ? (fresh.battle_tokens || 0) : 0) + (reward.tokens || 0);
-    const runes  = (fresh && Array.isArray(fresh.runes)) ? fresh.runes.slice() : [];
-    const gained = [];
-    for(let i = 0; i < (reward.runes || 0); i++){ const id = rollRune(); runes.push(id); gained.push(RUNE_LABEL[id] + ' Rune'); }
-    weeklyQuests.claimed.push(key);
-
-    const { error } = await sb.from('profiles')
-      .update({ coins, battle_tokens: tokens, runes, weekly_quests: weeklyQuests })
-      .eq('user_id', user.id);
-    if(error){
-      weeklyQuests.claimed = weeklyQuests.claimed.filter(k => k !== key);
+    const { data: res, error } = await sb.rpc('claim_weekly_quest', { p_key: key });
+    if(error || !res || !res.ok){
       msg.className = 'form-msg error';
-      msg.textContent = 'Could not claim that reward — try again.';
+      msg.textContent = (res && res.error === 'already claimed')
+        ? 'Already claimed.' : 'Could not claim that reward — try again.';
+      renderQuests();
       return;
     }
 
-    currentCoins = coins;
-    currentTokens = tokens;
-    const el = document.getElementById('profile-coins');  if(el) el.textContent = coins.toLocaleString();
-    const el2 = document.getElementById('profile-tokens'); if(el2) el2.textContent = tokens.toLocaleString();
+    weeklyQuests.claimed.push(key);
+    currentCoins = res.balance_coins;
+    currentTokens = res.balance_tokens;
+    const el = document.getElementById('profile-coins');  if(el) el.textContent = currentCoins.toLocaleString();
+    const el2 = document.getElementById('profile-tokens'); if(el2) el2.textContent = currentTokens.toLocaleString();
+    const gained = (res.runes || []).map(id => (RUNE_LABEL[id] || id) + ' Rune');
     msg.className = 'form-msg success';
     msg.textContent = 'Claimed ' + rewardLabel(reward) + (gained.length ? ' — ' + gained.join(', ') : '') + '!';
     renderQuests();
@@ -545,27 +539,18 @@
     if(!sessionData.session) return;
     const user = sessionData.session.user;
 
-    const slot = nextSlotIndex();
-    const reward = STREAK_REWARDS[slot];
-    const newStreak = (lastCheckinDate === yesterdayUTC()) ? checkinStreak + 1 : 1;
-
-    const { data: profile } = await sb.from('profiles').select('coins,battle_tokens').eq('user_id', user.id).maybeSingle();
-    const coins = profile ? profile.coins : 100;
-    const tokens = profile ? (profile.battle_tokens || 0) : 0;
-
-    const { error } = await sb.from('profiles').update({
-      coins: coins + reward.coins,
-      battle_tokens: tokens + reward.tokens,
-      checkin_streak: newStreak,
-      last_checkin_date: todayUTC()
-    }).eq('user_id', user.id);
-
-    if(error){
+    const { data: res, error } = await sb.rpc('claim_daily_checkin');
+    if(error || !res || !res.ok){
       msg.className = 'form-msg show error';
-      msg.textContent = 'Check-in failed: ' + error.message;
+      msg.textContent = (res && res.error === 'already claimed today')
+        ? 'You already checked in today.' : 'Check-in failed — please try again.';
       btn.disabled = false;
       return;
     }
+    const reward = { coins: res.coins, tokens: res.tokens };
+    const newStreak = res.streak;
+    currentCoins = res.balance_coins;
+    currentTokens = res.balance_tokens;
 
     checkinStreak = newStreak;
     lastCheckinDate = todayUTC();
@@ -626,25 +611,20 @@
     msg.className = 'form-msg'; msg.textContent = '';
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session) return;
-    const user = sessionData.session.user;
-    const price = BOSS_TANKS[key].price;
-
     if(ownedBossTanks.includes(key)) return;
-    if(currentTokens < price){
+
+    const { data: buyRes, error } = await sb.rpc('buy_tank', { p_tank: key });
+    if(error || !buyRes || !buyRes.ok){
+      const why = buyRes && buyRes.error;
+      if(why === 'already owned') return;
       msg.className = 'form-msg show error';
-      msg.textContent = 'Not enough Battle Tokens for ' + BOSS_TANKS[key].name + '.';
+      msg.textContent = why === 'not enough tokens'
+        ? 'Not enough Battle Tokens for ' + BOSS_TANKS[key].name + '.'
+        : 'Purchase failed — please try again.';
       return;
     }
-    const newOwned = ownedBossTanks.concat([key]);
-    const newTokens = currentTokens - price;
-    const { error } = await sb.from('profiles').update({ battle_tokens:newTokens, boss_tanks_owned:newOwned }).eq('user_id', user.id);
-    if(error){
-      msg.className = 'form-msg show error';
-      msg.textContent = 'Purchase failed: ' + error.message;
-      return;
-    }
-    ownedBossTanks = newOwned;
-    currentTokens = newTokens;
+    ownedBossTanks = buyRes.owned || [];
+    currentTokens = buyRes.tokens;
     document.getElementById('profile-tokens').textContent = currentTokens.toLocaleString();
     msg.className = 'form-msg show success';
     msg.textContent = BOSS_TANKS[key].name + ' acquired!';

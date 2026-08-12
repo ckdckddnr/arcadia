@@ -522,51 +522,10 @@
   }
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ---------- Weekly quests ----------
-  function weekStartUTC(){
-    const d = new Date();
-    d.setUTCHours(0, 0, 0, 0);
-    const day = d.getUTCDay();                                   // 0 = Sunday
-    d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day));   // rewind to Monday
-    return d.toISOString().slice(0, 10);
-  }
-  // Best-effort: a counter failure must never block a reward payout.
-  async function bumpQuests(userId, deltas){
-    try{
-      const { data } = await sb.from('profiles').select('weekly_quests').eq('user_id', userId).maybeSingle();
-      const week = weekStartUTC();
-      let wq = (data && data.weekly_quests) || {};
-      if(wq.week !== week) wq = { week, p:{}, claimed:[] };      // a new week wipes the board
-      wq.p = wq.p || {};
-      wq.claimed = wq.claimed || [];
-      for(const k in deltas){ if(deltas[k]) wq.p[k] = (wq.p[k] || 0) + deltas[k]; }
-      await sb.from('profiles').update({ weekly_quests: wq }).eq('user_id', userId);
-    } catch(e){}
-  }
   const GAME_ID = 'tank-clash';
 
   function xpForLevel(level){ return 25 * level * (level - 1); }
   function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
-  async function awardProgress(userId, username, xpEarned, coinsEarned, tokensEarned){
-    try{
-      const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', userId).maybeSingle();
-      const prevXp = existing ? existing.xp : 0;
-      const prevCoins = existing ? existing.coins : 100;
-      const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
-      const newXp = prevXp + xpEarned;
-      const newCoins = prevCoins + coinsEarned;
-      const newTokens = prevTokens + (tokensEarned || 0);
-      if(existing){
-        await sb.from('profiles').update({ xp: newXp, coins: newCoins, battle_tokens: newTokens, username, updated_at: new Date().toISOString() }).eq('user_id', userId);
-      } else {
-        await sb.from('profiles').insert({ user_id: userId, username, xp: newXp, coins: newCoins, battle_tokens: newTokens });
-      }
-      const prevLevel = levelFromXp(prevXp);
-      const newLevel = levelFromXp(newXp);
-      return { leveledUp: newLevel > prevLevel, newLevel };
-    } catch(e){ return null; }
-  }
-
   // ---------- Board config ----------
   const COLS = 12, ROWS = 6;
   const OBSTACLE_COLS = [5, 6];
@@ -1612,23 +1571,20 @@
       return;
     }
 
-    const user = sessionData.session.user;
-    const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
-    const xpEarned = result === 'win' ? 90 : 25;
-    const coinsEarned = result === 'win' ? 45 : 12;
-    const tokensEarned = result === 'win' ? DIFFICULTY_WIN_REWARD[matchDifficulty] : DIFFICULTY_LOSS_REWARD[matchDifficulty];
     const entryFeePaid = DIFFICULTY_ENTRY_FEE[matchDifficulty];
-    const progress = await awardProgress(user.id, username, xpEarned, coinsEarned, tokensEarned);
-    await bumpQuests(user.id, { play:1, clash: result === 'win' ? 1 : 0 });
+    const { data: res, error } = await sb.rpc('game_finish_run', {
+      p_game: 'tank-clash', p_win: result === 'win', p_difficulty: matchDifficulty
+    });
 
-    if(progress === null){
+    if(error || !res || !res.ok){
       msg.className = 'submit-msg error';
       msg.textContent = 'Could not record your XP this time.';
     } else {
       msg.className = 'submit-msg success';
-      const netTokens = tokensEarned - entryFeePaid;
-      const netTag = (netTokens >= 0 ? '+' : '') + netTokens + ' net tokens (paid ' + entryFeePaid + ', earned ' + tokensEarned + ')';
-      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, ' + netTag + (progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
+      const netTokens = res.tokens - entryFeePaid;
+      const netTag = (netTokens >= 0 ? '+' : '') + netTokens + ' net tokens (paid ' + entryFeePaid + ', earned ' + res.tokens + ')';
+      msg.textContent = '+' + res.xp + ' XP, +' + res.coins + ' coins, ' + netTag +
+        (res.leveled_up ? ' — LEVEL UP to ' + res.new_level + '!' : '');
     }
   }
 
@@ -1658,19 +1614,18 @@
       return;
     }
 
-    const user = sessionData.session.user;
-    const { data: profile } = await sb.from('profiles').select('battle_tokens').eq('user_id', user.id).maybeSingle();
-    const currentTokens = profile ? (profile.battle_tokens || 0) : 0;
-
-    if(currentTokens < entryFee){
+    const { data: startRes, error: startErr } = await sb.rpc('game_start_run', {
+      p_game: 'tank-clash', p_difficulty: matchDifficulty
+    });
+    if(startErr || !startRes || !startRes.ok){
       entryMsg.className = 'submit-msg error';
-      entryMsg.textContent = 'Not enough Battle Tokens (you have ' + currentTokens + ', need ' + entryFee + '). Play Asteroid Run or Orbit Snap to earn more, or pick an easier difficulty.';
+      entryMsg.textContent = (startRes && startRes.error === 'not enough tokens')
+        ? 'Not enough Battle Tokens (you have ' + startRes.tokens + ', need ' + entryFee + '). Play Asteroid Run or Orbit Snap to earn more, or pick an easier difficulty.'
+        : 'Could not start the match — please try again.';
       deployBtn.disabled = false;
       deployBtn.textContent = 'Deploy Squad';
       return;
     }
-
-    await sb.from('profiles').update({ battle_tokens: currentTokens - entryFee }).eq('user_id', user.id);
 
     deployBtn.disabled = false;
     deployBtn.textContent = 'Deploy Squad';

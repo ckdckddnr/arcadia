@@ -112,27 +112,6 @@
   const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ---------- Weekly quests ----------
-  function weekStartUTC(){
-    const d = new Date();
-    d.setUTCHours(0, 0, 0, 0);
-    const day = d.getUTCDay();                                   // 0 = Sunday
-    d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day));   // rewind to Monday
-    return d.toISOString().slice(0, 10);
-  }
-  // Best-effort: a counter failure must never block a reward payout.
-  async function bumpQuests(userId, deltas){
-    try{
-      const { data } = await sb.from('profiles').select('weekly_quests').eq('user_id', userId).maybeSingle();
-      const week = weekStartUTC();
-      let wq = (data && data.weekly_quests) || {};
-      if(wq.week !== week) wq = { week, p:{}, claimed:[] };      // a new week wipes the board
-      wq.p = wq.p || {};
-      wq.claimed = wq.claimed || [];
-      for(const k in deltas){ if(deltas[k]) wq.p[k] = (wq.p[k] || 0) + deltas[k]; }
-      await sb.from('profiles').update({ weekly_quests: wq }).eq('user_id', userId);
-    } catch(e){}
-  }
 
   function xpForLevel(level){ return 25 * level * (level - 1); }
   function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
@@ -350,33 +329,16 @@
     const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
     const finalScore = Math.floor(distance);
 
-    const xpEarned = Math.max(5, Math.floor(finalScore / 20));
-    // Capped below the 20-coin entry fee so a run is always a net coin loss.
-    const coinsEarned = Math.min(19, Math.max(2, Math.floor(finalScore / 32)));
-    await bumpQuests(user.id, { play:1, sharp: coinsEarned >= 19 ? 1 : 0 });
-    const tokensEarned = Math.floor(finalScore / 90);
-
-    try{
-      await sb.from('scores').insert({ user_id: user.id, username, game: 'one-button-dash', score: finalScore });
-
-      const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', user.id).maybeSingle();
-      const prevXp = existing ? existing.xp : 0;
-      const prevCoins = existing ? existing.coins : 100;
-      const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
-      const newXp = prevXp + xpEarned, newCoins = prevCoins + coinsEarned, newTokens = prevTokens + tokensEarned;
-
-      if(existing) await sb.from('profiles').update({ xp: newXp, coins: newCoins, battle_tokens: newTokens, username, updated_at: new Date().toISOString() }).eq('user_id', user.id);
-      else await sb.from('profiles').insert({ user_id: user.id, username, xp: newXp, coins: newCoins, battle_tokens: newTokens });
-
-      const leveledUp = levelFromXp(newXp) > levelFromXp(prevXp);
-      msg.className = 'submit-msg success';
-      msg.textContent = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, +' + tokensEarned + ' tokens' + (leveledUp ? ' — LEVEL UP to ' + levelFromXp(newXp) + '!' : '');
-      btn.style.display = 'none';
-    } catch(e){
+    const { data: res, error } = await sb.rpc('game_finish_run', { p_game: 'one-button-dash', p_score: finalScore });
+    if(error || !res || !res.ok){
       msg.className = 'submit-msg error';
       msg.textContent = 'Could not submit your score this time.';
-      btn.style.display = 'none';
+    } else {
+      msg.className = 'submit-msg success';
+      msg.textContent = '+' + res.xp + ' XP, +' + res.coins + ' coins, +' + res.tokens + ' tokens'
+        + (res.leveled_up ? ' — LEVEL UP to ' + res.new_level + '!' : '');
     }
+    btn.style.display = 'none';
   }
 
   const ENTRY_FEE_COINS = 20;
@@ -397,21 +359,14 @@
       return;
     }
     const user = sessionData.session.user;
-    const { data: profile } = await sb.from('profiles').select('coins').eq('user_id', user.id).maybeSingle();
-    const currentCoins = profile ? profile.coins : 100;
-
-    if(currentCoins < ENTRY_FEE_COINS){
+    const { data: startRes, error: startErr } = await sb.rpc('game_start_run', { p_game: 'one-button-dash' });
+    if(startErr || !startRes || !startRes.ok){
       entryMsg.className = 'submit-msg error';
-      entryMsg.textContent = 'Not enough Coins (you have ' + currentCoins + ', need ' + ENTRY_FEE_COINS + ').';
+      entryMsg.textContent = (startRes && startRes.error === 'not enough coins')
+        ? 'Not enough Coins (you have ' + startRes.coins + ', need ' + ENTRY_FEE_COINS + ').'
+        : 'Could not start the run — please try again.';
       actionBtns.forEach(b => b.disabled = false);
       return;
-    }
-
-    const newCoins = currentCoins - ENTRY_FEE_COINS;
-    if(profile) await sb.from('profiles').update({ coins: newCoins }).eq('user_id', user.id);
-    else {
-      const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
-      await sb.from('profiles').insert({ user_id: user.id, username, xp: 0, coins: newCoins, battle_tokens: 0 });
     }
 
     actionBtns.forEach(b => b.disabled = false);

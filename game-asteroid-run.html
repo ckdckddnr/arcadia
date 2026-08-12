@@ -207,27 +207,6 @@
   const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ---------- Weekly quests ----------
-  function weekStartUTC(){
-    const d = new Date();
-    d.setUTCHours(0, 0, 0, 0);
-    const day = d.getUTCDay();                                   // 0 = Sunday
-    d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day));   // rewind to Monday
-    return d.toISOString().slice(0, 10);
-  }
-  // Best-effort: a counter failure must never block a reward payout.
-  async function bumpQuests(userId, deltas){
-    try{
-      const { data } = await sb.from('profiles').select('weekly_quests').eq('user_id', userId).maybeSingle();
-      const week = weekStartUTC();
-      let wq = (data && data.weekly_quests) || {};
-      if(wq.week !== week) wq = { week, p:{}, claimed:[] };      // a new week wipes the board
-      wq.p = wq.p || {};
-      wq.claimed = wq.claimed || [];
-      for(const k in deltas){ if(deltas[k]) wq.p[k] = (wq.p[k] || 0) + deltas[k]; }
-      await sb.from('profiles').update({ weekly_quests: wq }).eq('user_id', userId);
-    } catch(e){}
-  }
   const GAME_ID = 'asteroid-run';
 
   function xpForLevel(level){ return 25 * level * (level - 1); }
@@ -240,59 +219,6 @@
     const diff = (day === 0 ? -6 : 1 - day);
     d.setUTCDate(d.getUTCDate() + diff);
     return d;
-  }
-
-  async function getWeeklyOwner(game){
-    const thisWeekStart = startOfWeekUTC(new Date());
-    const lastWeekStart = new Date(thisWeekStart);
-    lastWeekStart.setUTCDate(lastWeekStart.getUTCDate() - 7);
-
-    const { data, error } = await sb
-      .from('scores')
-      .select('user_id, username, score')
-      .eq('game', game)
-      .gte('created_at', lastWeekStart.toISOString())
-      .lt('created_at', thisWeekStart.toISOString())
-      .order('score', { ascending: false })
-      .limit(1);
-
-    if(error || !data || data.length === 0) return null;
-    return data[0];
-  }
-
-  // Whenever anyone plays a game, that game's current weekly champion (last
-  // week's #1) earns a small platform-funded coin bonus — no player's coins
-  // are ever taken to fund this.
-  async function checkAndAwardOwnerBonus(game){
-    try{
-      // Nothing to do from here any more. The bonus is paid inside
-      // game_finish_run so it cannot be called on its own in a loop.
-      return;
-    } catch(e){ /* non-critical, fail silently */ }
-  }
-
-  async function awardProgress(userId, username, xpEarned, coinsEarned, tokensEarned){
-    try{
-      const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', userId).maybeSingle();
-      const prevXp = existing ? existing.xp : 0;
-      const prevCoins = existing ? existing.coins : 100;
-      const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
-      const newXp = prevXp + xpEarned;
-      const newCoins = prevCoins + coinsEarned;
-      const newTokens = prevTokens + (tokensEarned || 0);
-
-      if(existing){
-        await sb.from('profiles').update({ xp: newXp, coins: newCoins, battle_tokens: newTokens, username, updated_at: new Date().toISOString() }).eq('user_id', userId);
-      } else {
-        await sb.from('profiles').insert({ user_id: userId, username, xp: newXp, coins: newCoins, battle_tokens: newTokens });
-      }
-
-      const prevLevel = levelFromXp(prevXp);
-      const newLevel = levelFromXp(newXp);
-      return { leveledUp: newLevel > prevLevel, newLevel };
-    } catch(e){
-      return null;
-    }
   }
 
   // ---------- Canvas setup ----------
@@ -921,22 +847,14 @@
     }
 
     const user = sessionData.session.user;
-    const { data: profile } = await sb.from('profiles').select('coins').eq('user_id', user.id).maybeSingle();
-    const currentCoins = profile ? profile.coins : 100; // new players start with 100 free coins
-
-    if(currentCoins < ENTRY_FEE_COINS){
+    const { data: startRes, error: startErr } = await sb.rpc('game_start_run', { p_game: GAME_ID });
+    if(startErr || !startRes || !startRes.ok){
       entryMsg.className = 'submit-msg error';
-      entryMsg.textContent = 'Not enough Coins (you have ' + currentCoins + ', need ' + ENTRY_FEE_COINS + ').';
+      entryMsg.textContent = (startRes && startRes.error === 'not enough coins')
+        ? 'Not enough Coins (you have ' + startRes.coins + ', need ' + ENTRY_FEE_COINS + ').'
+        : 'Could not start the run — please try again.';
       actionBtns.forEach(b => b.disabled = false);
       return;
-    }
-
-    const newCoins = currentCoins - ENTRY_FEE_COINS;
-    if(profile){
-      await sb.from('profiles').update({ coins: newCoins }).eq('user_id', user.id);
-    } else {
-      const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
-      await sb.from('profiles').insert({ user_id: user.id, username, xp: 0, coins: newCoins, battle_tokens: 0 });
     }
 
     actionBtns.forEach(b => b.disabled = false);
@@ -987,29 +905,18 @@
     const user = sessionData.session.user;
     const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
 
-    const { error } = await sb.from('scores').insert({
-      user_id: user.id,
-      username: username,
-      game: GAME_ID,
-      score: finalScore
-    });
+    const { data: res, error } = await sb.rpc('game_finish_run', { p_game: GAME_ID, p_score: finalScore });
 
-    if(error){
+    if(error || !res || !res.ok){
       msg.className = 'submit-msg error';
       msg.textContent = 'Could not save your score. Tap to retry.';
       btn.disabled = false;
       btn.textContent = 'Retry Submit';
+      btn.onclick = submitScore;
     } else {
-      const xpEarned = Math.max(5, Math.floor(finalScore / 20));
-      // Capped below the 20-coin entry fee so a run is always a net coin loss.
-      const coinsEarned = Math.min(19, Math.max(2, Math.floor(finalScore / 40)));
-      await bumpQuests(user.id, { play:1, sharp: coinsEarned >= 19 ? 1 : 0 });
-      const tokensEarned = Math.floor(finalScore / 200);
-      const progress = await awardProgress(user.id, username, xpEarned, coinsEarned, tokensEarned);
-      await checkAndAwardOwnerBonus(GAME_ID);
-
       msg.className = 'submit-msg success';
-      msg.textContent = 'Score saved! +' + xpEarned + ' XP, +' + coinsEarned + ' coins, +' + tokensEarned + ' tokens' + (progress && progress.leveledUp ? ' — LEVEL UP to ' + progress.newLevel + '!' : '');
+      msg.textContent = 'Score saved! +' + res.xp + ' XP, +' + res.coins + ' coins, +' + res.tokens + ' tokens'
+        + (res.leveled_up ? ' — LEVEL UP to ' + res.new_level + '!' : '');
       btn.disabled = true;
       btn.textContent = 'Saved ✓';
     }

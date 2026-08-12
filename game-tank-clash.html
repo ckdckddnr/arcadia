@@ -521,6 +521,28 @@
     }
   }
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ---------- Weekly quests ----------
+  function weekStartUTC(){
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    const day = d.getUTCDay();                                   // 0 = Sunday
+    d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day));   // rewind to Monday
+    return d.toISOString().slice(0, 10);
+  }
+  // Best-effort: a counter failure must never block a reward payout.
+  async function bumpQuests(userId, deltas){
+    try{
+      const { data } = await sb.from('profiles').select('weekly_quests').eq('user_id', userId).maybeSingle();
+      const week = weekStartUTC();
+      let wq = (data && data.weekly_quests) || {};
+      if(wq.week !== week) wq = { week, p:{}, claimed:[] };      // a new week wipes the board
+      wq.p = wq.p || {};
+      wq.claimed = wq.claimed || [];
+      for(const k in deltas){ if(deltas[k]) wq.p[k] = (wq.p[k] || 0) + deltas[k]; }
+      await sb.from('profiles').update({ weekly_quests: wq }).eq('user_id', userId);
+    } catch(e){}
+  }
   const GAME_ID = 'tank-clash';
 
   function xpForLevel(level){ return 25 * level * (level - 1); }
@@ -1597,6 +1619,7 @@
     const tokensEarned = result === 'win' ? DIFFICULTY_WIN_REWARD[matchDifficulty] : DIFFICULTY_LOSS_REWARD[matchDifficulty];
     const entryFeePaid = DIFFICULTY_ENTRY_FEE[matchDifficulty];
     const progress = await awardProgress(user.id, username, xpEarned, coinsEarned, tokensEarned);
+    await bumpQuests(user.id, { play:1, clash: result === 'win' ? 1 : 0 });
 
     if(progress === null){
       msg.className = 'submit-msg error';

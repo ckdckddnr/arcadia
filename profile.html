@@ -96,6 +96,28 @@
   .form-msg.success{background:rgba(52,211,153,0.12); color:var(--green); border:1px solid rgba(52,211,153,0.3);}
 
   .loading-state{color:var(--muted); font-size:15px; padding:60px 0; text-align:center;}
+
+  /* ---- Weekly quests ---- */
+  .quest-row{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    padding:12px 0; border-top:1px solid var(--line);
+  }
+  .quest-row:first-child{ border-top:none; }
+  .quest-main{ flex:1; min-width:200px; }
+  .quest-name{ font-size:14px; font-weight:800; margin-bottom:2px; }
+  .quest-desc{ font-size:12px; color:var(--muted); margin-bottom:7px; }
+  .quest-bar{ height:7px; border-radius:4px; background:var(--surface-2); overflow:hidden; border:1px solid var(--line); }
+  .quest-bar-fill{ height:100%; background:var(--cyan); transition:width .3s ease; }
+  .quest-bar-fill.done{ background:var(--green); }
+  .quest-count{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:11px; color:var(--muted); margin-top:4px; }
+  .quest-reward{ font-size:12px; font-weight:800; min-width:96px; text-align:right; }
+  .quest-btn{
+    font-family:'Inter','Noto Sans KR',sans-serif; font-weight:800; font-size:12px;
+    padding:9px 16px; border-radius:8px; border:none; cursor:pointer; min-width:96px;
+    background:var(--green); color:#04150E;
+  }
+  .quest-btn[disabled]{ background:var(--surface-2); color:var(--muted); border:1px solid var(--line); cursor:default; }
+  .quest-row.bonus{ background:rgba(255,182,39,0.06); border-radius:10px; padding:12px; margin-top:10px; border-top:none; }
 </style>
 </head>
 <body>
@@ -124,6 +146,14 @@
         <button class="btn btn-primary" id="checkin-btn" onclick="claimCheckIn()" style="flex:1; min-width:180px; margin-bottom:0;">Loading...</button>
       </div>
       <div id="streak-track" style="display:grid; grid-template-columns:repeat(7,1fr); gap:6px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Weekly Quests</h2>
+      <div class="card-sub">Five goals every week. Everything resets Monday at 00:00 UTC — the same rollover as the weekly champion.</div>
+      <div class="form-msg" id="quest-msg"></div>
+      <div id="quest-reset" style="font-size:11px; color:var(--muted); margin-bottom:14px;"></div>
+      <div id="quest-list"></div>
     </div>
 
     <div class="card">
@@ -281,6 +311,168 @@
 
   function xpForLevel(level){ return 25 * level * (level - 1); }
   function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
+
+  // ---------- Weekly Quests ----------
+  const WEEKLY_QUESTS = [
+    { key:'play',     name:'Warm-Up',      desc:'Play 10 games in any mode',                  goal:10, reward:{ coins:150 } },
+    { key:'sharp',    name:'Sharpshooter', desc:'Finish 3 solo runs at the maximum payout',   goal:3,  reward:{ coins:200 } },
+    { key:'raid',     name:'Climber',      desc:'Clear 3 Tank Raid floors',                   goal:3,  reward:{ tokens:60 } },
+    { key:'clash',    name:'Tactician',    desc:'Win 5 Tank Clash matches',                   goal:5,  reward:{ tokens:50 } },
+    { key:'meltdown', name:'High Roller',  desc:'Eject from Meltdown at 2.00× or better',     goal:1,  reward:{ runes:1 } }
+  ];
+  const WQ_BONUS = { runes:1 };
+
+  // Mirror of the rune drop table so quest rewards roll on the same odds.
+  const RUNE_TIER_WEIGHTS = { common:54, uncommon:30, epic:10, legendary:5, mythic:1 };
+  const RUNE_POOL = {
+    common:    ['r_green','r_red','r_yellow','r_grey','r_brown','r_white','r_sky','r_moss'],
+    uncommon:  ['r_blue','r_teal','r_lime','r_steel','r_amber','r_rose'],
+    epic:      ['r_violet','r_indigo','r_magenta'],
+    legendary: ['r_pearl','r_gold'],
+    mythic:    ['r_rainbow']
+  };
+  const RUNE_LABEL = {
+    r_green:'Green', r_red:'Red', r_yellow:'Yellow', r_grey:'Grey', r_brown:'Brown', r_white:'White', r_sky:'Sky', r_moss:'Moss',
+    r_blue:'Blue', r_teal:'Teal', r_lime:'Lime', r_steel:'Steel', r_amber:'Amber', r_rose:'Rose',
+    r_violet:'Violet', r_indigo:'Indigo', r_magenta:'Magenta', r_pearl:'Pearl', r_gold:'Gold', r_rainbow:'Rainbow'
+  };
+  function rollRune(){
+    let roll = Math.random() * 100, tier = 'common';
+    for(const k in RUNE_TIER_WEIGHTS){
+      if(roll < RUNE_TIER_WEIGHTS[k]){ tier = k; break; }
+      roll -= RUNE_TIER_WEIGHTS[k];
+    }
+    const pool = RUNE_POOL[tier];
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function weekStartUTC(){
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    const day = d.getUTCDay();
+    d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day));
+    return d.toISOString().slice(0, 10);
+  }
+  function daysUntilResetLabel(){
+    const next = new Date(weekStartUTC() + 'T00:00:00Z');
+    next.setUTCDate(next.getUTCDate() + 7);
+    const ms = next - new Date();
+    const d = Math.floor(ms / 86400000), h = Math.floor((ms % 86400000) / 3600000);
+    return 'Resets in ' + (d > 0 ? d + 'd ' : '') + h + 'h';
+  }
+
+  let weeklyQuests = { week: weekStartUTC(), p:{}, claimed:[] };
+
+  function normaliseQuests(raw){
+    const week = weekStartUTC();
+    let wq = raw && typeof raw === 'object' ? raw : {};
+    if(wq.week !== week) wq = { week, p:{}, claimed:[] };
+    wq.p = wq.p || {};
+    wq.claimed = wq.claimed || [];
+    return wq;
+  }
+
+  function rewardLabel(r){
+    const bits = [];
+    if(r.coins)  bits.push('🪙 ' + r.coins);
+    if(r.tokens) bits.push('⚔ ' + r.tokens);
+    if(r.runes)  bits.push('🔮 ' + r.runes + ' rune');
+    return bits.join(' + ');
+  }
+
+  function allQuestsDone(){
+    return WEEKLY_QUESTS.every(q => (weeklyQuests.p[q.key] || 0) >= q.goal);
+  }
+
+  function renderQuests(){
+    document.getElementById('quest-reset').textContent = daysUntilResetLabel();
+    const rows = WEEKLY_QUESTS.map(q => {
+      const have = Math.min(weeklyQuests.p[q.key] || 0, q.goal);
+      const done = have >= q.goal;
+      const claimed = weeklyQuests.claimed.includes(q.key);
+      const pct = Math.round((have / q.goal) * 100);
+      const btn = claimed
+        ? '<button class="quest-btn" disabled>✓ Claimed</button>'
+        : done
+          ? '<button class="quest-btn" onclick="claimQuest(\'' + q.key + '\')">Claim</button>'
+          : '<button class="quest-btn" disabled>' + pct + '%</button>';
+      return '<div class="quest-row">' +
+        '<div class="quest-main">' +
+          '<div class="quest-name">' + q.name + '</div>' +
+          '<div class="quest-desc">' + q.desc + '</div>' +
+          '<div class="quest-bar"><div class="quest-bar-fill' + (done ? ' done' : '') + '" style="width:' + pct + '%"></div></div>' +
+          '<div class="quest-count">' + have + ' / ' + q.goal + '</div>' +
+        '</div>' +
+        '<div class="quest-reward" style="color:var(--amber);">' + rewardLabel(q.reward) + '</div>' +
+        btn +
+      '</div>';
+    }).join('');
+
+    const bonusDone = allQuestsDone();
+    const bonusClaimed = weeklyQuests.claimed.includes('bonus');
+    const bonusBtn = bonusClaimed
+      ? '<button class="quest-btn" disabled>✓ Claimed</button>'
+      : bonusDone
+        ? '<button class="quest-btn" onclick="claimQuest(\'bonus\')">Claim</button>'
+        : '<button class="quest-btn" disabled>Locked</button>';
+    const bonus = '<div class="quest-row bonus">' +
+      '<div class="quest-main">' +
+        '<div class="quest-name">⭐ All Clear</div>' +
+        '<div class="quest-desc">Complete all five quests this week</div>' +
+      '</div>' +
+      '<div class="quest-reward" style="color:var(--amber);">' + rewardLabel(WQ_BONUS) + '</div>' +
+      bonusBtn +
+    '</div>';
+
+    document.getElementById('quest-list').innerHTML = rows + bonus;
+  }
+
+  async function claimQuest(key){
+    const msg = document.getElementById('quest-msg');
+    msg.className = 'form-msg';
+    msg.textContent = '';
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){ msg.className = 'form-msg error'; msg.textContent = 'Session expired — please sign in again.'; return; }
+    const user = sessionData.session.user;
+
+    // re-read so a stale tab can't double-claim
+    const { data: fresh } = await sb.from('profiles').select('coins,battle_tokens,runes,weekly_quests').eq('user_id', user.id).maybeSingle();
+    weeklyQuests = normaliseQuests(fresh && fresh.weekly_quests);
+
+    if(weeklyQuests.claimed.includes(key)){ renderQuests(); return; }
+
+    const quest = WEEKLY_QUESTS.find(q => q.key === key);
+    const reward = key === 'bonus' ? WQ_BONUS : (quest && quest.reward);
+    if(!reward){ return; }
+    const eligible = key === 'bonus' ? allQuestsDone() : (weeklyQuests.p[key] || 0) >= quest.goal;
+    if(!eligible){ renderQuests(); return; }
+
+    const coins  = (fresh ? (fresh.coins || 0) : 0) + (reward.coins || 0);
+    const tokens = (fresh ? (fresh.battle_tokens || 0) : 0) + (reward.tokens || 0);
+    const runes  = (fresh && Array.isArray(fresh.runes)) ? fresh.runes.slice() : [];
+    const gained = [];
+    for(let i = 0; i < (reward.runes || 0); i++){ const id = rollRune(); runes.push(id); gained.push(RUNE_LABEL[id] + ' Rune'); }
+    weeklyQuests.claimed.push(key);
+
+    const { error } = await sb.from('profiles')
+      .update({ coins, battle_tokens: tokens, runes, weekly_quests: weeklyQuests })
+      .eq('user_id', user.id);
+    if(error){
+      weeklyQuests.claimed = weeklyQuests.claimed.filter(k => k !== key);
+      msg.className = 'form-msg error';
+      msg.textContent = 'Could not claim that reward — try again.';
+      return;
+    }
+
+    currentCoins = coins;
+    currentTokens = tokens;
+    const el = document.getElementById('profile-coins');  if(el) el.textContent = coins.toLocaleString();
+    const el2 = document.getElementById('profile-tokens'); if(el2) el2.textContent = tokens.toLocaleString();
+    msg.className = 'form-msg success';
+    msg.textContent = 'Claimed ' + rewardLabel(reward) + (gained.length ? ' — ' + gained.join(', ') : '') + '!';
+    renderQuests();
+  }
 
   // ---------- Daily Check-In ----------
   const STREAK_REWARDS = [
@@ -454,7 +646,7 @@
     document.getElementById('profile-email').value = user.email;
     document.getElementById('profile-username').value = (user.user_metadata && user.user_metadata.username) || '';
 
-    const { data: profile } = await sb.from('profiles').select('xp,coins,battle_tokens,boss_tanks_owned,checkin_streak,last_checkin_date').eq('user_id', user.id).maybeSingle();
+    const { data: profile } = await sb.from('profiles').select('xp,coins,battle_tokens,boss_tanks_owned,checkin_streak,last_checkin_date,weekly_quests').eq('user_id', user.id).maybeSingle();
     const xp = profile ? profile.xp : 0;
     const coins = profile ? profile.coins : 100;
     const tokens = profile ? (profile.battle_tokens || 0) : 0;
@@ -473,7 +665,9 @@
     document.getElementById('profile-xp-fill').style.width = progress + '%';
     document.getElementById('profile-coins').textContent = coins.toLocaleString();
     document.getElementById('profile-tokens').textContent = tokens.toLocaleString();
+    weeklyQuests = normaliseQuests(profile && profile.weekly_quests);
     renderCheckIn();
+    renderQuests();
     renderTankShop();
 
     document.getElementById('loading').style.display = 'none';

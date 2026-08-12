@@ -57,6 +57,8 @@
   .shop-card img.size-guardian{ height:61px; }
   .shop-card img.size-medic{ height:66px; }
   .shop-card img.size-raider{ height:54px; }
+  .shop-card img.size-sniper{ height:72px; }
+  .shop-card img.size-warden{ height:64px; }
 
   /* ---- Deploy squad picker ---- */
   .squad-grid{ display:flex; flex-wrap:wrap; gap:10px; }
@@ -72,6 +74,8 @@
   .squad-chip img.size-guardian{ height:32px; }
   .squad-chip img.size-medic{ height:35px; }
   .squad-chip img.size-raider{ height:28px; }
+  .squad-chip img.size-sniper{ height:38px; }
+  .squad-chip img.size-warden{ height:33px; }
   .squad-chip .cn{ font-size:12px; font-weight:800; }
   .squad-chip .cr{ font-size:10px; color:var(--muted); }
   .squad-chip.picked{ border-color:var(--cyan); background:rgba(45,225,252,0.10); }
@@ -209,9 +213,11 @@
     heavy: { name:'Heavy Tank', img:'boss_heavy_tank.png', price:125, role:'Braces for +50% damage' },
     guardian: { name:'Guardian Tank', img:'boss_guardian_tank.png', price:100, role:'Shields the whole squad' },
     medic: { name:'Medic Tank', img:'medic_tank.png', price:110, role:'Heals and wards an ally' },
-    raider: { name:'Raider Tank', img:'raider_tank.png', price:120, role:'Moves 2 tiles, rallies the squad' }
+    raider: { name:'Raider Tank', img:'raider_tank.png', price:120, role:'Moves 2 tiles, rallies the squad' },
+    sniper: { name:'Sniper Tank', img:'sniper_tank.png', price:150, role:'Huge damage, rooted after firing' },
+    warden: { name:'Warden Tank', img:'warden_tank.png', price:140, role:'Decoy eats one boss attack' }
   };
-  const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider'];
+  const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider','sniper','warden'];
   const SQUAD_SIZE = 4;
   const SQUAD_KEY = 'arcadia-raid-squad';
   const TANK_RUNES_KEY = 'arcadia-tank-runes';
@@ -257,7 +263,9 @@
     { num:5, name:'Prime Eater', desc:'The final form, combining every scrap horror’s power.', href:'game-boss-fight-5.html', live:true },
     { num:6, name:'Voidwell', desc:'A gravity-well entity that pulls the battlefield toward it.', href:'game-boss-fight-6.html', live:true },
     { num:7, name:'Ashen Coil', desc:'A segmented nanite serpent coiled around a toxic core.', href:'game-boss-fight-7.html', live:true },
-    { num:8, name:'Coming Soon', desc:'The tower keeps climbing.', href:null, live:false }
+    { num:8, name:'Slagfather', desc:'A forge-born titan whose plating still runs molten.', href:'game-boss-fight-8.html', live:true },
+    { num:9, name:'Hollow Choir', desc:'A swarm-mind singing through the husks of dead tanks.', href:'game-boss-fight-9.html', live:true },
+    { num:10, name:'Sovereign Core', desc:'The crowned thing the tower was built to house.', href:'game-boss-fight-10.html', live:true }
   ];
 
   let ownedTanks = [];

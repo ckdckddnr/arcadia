@@ -98,6 +98,8 @@
   .tank-sprite-wrap.size-guardian{ width:67%; height:67%; }
   .tank-sprite-wrap.size-medic{ width:73%; height:73%; }
   .tank-sprite-wrap.size-raider{ width:60%; height:60%; }
+  .tank-sprite-wrap.size-sniper{ width:64%; height:64%; }
+  .tank-sprite-wrap.size-warden{ width:78%; height:78%; }
   .tank-sprite-wrap img{ transform:rotate(90deg); }
   .tank-sprite-wrap img{ width:100%; height:100%; object-fit:contain; image-rendering:pixelated; }
   .tank-sprite-wrap.siege-active img, .roster-tank img.siege-active{
@@ -170,6 +172,8 @@
   .roster-tank img.size-guardian{ height:33px; }
   .roster-tank img.size-medic{ height:36px; }
   .roster-tank img.size-raider{ height:29px; }
+  .roster-tank img.size-sniper{ height:38px; }
+  .roster-tank img.size-warden{ height:34px; }
   .roster-tank .name{ font-size:10px; font-weight:800; margin-top:3px; }
   .roster-tank .hpbar{ height:5px; border-radius:3px; background:var(--surface); margin-top:4px; overflow:hidden; }
   .roster-tank .hpbar-fill{ height:100%; background:var(--green); }
@@ -244,6 +248,8 @@
   .shop-card img.size-guardian{ height:57px; }
   .shop-card img.size-medic{ height:63px; }
   .shop-card img.size-raider{ height:51px; }
+  .shop-card img.size-sniper{ height:68px; }
+  .shop-card img.size-warden{ height:60px; }
   .shop-card .name{ font-weight:800; font-size:13px; margin-bottom:2px; }
   .shop-card .role{ font-size:10px; color:var(--muted); margin-bottom:8px; min-height:26px; }
   .shop-card .price{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; color:var(--pink); font-size:13px; margin-bottom:8px; }
@@ -346,6 +352,28 @@
   const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+  // ---------- Weekly quests ----------
+  function weekStartUTC(){
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    const day = d.getUTCDay();                                   // 0 = Sunday
+    d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day));   // rewind to Monday
+    return d.toISOString().slice(0, 10);
+  }
+  // Best-effort: a counter failure must never block a reward payout.
+  async function bumpQuests(userId, deltas){
+    try{
+      const { data } = await sb.from('profiles').select('weekly_quests').eq('user_id', userId).maybeSingle();
+      const week = weekStartUTC();
+      let wq = (data && data.weekly_quests) || {};
+      if(wq.week !== week) wq = { week, p:{}, claimed:[] };      // a new week wipes the board
+      wq.p = wq.p || {};
+      wq.claimed = wq.claimed || [];
+      for(const k in deltas){ if(deltas[k]) wq.p[k] = (wq.p[k] || 0) + deltas[k]; }
+      await sb.from('profiles').update({ weekly_quests: wq }).eq('user_id', userId);
+    } catch(e){}
+  }
+
   function xpForLevel(level){ return 25 * level * (level - 1); }
   function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
 
@@ -397,9 +425,10 @@
   }
 
   const TANK_CLICK_SOUND = { light:'gui_041.wav', medium:'weapon_outofammo_008.wav', heavy:'weapon_outofammo_005.wav', guardian:'gui_036.wav',
-    medic:'gui_006.wav', raider:'gui_009.wav' };
+    medic:'gui_006.wav', raider:'gui_009.wav', sniper:'gui_014.wav', warden:'gui_021.wav' };
   const TANK_FIRE_SOUND = { light:'weapon_mortar_003.wav', medium:'explosion_med_015.wav', heavy:'explosion_large_005.wav', guardian:'explosion_small_014.wav',
-    medic:'weapon_laser_003.wav', raider:'weapon_blaster_002.wav' };
+    medic:'weapon_laser_003.wav', raider:'weapon_blaster_002.wav',
+    sniper:'weapon_railgun_002.wav', warden:'weapon_blaster_004.wav' };
 
   function sfxTankClick(type){ playClip(TANK_CLICK_SOUND[type], 0.6); }
   function sfxMove(){ playTone(150, 0.13, 'square', 0.06, 90); playNoise(0.08, 0.05, 400); }
@@ -412,6 +441,8 @@
   function sfxShield(){ playClip('shield_up_002.wav', 0.7); }
   function sfxRepair(){ playClip('shield_recharge.wav', 0.75); }
   function sfxWarcry(){ playClip('bonus_powerup.wav', 0.7); }
+  function sfxExpose(){ playClip('bonus_alarm_002.wav', 0.6); }
+  function sfxDecoy(){ playClip('shield_boost.wav', 0.75); }
   function sfxBossHit(){ playNoise(0.15, 0.18, 1500); playTone(220, 0.1, 'square', 0.1, 110); }
   const PATTERN_SOUND = {
     cross: 'explosion_large_005.wav',
@@ -531,12 +562,17 @@
     medic: { key:'medic', name:'Medic Tank', img:'medic_tank.png', hp:1800, atk:90, moveCost:1, attackCost:2, price:110,
       skill:{ key:'repair', name:'Repair Pulse', cost:4, desc:'Heals the most wounded ally for 500 and cuts the damage it takes by 15% for 2 turns.' } },
     raider: { key:'raider', name:'Raider Tank', img:'raider_tank.png', hp:1000, atk:200, moveCost:1, attackCost:2, moveRange:2, price:120,
-      skill:{ key:'warcry', name:'Warcry', cost:4, desc:'Rallies the squad — every ally deals +20% damage for 3 turns.' } }
+      skill:{ key:'warcry', name:'Warcry', cost:4, desc:'Rallies the squad — every ally deals +20% damage for 3 turns.' } },
+    sniper: { key:'sniper', name:'Sniper Tank', img:'sniper_tank.png', hp:900, atk:380, moveCost:1, attackCost:3, price:150,
+      skill:{ key:'expose', name:'Expose', cost:4, desc:'Marks the boss — it takes +25% damage from every tank for 2 turns.' } },
+    warden: { key:'warden', name:'Warden Tank', img:'warden_tank.png', hp:2200, atk:110, moveCost:1, attackCost:2, price:140,
+      skill:{ key:'decoy', name:'Decoy', cost:5, desc:'Deploys a decoy that absorbs the next boss attack completely.' } }
   };
-  const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider'];
+  const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider','sniper','warden'];
   const ROLE_TEXT = {
     light:'Sustained poison damage', medium:'Single devastating burst', heavy:'Brace for +50% damage', guardian:'Shields the whole squad',
-    medic:'Heals and wards an ally', raider:'Moves 2 tiles, rallies the squad'
+    medic:'Heals and wards an ally', raider:'Moves 2 tiles, rallies the squad',
+    sniper:'Huge damage, rooted after firing', warden:'Decoy eats one boss attack'
   };
 
   // ---------- Board config ----------
@@ -623,6 +659,8 @@
   let boss, turn, turnCount, gameOver, phase, enraged;
   let selectedTankId = null, skillMode = null, uidCounter = 0;
   let playerMana = 0, playerMaxMana = 0, teamDmgBuffTurns = 0;
+  let bossExposedTurns = 0;   // Sniper's Expose
+  let squadDecoyActive = false; // Warden's Decoy
 
   function inBounds(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS; }
 
@@ -635,7 +673,7 @@
     return { uid:'t'+uidCounter, type:typeKey, name:def.name, img:def.img, hp:maxHp, maxHp:maxHp,
       atk:Math.round(def.atk * (1 + rb.atk)), moveCost:def.moveCost, attackCost:def.attackCost,
       moveRange:def.moveRange || 1, skill:def.skill, runes:rb,
-      skillUsed:false, siegeModeTurnsLeft:0, shield:0, wardTurnsLeft:0, r, c, alive:true };
+      skillUsed:false, siegeModeTurnsLeft:0, shield:0, wardTurnsLeft:0, firedThisTurn:false, r, c, alive:true };
   }
 
   function formatHp(hp){
@@ -1023,6 +1061,8 @@
     document.getElementById('boss-enrage-tag').style.display = 'none';
 
     teamDmgBuffTurns = 0;
+    bossExposedTurns = 0;
+    squadDecoyActive = false;
     getSquad().forEach((key, i) => {
       const t = makeTank(key, i);
       playerTanks.push(t);
@@ -1095,7 +1135,9 @@
     playerMaxMana = Math.min(playerMaxMana + 1, 10);
     playerMana = playerMaxMana;
     if(teamDmgBuffTurns > 0) teamDmgBuffTurns--;
+    if(bossExposedTurns > 0) bossExposedTurns--;
     for(const t of playerTanks){
+      t.firedThisTurn = false;
       if(t.alive && t.runes && t.runes.regen > 0 && t.hp < t.maxHp){
         t.hp = Math.min(t.maxHp, t.hp + t.runes.regen);
       }
@@ -1105,9 +1147,12 @@
     }
     selectedTankId = null; skillMode = null;
     showTurnBanner('YOUR TURN');
-    document.getElementById('action-hint').textContent = (teamDmgBuffTurns > 0
-      ? '\u2694 Warcry +20% (' + teamDmgBuffTurns + ' turn' + (teamDmgBuffTurns > 1 ? 's' : '') + ' left) \u2014 '
-      : '') + 'Select one of your tanks to move or act.';
+    const buffTags = [];
+    if(teamDmgBuffTurns > 0) buffTags.push('\u2694 Warcry +20% (' + teamDmgBuffTurns + ')');
+    if(bossExposedTurns > 0) buffTags.push('\u25CE Exposed +25% (' + bossExposedTurns + ')');
+    if(squadDecoyActive) buffTags.push('\u25C6 Decoy ready');
+    document.getElementById('action-hint').textContent =
+      (buffTags.length ? buffTags.join('  ') + ' \u2014 ' : '') + 'Select one of your tanks to move or act.';
     render();
     checkDefeatByTurnLimit();
   }
@@ -1141,6 +1186,14 @@
       log('The boss strikes with a ' + PATTERNS[tg.type].label + ' attack!');
 
       const resolveHit = (hitDmg) => {
+        if(squadDecoyActive){
+          squadDecoyActive = false;
+          sfxDecoy();
+          showAction('THE WARDEN DECOY SOAKS THE ATTACK', 'a-heal');
+          log('The Warden decoy absorbs the attack completely.');
+          render();
+          return;
+        }
         triggerBoardShake(0.3);
         tg.tiles.forEach(([r,c]) => {
           const occ = board[r][c].occupant;
@@ -1280,6 +1333,7 @@
 
     const dist = Math.abs(attacker.r-r) + Math.abs(attacker.c-c);
     if(dist < 1 || dist > (attacker.moveRange || 1)) return;
+    if(attacker.type === 'sniper' && attacker.firedThisTurn) return; // rooted by its own recoil
     if(board[r][c].occupant) return;
     if(playerMana < attacker.moveCost) return;
     if(attacker.siegeModeTurnsLeft > 0) return;
@@ -1295,7 +1349,7 @@
     render();
   }
 
-  const TANK_PROJECTILE_COLOR = { light:'#2DE1FC', medium:'#FFB627', heavy:'#FF5C5C', guardian:'#FF5CB6', medic:'#34D399', raider:'#A78BFA' };
+  const TANK_PROJECTILE_COLOR = { light:'#2DE1FC', medium:'#FFB627', heavy:'#FF5C5C', guardian:'#FF5CB6', medic:'#34D399', raider:'#A78BFA', sniper:'#C7D96B', warden:'#6BA8FF' };
 
   function quickAttack(uid){
     if(turn !== 'player' || gameOver) return;
@@ -1306,6 +1360,8 @@
     let dmg = t.atk;
     if(t.siegeModeTurnsLeft > 0) dmg = Math.round(dmg * 1.5);
     if(teamDmgBuffTurns > 0) dmg = Math.round(dmg * 1.2); // Raider's Warcry
+    if(bossExposedTurns > 0) dmg = Math.round(dmg * 1.25); // Sniper's Expose
+    t.firedThisTurn = true;
     sfxAttack(t.type, t.siegeModeTurnsLeft > 0);
     render();
     animateProjectileToBoss(t.r, t.c, TANK_PROJECTILE_COLOR[t.type], () => {
@@ -1364,7 +1420,8 @@
       sfxRailgun();
       render();
       animateProjectileToBoss(t.r, t.c, '#FFB627', () => {
-        const rgDmg = Math.round(500 * (1 + (t.runes ? t.runes.skill : 0)));
+        let rgDmg = Math.round(500 * (1 + (t.runes ? t.runes.skill : 0)));
+        if(bossExposedTurns > 0) rgDmg = Math.round(rgDmg * 1.25);
         boss.hp -= rgDmg; boss.turnsSinceDamage = 0;
         fxFlashBossHit(); triggerBoardShake(0.35);
         showAction('YOUR ' + t.name.toUpperCase() + ' FIRES THE RAILGUN FOR ' + rgDmg + '!', 'a-dmg');
@@ -1394,6 +1451,20 @@
       document.getElementById('action-hint').textContent = skillMode
         ? 'Repair Pulse — tap any ally tank to heal it (tap the skill again to cancel).'
         : 'Select one of your tanks to move or act.';
+      render();
+    } else if(sk.key === 'expose'){
+      playerMana -= sk.cost; t.skillUsed = true;
+      bossExposedTurns = 2;
+      sfxExpose();
+      showAction('YOUR ' + t.name.toUpperCase() + ' EXPOSES THE BOSS (+25% DAMAGE TAKEN)', 'a-warn');
+      log('Your ' + t.name + ' marks the boss — it takes +25% damage for 2 turns.');
+      render();
+    } else if(sk.key === 'decoy'){
+      playerMana -= sk.cost; t.skillUsed = true;
+      squadDecoyActive = true;
+      sfxDecoy();
+      showAction('YOUR ' + t.name.toUpperCase() + ' DEPLOYS A DECOY', 'a-heal');
+      log('Your ' + t.name + ' deploys a decoy — the next boss attack is absorbed.');
       render();
     } else if(sk.key === 'warcry'){
       playerMana -= sk.cost; t.skillUsed = true;
@@ -1458,7 +1529,8 @@
           if(occ.uid === selectedTankId) cls += ' selected-tank';
           if(skillMode && skillMode.key === 'repair' && occ.alive) cls += ' skill-target';
         }
-        if(selected && !occ){
+        // while a skill is picking a target, movement tiles would only confuse the board
+        if(selected && !occ && !skillMode && !(selected.type === 'sniper' && selected.firedThisTurn)){
           const dist = Math.abs(selected.r-r) + Math.abs(selected.c-c);
           if(dist >= 1 && dist <= (selected.moveRange || 1) && playerMana >= selected.moveCost && selected.siegeModeTurnsLeft === 0){
             cls += ' move-target';
@@ -1565,6 +1637,7 @@
       const newFloor = result === 'win' ? Math.max(prevFloor, 3) : prevFloor;
       if(existing) await sb.from('profiles').update({ xp:newXp, coins:newCoins, battle_tokens:newTokens, boss_tower_floor:newFloor, runes:newRunes, username, updated_at:new Date().toISOString() }).eq('user_id', user.id);
       else await sb.from('profiles').insert({ user_id:user.id, username, xp:newXp, coins:newCoins, battle_tokens:newTokens, boss_tower_floor:newFloor, runes:newRunes });
+      await bumpQuests(user.id, { play:1, raid: result === 'win' ? 1 : 0 });
       const leveledUp = levelFromXp(newXp) > levelFromXp(prevXp);
       msg.className = 'submit-msg success';
       const netTokens = tokensEarned - ENTRY_FEE_TOKENS;

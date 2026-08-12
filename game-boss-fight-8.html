@@ -40,15 +40,15 @@
     flex:1; min-width:0; overflow-y:auto; text-align:center;
   }
   #boss-portrait-wrap{ width:150px; height:150px; flex-shrink:0; animation:boss-idle 2.4s ease-in-out infinite; }
-  #boss-portrait{ width:100%; height:100%; filter:drop-shadow(0 0 22px rgba(255,182,39,0.7)); transition:filter 0.15s; }
+  #boss-portrait{ width:100%; height:100%; filter:drop-shadow(0 0 22px rgba(140,255,107,0.7)); transition:filter 0.15s; }
   @keyframes boss-idle{ 0%,100%{ transform:translateY(0) scale(1); } 50%{ transform:translateY(-4px) scale(1.03); } }
   #boss-info{ width:90%; max-width:280px; }
   #boss-name-row{ display:flex; flex-direction:column; align-items:center; gap:6px; margin-bottom:10px; }
-  #boss-name{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:26px; letter-spacing:0.03em; color:var(--amber); text-shadow:0 0 16px rgba(255,182,39,0.6);}
+  #boss-name{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:26px; letter-spacing:0.03em; color:#FF8A3D; text-shadow:0 0 16px rgba(255,138,61,0.6);}
   #boss-phase-tag{ font-size:9px; font-weight:800; padding:2px 8px; border-radius:10px; background:rgba(255,182,39,0.15); color:var(--amber); }
   #boss-enrage-tag{ font-size:9px; font-weight:800; padding:2px 8px; border-radius:10px; background:rgba(255,92,92,0.2); color:var(--red); display:none; }
-  #boss-hp-outer{ height:26px; background:var(--surface-2); border:2px solid var(--amber); border-radius:8px; overflow:hidden; position:relative; box-shadow:0 0 18px rgba(255,182,39,0.3); }
-  #boss-hp-fill{ height:100%; background:linear-gradient(90deg, #7A1F1F, var(--amber)); transition:width 0.5s ease; }
+  #boss-hp-outer{ height:26px; background:var(--surface-2); border:2px solid #8CFF6B; border-radius:8px; overflow:hidden; position:relative; box-shadow:0 0 18px rgba(140,255,107,0.3); }
+  #boss-hp-fill{ height:100%; background:linear-gradient(90deg, #1A3A14, #8CFF6B); transition:width 0.5s ease; }
   #boss-hp-text{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:14px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.9); }
   #boss-turn-count{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:15px; font-weight:800; color:var(--amber); background:rgba(255,182,39,0.1); border:1px solid rgba(255,182,39,0.3); border-radius:8px; padding:6px 14px; flex-shrink:0; margin-top:6px; }
 
@@ -278,7 +278,7 @@
 
 <nav>
   <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
-  <div class="game-title">FLOOR 5 · PRIME EATER</div>
+  <div class="game-title">FLOOR 8 · SLAGFATHER</div>
   <a href="game-boss-battle.html" class="back-link">&larr; Tower</a>
 </nav>
 
@@ -295,7 +295,7 @@
       <div id="boss-portrait-wrap"><img id="boss-portrait" src="" alt="Boss"></div>
       <div id="boss-info">
         <div id="boss-name-row">
-          <div id="boss-name">Prime Eater</div>
+          <div id="boss-name">Slagfather</div>
           <div id="boss-phase-tag">Phase 1</div>
           <div id="boss-enrage-tag">⚡ ENRAGED</div>
         </div>
@@ -319,7 +319,7 @@
   <!-- Start overlay -->
   <div class="overlay hidden" id="start-overlay">
     <div class="panel">
-      <div class="eyebrow">Floor 5 &middot; Boss Battle</div>
+      <div class="eyebrow">Floor 7 &middot; Boss Battle</div>
       <h1>CORE-<span>EATER</span></h1>
       <p>A scrap-devouring horror built from the husks of fallen tanks. No fog here — it's always visible, and so are you.</p>
       <ul style="text-align:left; list-style:none; margin-bottom:16px;">
@@ -328,7 +328,7 @@
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">3 phases:</b> more simultaneous attack zones appear as its HP drops — plan ahead.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 30.</span></li>
       </ul>
-      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);">50 Battle Tokens</b> — win to earn more back.</div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);">80 Battle Tokens</b> — win to earn more back.</div>
       <div class="submit-msg" id="entry-msg"></div>
       <button class="btn btn-primary" id="deploy-btn" onclick="startGame()">Deploy Squad</button>
       <button class="btn btn-ghost" onclick="window.location.href='game-boss-battle.html'">Back to Tower</button>
@@ -445,15 +445,17 @@
   function sfxDecoy(){ playClip('shield_boost.wav', 0.75); }
   function sfxBossHit(){ playNoise(0.15, 0.18, 1500); playTone(220, 0.1, 'square', 0.1, 110); }
   const PATTERN_SOUND = {
-    cross: 'explosion_large_007.wav',
-    column: 'explosion_large_008.wav',
-    row: 'explosion_large_008.wav',
+    cross: 'explosion_large_008.wav',
+    column: 'explosion_large_001.wav',
+    row: 'explosion_large_001.wav',
     diagonal: 'explosion_large_002.wav',
     quadrant: 'explosion_large_mix_001.wav',
-    twincol: 'explosion_large_mix_002.wav',
-    chase: 'explosion_large_mix_003.wav',
+    eclipse: 'explosion_large_mix_002.wav',
+    spiral: 'explosion_large_005.wav',
+    twincol: 'explosion_large_mix_003.wav',
+    chase: 'explosion_large_004.wav',
     half: 'explosion_large_mix_004.wav',
-    scattered: 'explosion_large_005.wav'
+    scattered: 'explosion_large_006.wav'
   };
   function sfxBossAttack(type){
     playClipTimed(PATTERN_SOUND[type] || 'explosion_large_001.wav', 0.85, 4000);
@@ -482,7 +484,7 @@
     }
   }
 
-  const FLOOR_NUM = 5;
+  const FLOOR_NUM = 8;
 
   // ---------- Runes ----------
   // Tier weights are drop chances out of 100 and must sum to 100.
@@ -593,7 +595,7 @@
     return TYPE_ORDER.slice(0, SQUAD_SIZE);
   }
 
-  const BOSS_MAX_HP = 18000;
+  const BOSS_MAX_HP = 28500;
   const PHASE_THRESHOLDS = { p2: 0.6, p3: 0.3 };
   const ENRAGE_TURN = 30;
   const DEFEAT_TURN_LIMIT = 60;
@@ -602,16 +604,19 @@
   const REGEN_PCT = 0.02;
 
   const PATTERNS = {
-    cross:     { label:'Cross',     dmg:640, phase:1, color:'#FF5C5C' },
-    column:    { label:'Column',    dmg:560, phase:1, color:'#2DE1FC' },
-    row:       { label:'Row',       dmg:560, phase:1, color:'#FF5CB6' },
-    diagonal:  { label:'Diagonal',  dmg:590, phase:1, color:'#7CF9C0' },
-    quadrant:  { label:'Quadrant',  dmg:500, phase:1, color:'#FF8A3D' },
-    twincol:   { label:'Twin Columns', dmg:560, phase:2, color:'#A0A8FF' },
-    chase:     { label:'Hunter Lock', dmg:470, phase:2, color:'#FF3D7A' },
-    half:      { label:'Half-Map',  dmg:460, phase:2, color:'#FF9227' },
-    scattered: { label:'Scattered', dmg:360, phase:2, color:'#B84DFF' },
-    full:      { label:'Full-Map',  dmg:180, phase:3, color:'#FFB627' }
+    cross:     { label:'Cross',     dmg:820, phase:1, color:'#FF5C5C' },
+    column:    { label:'Column',    dmg:710, phase:1, color:'#2DE1FC' },
+    row:       { label:'Row',       dmg:710, phase:1, color:'#FF5CB6' },
+    diagonal:  { label:'Diagonal',  dmg:750, phase:1, color:'#7CF9C0' },
+    quadrant:  { label:'Quadrant',  dmg:650, phase:1, color:'#FF8A3D' },
+    eclipse:   { label:'Eclipse',   dmg:620, phase:1, color:'#B084F0' },
+    spiral:    { label:'Coil Lash', dmg:520, phase:1, color:'#8CFF6B' },
+    twincol:   { label:'Twin Columns', dmg:710, phase:2, color:'#A0A8FF' },
+    chase:     { label:'Hunter Lock', dmg:620, phase:2, color:'#FF3D7A' },
+    half:      { label:'Half-Map',  dmg:600, phase:2, color:'#FF9227' },
+    scattered: { label:'Scattered', dmg:460, phase:2, color:'#B84DFF' },
+    pincer:    { label:'Slag Pincer', dmg:560, phase:2, color:'#FFA94D' },
+    full:      { label:'Full-Map',  dmg:260, phase:3, color:'#FFB627' }
   };
 
   function patternTiles(type){
@@ -633,6 +638,25 @@
         // thicken the diagonal by one tile so it reads clearly on a wide board
         const c2 = c + (flip ? -1 : 1);
         if(r>=0&&r<ROWS&&c2>=0&&c2<COLS) tiles.push([r,c2]);
+      }
+    } else if(type === 'spiral'){
+      let r = Math.floor(ROWS/2), c = Math.floor(COLS/2);
+      let dr = 0, dc = 1, steps = 1, stepCount = 0, turns = 0;
+      const maxTiles = 12;
+      while(tiles.length < maxTiles && turns < 8){
+        for(let s=0; s<steps && tiles.length<maxTiles; s++){
+          if(r>=0&&r<ROWS&&c>=0&&c<COLS) tiles.push([r,c]);
+          r += dr; c += dc;
+        }
+        const tmp = dr; dr = dc; dc = -tmp;
+        stepCount++;
+        if(stepCount % 2 === 0) steps++;
+        turns++;
+      }
+    } else if(type === 'eclipse'){
+      const cr = Math.floor(Math.random()*ROWS), cc = Math.floor(Math.random()*COLS);
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+        if(Math.abs(r-cr) + Math.abs(c-cc) <= 2) tiles.push([r,c]);
       }
     } else if(type === 'quadrant'){
       const cornerR = Math.random() < 0.5 ? 0 : ROWS - 3;
@@ -659,6 +683,9 @@
       for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) all.push([r,c]);
       for(let i=all.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [all[i],all[j]]=[all[j],all[i]]; }
       for(let i=0;i<7;i++) tiles.push(all[i]);
+    } else if(type === 'pincer'){
+      // jaws closing from the top and bottom edges — the middle rows are safe
+      for(let c=0;c<COLS;c++){ tiles.push([0,c]); tiles.push([ROWS-1,c]); }
     } else if(type === 'full'){
       for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) tiles.push([r,c]);
     }
@@ -843,9 +870,9 @@
       animateBossChase(tiles, onDone);
     } else if(type === 'column' || type === 'row'){
       animateBossSweep(tiles, onDone);
-    } else if(type === 'half' || type === 'quadrant'){
+    } else if(type === 'half' || type === 'quadrant' || type === 'eclipse'){
       animateBossWave(tiles, onDone);
-    } else if(type === 'scattered'){
+    } else if(type === 'scattered' || type === 'spiral'){
       animateBossScatterShots(tiles, onDone);
     } else {
       animateBossBeamSingle(tiles, onDone);
@@ -1143,15 +1170,15 @@
   const QUEUE_DEPTH = 1;
 
   function poolForPhase(){
-    const pool = ['cross','column','row','diagonal','quadrant'];
-    if(phase >= 2) pool.push('half','scattered','twincol','chase');
+    const pool = ['cross','column','row','diagonal','quadrant','eclipse','spiral'];
+    if(phase >= 2) pool.push('half','scattered','twincol','chase','pincer');
     if(phase >= 3) pool.push('full');
     return pool;
   }
 
   function generateBatch(){
     const pool = poolForPhase();
-    const count = Math.min(3, phase + 1); // Prime Eater starts at 2 simultaneous patterns, caps at 3
+    const count = Math.min(3, phase + 1); // Slagfather starts at 2 simultaneous patterns, caps at 3
     const batch = [];
     for(let i=0;i<count;i++){
       const type = pool[Math.floor(Math.random()*pool.length)];
@@ -1186,7 +1213,7 @@
     if(newPhase !== phase){
       phase = newPhase;
       log('The boss enters Phase ' + phase + '!');
-      showAction('PRIME EATER ENTERS PHASE ' + phase + '!', 'a-warn');
+      showAction('ASHEN COIL ENTERS PHASE ' + phase + '!', 'a-warn');
     }
   }
 
@@ -1245,7 +1272,7 @@
       let dmg = PATTERNS[tg.type].dmg;
       if(enraged) dmg = Math.round(dmg * 1.5);
 
-      showAction('PRIME EATER UNLEASHES ' + PATTERNS[tg.type].label.toUpperCase() + '!', 'a-warn');
+      showAction('ASHEN COIL UNLEASHES ' + PATTERNS[tg.type].label.toUpperCase() + '!', 'a-warn');
       log('The boss strikes with a ' + PATTERNS[tg.type].label + ' attack!');
 
       const resolveHit = (hitDmg) => {
@@ -1281,7 +1308,7 @@
         render();
       };
 
-      const MULTI_HIT_PATTERNS = ['quadrant','twincol','chase','half'];
+      const MULTI_HIT_PATTERNS = ['quadrant','half','twincol'];
       const applyDamage = () => {
         if(MULTI_HIT_PATTERNS.includes(tg.type)){
           const hit1 = Math.round(dmg * 0.55);
@@ -1337,7 +1364,7 @@
       boss.hp = Math.min(boss.maxHp, boss.hp + heal);
       boss.turnsSinceDamage = 0;
       log('The boss regenerates ' + heal + ' HP — you need to keep the pressure on!');
-      showAction('PRIME EATER REGENERATES!', 'a-heal');
+      showAction('ASHEN COIL REGENERATES!', 'a-heal');
     }
 
     checkBossDefeated();
@@ -1348,7 +1375,7 @@
       enraged = true;
       document.getElementById('boss-enrage-tag').style.display = 'inline-block';
       log('The boss enrages — its attacks now hit far harder!');
-      showAction('PRIME EATER IS ENRAGED!', 'a-warn');
+      showAction('ASHEN COIL IS ENRAGED!', 'a-warn');
     }
     telegraphQueue.shift();
     telegraphQueue.push(generateBatch());
@@ -1658,9 +1685,9 @@
 
     const aliveCount = playerTanks.filter(t => t.alive).length;
     if(result === 'win'){
-      document.getElementById('over-eyebrow').textContent = 'Floor 5 Cleared!';
+      document.getElementById('over-eyebrow').textContent = 'Floor 7 Cleared!';
       document.getElementById('over-eyebrow').style.color = 'var(--green)';
-      document.getElementById('battle-summary').textContent = 'Prime Eater destroyed with ' + aliveCount + ' tank(s) still standing, in ' + Math.min(turnCount, DEFEAT_TURN_LIMIT) + ' turns.';
+      document.getElementById('battle-summary').textContent = 'Slagfather destroyed with ' + aliveCount + ' tank(s) still standing, in ' + Math.min(turnCount, DEFEAT_TURN_LIMIT) + ' turns.';
     } else {
       document.getElementById('over-eyebrow').textContent = 'Defeat';
       document.getElementById('over-eyebrow').style.color = 'var(--red)';
@@ -1682,9 +1709,9 @@
     }
     const user = sessionData.session.user;
     const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
-    const xpEarned = result === 'win' ? 550 : 120;
-    const coinsEarned = result === 'win' ? 280 : 45;
-    const tokensEarned = result === 'win' ? 140 : 32;
+    const xpEarned = result === 'win' ? 850 : 180;
+    const coinsEarned = result === 'win' ? 420 : 65;
+    const tokensEarned = result === 'win' ? 205 : 45;
 
     try{
       const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens,boss_tower_floor,runes').eq('user_id', user.id).maybeSingle();
@@ -1697,7 +1724,7 @@
       const prevRunes = (existing && Array.isArray(existing.runes)) ? existing.runes : [];
       const dropped = (result === 'win' && FLOOR_NUM >= 2) ? [rollRune(), rollRune()] : [];
       const newRunes = prevRunes.concat(dropped);
-      const newFloor = result === 'win' ? Math.max(prevFloor, 5) : prevFloor;
+      const newFloor = result === 'win' ? Math.max(prevFloor, 7) : prevFloor;
       if(existing) await sb.from('profiles').update({ xp:newXp, coins:newCoins, battle_tokens:newTokens, boss_tower_floor:newFloor, runes:newRunes, username, updated_at:new Date().toISOString() }).eq('user_id', user.id);
       else await sb.from('profiles').insert({ user_id:user.id, username, xp:newXp, coins:newCoins, battle_tokens:newTokens, boss_tower_floor:newFloor, runes:newRunes });
       await bumpQuests(user.id, { play:1, raid: result === 'win' ? 1 : 0 });
@@ -1805,7 +1832,7 @@
     ownedTanks = profile ? (profile.boss_tanks_owned || []) : [];
     const clearedFloor = profile ? (profile.boss_tower_floor || 0) : 0;
     const TESTING_UNLOCK_ALL = true; // set to false to re-enable normal sequential floor gating
-    if(!TYPE_ORDER.every(k => ownedTanks.includes(k)) || (!TESTING_UNLOCK_ALL && clearedFloor < 4)){
+    if(!TYPE_ORDER.every(k => ownedTanks.includes(k)) || (!TESTING_UNLOCK_ALL && clearedFloor < 6)){
       window.location.href = 'game-boss-battle.html';
       return;
     }
@@ -1814,27 +1841,27 @@
 
   function bossSvg(){
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">' +
-      // outer crowned shell - larger, more elaborate spikes than any prior floor
-      '<path d="M60 2 L68 14 L78 6 L80 20 L96 10 L92 28 L110 26 L98 42 L112 50 L94 58 L106 76 L84 72 L72 98 L60 82 L48 98 L36 72 L14 76 L26 58 L8 50 L22 42 L10 26 L28 28 L24 10 L40 20 L42 6 L52 14 Z" fill="#150507" stroke="#FFB627" stroke-width="2.4"/>' +
-      // secondary crimson plate ring (suggests it has absorbed the other bosses)
-      '<path d="M60 16 L78 24 L84 46 L68 60 L60 56 L52 60 L36 46 L42 24 Z" fill="#2a0a0a" stroke="#FF5C5C" stroke-width="1.8"/>' +
-      // twin bladed arms
-      '<path d="M18 44 L2 56 L12 70 L4 84" fill="none" stroke="#FF5C5C" stroke-width="5" stroke-linecap="round"/>' +
-      '<path d="M102 44 L118 56 L108 70 L116 84" fill="none" stroke="#FF5C5C" stroke-width="5" stroke-linecap="round"/>' +
-      '<circle cx="4" cy="84" r="4" fill="#FFB627"/><circle cx="116" cy="84" r="4" fill="#FFB627"/>' +
-      // prime core - dual layered, gold-over-crimson (most intense of all floors)
-      '<circle cx="60" cy="52" r="19" fill="#2a0a0a" stroke="#FFB627" stroke-width="2.4"/>' +
-      '<circle cx="60" cy="52" r="12" fill="#FF5C5C"><animate attributeName="r" values="10;14;10" dur="0.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.85;1;0.85" dur="0.8s" repeatCount="indefinite"/></circle>' +
-      '<circle cx="60" cy="52" r="5" fill="#FFF3D0"/>' +
-      // crowned eye lights
-      '<circle cx="44" cy="28" r="3.6" fill="#FFB627"><animate attributeName="opacity" values="1;0.25;1" dur="1.1s" repeatCount="indefinite"/></circle>' +
-      '<circle cx="76" cy="28" r="3.6" fill="#FFB627"><animate attributeName="opacity" values="1;0.25;1" dur="1.1s" begin="0.3s" repeatCount="indefinite"/></circle>' +
-      // jagged fanged jaw, wider than the other bosses
-      '<path d="M44 80 L52 90 L60 82 L68 90 L76 80 L70 74 L60 80 L50 74 Z" fill="#2a0a0a" stroke="#FFB627" stroke-width="1.6"/>' +
+      // squat anvil-shaped forge titan, wider than it is tall
+      '<path d="M18 96 L102 96 L92 66 L28 66 Z" fill="#2A1508" stroke="#FF8A3D" stroke-width="2.2"/>' +
+      '<path d="M28 66 L92 66 L84 34 L36 34 Z" fill="#3A1D0A" stroke="#FF8A3D" stroke-width="2"/>' +
+      // molten cracks bleeding through the plating
+      '<path d="M44 92 L50 74 L44 66" fill="none" stroke="#FF8A3D" stroke-width="2.4" stroke-linecap="round" opacity="0.9"><animate attributeName="opacity" values="0.45;1;0.45" dur="1.6s" repeatCount="indefinite"/></path>' +
+      '<path d="M74 92 L68 76 L76 66" fill="none" stroke="#FF8A3D" stroke-width="2.4" stroke-linecap="round" opacity="0.7"><animate attributeName="opacity" values="1;0.4;1" dur="1.9s" repeatCount="indefinite"/></path>' +
+      // furnace maw
+      '<rect x="48" y="44" width="24" height="14" rx="3" fill="#120802" stroke="#FF8A3D" stroke-width="1.8"/>' +
+      '<rect x="51" y="47" width="18" height="8" fill="#FFD9A0"><animate attributeName="opacity" values="0.6;1;0.6" dur="0.9s" repeatCount="indefinite"/></rect>' +
+      // shoulder stacks belching heat
+      '<rect x="30" y="20" width="12" height="16" rx="2" fill="#3A1D0A" stroke="#FF8A3D" stroke-width="1.6"/>' +
+      '<rect x="78" y="20" width="12" height="16" rx="2" fill="#3A1D0A" stroke="#FF8A3D" stroke-width="1.6"/>' +
+      '<circle cx="36" cy="16" r="3" fill="#FF8A3D" opacity="0.8"><animate attributeName="cy" values="16;4;16" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0;0.8" dur="2.4s" repeatCount="indefinite"/></circle>' +
+      '<circle cx="84" cy="16" r="2.6" fill="#FF8A3D" opacity="0.7"><animate attributeName="cy" values="16;2;16" dur="2.9s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.7;0;0.7" dur="2.9s" repeatCount="indefinite"/></circle>' +
+      // eyes set deep in the brow
+      '<circle cx="50" cy="38" r="2.6" fill="#FFD9A0"><animate attributeName="opacity" values="1;0.25;1" dur="1.1s" repeatCount="indefinite"/></circle>' +
+      '<circle cx="70" cy="38" r="2.6" fill="#FFD9A0"><animate attributeName="opacity" values="1;0.25;1" dur="1.1s" begin="0.4s" repeatCount="indefinite"/></circle>' +
     '</svg>';
   }
 
-  const ENTRY_FEE_TOKENS = 50;
+  const ENTRY_FEE_TOKENS = 80;
 
   async function startGame(){
     const entryMsg = document.getElementById('entry-msg');

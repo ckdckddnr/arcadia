@@ -248,11 +248,9 @@
   // are ever taken to fund this.
   async function checkAndAwardOwnerBonus(game){
     try{
-      const owner = await getWeeklyOwner(game);
-      if(!owner) return;
-      const { data: existing } = await sb.from('profiles').select('coins').eq('user_id', owner.user_id).maybeSingle();
-      const prevCoins = existing ? existing.coins : 0;
-      await sb.from('profiles').update({ coins: prevCoins + 1 }).eq('user_id', owner.user_id);
+      // Handled server-side: clients are no longer permitted to read or write
+      // another player's row, which is exactly what this used to do.
+      await sb.rpc('award_weekly_champion_bonus', { p_game: game });
     } catch(e){ /* non-critical, fail silently */ }
   }
 

@@ -157,6 +157,23 @@
   #mobile-log-panel .log-line.log-neutral{ color:var(--muted); border-left-color:var(--muted); }
 
   #action-hint{ text-align:center; font-size:12px; color:var(--muted); padding-bottom:3px; min-height:15px; }
+
+  /* squad-wide effects, always on screen while they last */
+  #squad-buffs{ display:flex; justify-content:center; flex-wrap:wrap; gap:5px; min-height:0; padding-bottom:3px; }
+  #squad-buffs:empty{ display:none; }
+  .buff-chip{ display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:800; padding:2px 9px; border-radius:10px; }
+  .buff-chip.warcry{ background:rgba(167,139,250,0.18); color:#A78BFA; }
+  .buff-chip.expose{ background:rgba(199,217,107,0.18); color:#C7D96B; }
+  .buff-chip.decoy{  background:rgba(107,168,255,0.18); color:#6BA8FF; }
+
+  /* per-tank state, stacked in the tile corner */
+  .tile .status-badges{ position:absolute; top:1px; right:1px; z-index:3; display:flex; flex-direction:column; align-items:flex-end; gap:1px; pointer-events:none; }
+  .tile .sb{ font-size:8px; font-weight:800; line-height:1.15; padding:1px 3px; border-radius:4px; background:rgba(6,9,14,0.88); }
+  .tile .sb.root{ color:#C7D96B; }
+  .tile .sb.ward{ color:var(--green); }
+  .tile .sb.siege{ color:var(--pink); }
+  .roster-tank .root-tag{ font-size:8px; color:#C7D96B; font-weight:800; margin-top:1px; }
+  #boss-exposed-tag{ font-size:9px; font-weight:800; padding:2px 8px; border-radius:10px; background:rgba(199,217,107,0.18); color:#C7D96B; display:none; }
   .roster{ display:flex; gap:10px; padding:7px 16px; overflow-x:auto; justify-content:center; }
   .roster-tank{
     flex-shrink:0; width:108px; padding:8px; border-radius:10px; background:var(--surface-2); border:2px solid var(--line);
@@ -264,7 +281,9 @@
     .board-wrap{ flex:2.2; }
     #boss-banner{ flex:1; padding:6px 4px; gap:6px; }
     #boss-portrait-wrap{ width:38px; height:38px; }
-    #boss-name{ font-size:9px; } #boss-phase-tag,#boss-enrage-tag{ font-size:7px; padding:1px 5px; }
+    #boss-name{ font-size:9px; } #boss-phase-tag,#boss-enrage-tag,#boss-exposed-tag{ font-size:7px; padding:1px 5px; }
+    .buff-chip{ font-size:9px; padding:1px 7px; }
+    .tile .sb{ font-size:7px; padding:1px 2px; }
     #boss-info{ width:100%; }
     #boss-hp-outer{ height:16px; }
     #boss-hp-text{ font-size:9px; }
@@ -298,6 +317,7 @@
           <div id="boss-name">Voidwell</div>
           <div id="boss-phase-tag">Phase 1</div>
           <div id="boss-enrage-tag">⚡ ENRAGED</div>
+          <div id="boss-exposed-tag">◎ EXPOSED</div>
         </div>
         <div id="boss-hp-outer"><div id="boss-hp-fill" style="width:100%;"></div><div id="boss-hp-text">7000 / 7000</div></div>
       </div>
@@ -308,6 +328,7 @@
 
   <div id="action-banner"></div>
   <div id="action-hint">Select one of your tanks to move or act.</div>
+  <div id="squad-buffs"></div>
 
   <div class="roster" id="player-roster"></div>
 
@@ -1129,6 +1150,8 @@
     turnCount = 1; phase = 1; enraged = false;
     document.getElementById('combat-log').innerHTML = '';
     document.getElementById('boss-enrage-tag').style.display = 'none';
+    document.getElementById('boss-exposed-tag').style.display = 'none';
+    document.getElementById('squad-buffs').innerHTML = '';
 
     teamDmgBuffTurns = 0;
     bossExposedTurns = 0;
@@ -1217,12 +1240,7 @@
     }
     selectedTankId = null; skillMode = null;
     showTurnBanner('YOUR TURN');
-    const buffTags = [];
-    if(teamDmgBuffTurns > 0) buffTags.push('\u2694 Warcry +20% (' + teamDmgBuffTurns + ')');
-    if(bossExposedTurns > 0) buffTags.push('\u25CE Exposed +25% (' + bossExposedTurns + ')');
-    if(squadDecoyActive) buffTags.push('\u25C6 Decoy ready');
-    document.getElementById('action-hint').textContent =
-      (buffTags.length ? buffTags.join('  ') + ' \u2014 ' : '') + 'Select one of your tanks to move or act.';
+    document.getElementById('action-hint').textContent = 'Select one of your tanks to move or act.';
     render();
     checkDefeatByTurnLimit();
   }
@@ -1547,6 +1565,15 @@
   }
 
   // ---------- Rendering ----------
+  // Small stacked chips so a tank's restrictions read at a glance on the board.
+  function statusBadges(t){
+    const b = [];
+    if(t.siegeModeTurnsLeft > 0) b.push('<div class="sb siege">⚡' + t.siegeModeTurnsLeft + '</div>');
+    if(t.wardTurnsLeft > 0)      b.push('<div class="sb ward">✚' + t.wardTurnsLeft + '</div>');
+    if(t.type === 'sniper' && t.firedThisTurn) b.push('<div class="sb root">🔒</div>');
+    return b.length ? '<div class="status-badges">' + b.join('') + '</div>' : '';
+  }
+
   function manaCrystals(mana, max){
     let html = '';
     for(let i=0;i<max;i++) html += '<div class="mana-crystal' + (i<mana?' filled':'') + '"></div>';
@@ -1560,6 +1587,16 @@
     document.getElementById('boss-hp-fill').style.width = pct + '%';
     document.getElementById('boss-hp-text').textContent = formatHp(Math.max(0,boss.hp)) + ' / ' + formatHp(boss.maxHp);
     document.getElementById('boss-phase-tag').textContent = 'Phase ' + phase;
+
+    const exposedTag = document.getElementById('boss-exposed-tag');
+    exposedTag.style.display = bossExposedTurns > 0 ? 'inline-block' : 'none';
+    exposedTag.textContent = '◎ EXPOSED +25% (' + bossExposedTurns + ')';
+
+    const chips = [];
+    if(teamDmgBuffTurns > 0) chips.push('<span class="buff-chip warcry">⚔ Warcry +20% · ' + teamDmgBuffTurns + ' turn' + (teamDmgBuffTurns > 1 ? 's' : '') + '</span>');
+    if(bossExposedTurns > 0) chips.push('<span class="buff-chip expose">◎ Exposed +25% · ' + bossExposedTurns + ' turn' + (bossExposedTurns > 1 ? 's' : '') + '</span>');
+    if(squadDecoyActive)     chips.push('<span class="buff-chip decoy">◆ Decoy ready</span>');
+    document.getElementById('squad-buffs').innerHTML = chips.join('');
     document.getElementById('boss-turn-count').textContent = 'Turn ' + Math.min(turnCount, DEFEAT_TURN_LIMIT);
 
     // "next attacks" preview list — shows the queued batches in order
@@ -1595,6 +1632,7 @@
           content = '<div class="tank-sprite-wrap size-' + occ.type + siegeCls + '"><img src="' + occ.img + '" alt=""></div>' +
             '<div class="hp-num">' + formatHp(occ.hp) + '</div>' +
             (occ.shield > 0 ? '<div class="shield-badge">🛡</div>' : '') +
+            statusBadges(occ) +
             '<div class="hp-mini"><div class="hp-mini-fill" style="width:' + Math.max(0,(occ.hp/occ.maxHp*100)) + '%;"></div></div>';
           if(occ.uid === selectedTankId) cls += ' selected-tank';
           if(skillMode && skillMode.key === 'repair' && occ.alive) cls += ' skill-target';
@@ -1620,7 +1658,8 @@
       const onclick = t.alive ? 'onclick="selectTank(\'' + t.uid + '\')"' : '';
       const shieldTag = (t.shield > 0 ? '<div class="shield-tag">🛡 ' + t.shield + '</div>' : '') +
         (t.wardTurnsLeft > 0 ? '<div class="shield-tag" style="color:var(--green);">✚ x' + t.wardTurnsLeft + '</div>' : '');
-      const siegeTag = t.siegeModeTurnsLeft > 0 ? '<div class="siege-tag">⚡x' + t.siegeModeTurnsLeft + '</div>' : '';
+      const siegeTag = (t.siegeModeTurnsLeft > 0 ? '<div class="siege-tag">⚡x' + t.siegeModeTurnsLeft + '</div>' : '') +
+        (t.type === 'sniper' && t.firedThisTurn ? '<div class="root-tag">🔒 Rooted</div>' : '');
 
       const canAct = t.alive && turn === 'player' && !gameOver;
       const atkDisabled = !canAct || playerMana < t.attackCost;

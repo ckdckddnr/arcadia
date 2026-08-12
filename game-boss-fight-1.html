@@ -1821,7 +1821,29 @@
     '</svg>';
   }
 
-  function startGame(){
+  async function startGame(){
+    // Floor 1 is free, but still go through the server so the "own 4 tanks"
+    // rule holds for someone who reached this page without the lobby.
+    const deployBtn = document.getElementById('deploy-btn');
+    const entryMsg = document.getElementById('entry-msg');
+    if(deployBtn){ deployBtn.disabled = true; deployBtn.textContent = 'Checking squad...'; }
+
+    const { data: startRes, error: startErr } = await sb.rpc('game_start_run', { p_game: 'boss-1' });
+    if(startErr || !startRes || !startRes.ok){
+      const why = startRes && startRes.error;
+      if(entryMsg){
+        entryMsg.className = 'submit-msg error';
+        entryMsg.innerHTML = why === 'need 4 tanks'
+          ? 'You need any 4 tanks before entering the tower. <a href="game-boss-battle.html" class="link-text">Open the armory</a>.'
+          : why === 'not signed in'
+            ? '<a href="auth.html" class="link-text">Log in</a> to enter the tower.'
+            : 'Could not enter this floor — please try again.';
+      }
+      if(deployBtn){ deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad'; }
+      return;
+    }
+
+    if(deployBtn){ deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad'; }
     document.getElementById('start-overlay').classList.add('hidden');
     document.getElementById('over-overlay').classList.add('hidden');
     resetGame();

@@ -1,0 +1,12 @@
+# Local Claude Code settings and preview config — machine-specific, not site content.
+# Until now these were excluded by hand on every commit, which only had to be
+# forgotten once.
+.claude/
+
+# Node, if dependencies ever get installed locally
+node_modules/
+
+# OS noise
+Thumbs.db
+desktop.ini
+.DS_Store

@@ -405,28 +405,6 @@
   const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ---------- Weekly quests ----------
-  function weekStartUTC(){
-    const d = new Date();
-    d.setUTCHours(0, 0, 0, 0);
-    const day = d.getUTCDay();                                   // 0 = Sunday
-    d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day));   // rewind to Monday
-    return d.toISOString().slice(0, 10);
-  }
-  // Best-effort: a counter failure must never block a reward payout.
-  async function bumpQuests(userId, deltas){
-    try{
-      const { data } = await sb.from('profiles').select('weekly_quests').eq('user_id', userId).maybeSingle();
-      const week = weekStartUTC();
-      let wq = (data && data.weekly_quests) || {};
-      if(wq.week !== week) wq = { week, p:{}, claimed:[] };      // a new week wipes the board
-      wq.p = wq.p || {};
-      wq.claimed = wq.claimed || [];
-      for(const k in deltas){ if(deltas[k]) wq.p[k] = (wq.p[k] || 0) + deltas[k]; }
-      await sb.from('profiles').update({ weekly_quests: wq }).eq('user_id', userId);
-    } catch(e){}
-  }
-
   function xpForLevel(level){ return 25 * level * (level - 1); }
   function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
 
@@ -1770,39 +1748,24 @@
       msg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to earn XP, coins, and tokens from this fight.';
       return;
     }
-    const user = sessionData.session.user;
-    const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
-    const xpEarned = result === 'win' ? 220 : 55;
-    const coinsEarned = result === 'win' ? 120 : 20;
-    const tokensEarned = result === 'win' ? 60 : 14;
+    const { data: res, error } = await sb.rpc('game_finish_run', {
+      p_game: 'boss-' + FLOOR_NUM, p_win: result === 'win', p_floor: FLOOR_NUM
+    });
 
-    try{
-      const { data: existing } = await sb.from('profiles').select('xp,coins,battle_tokens,boss_tower_floor,runes').eq('user_id', user.id).maybeSingle();
-      const prevXp = existing ? existing.xp : 0;
-      const prevCoins = existing ? existing.coins : 100;
-      const prevTokens = existing ? (existing.battle_tokens || 0) : 0;
-      const prevFloor = existing ? (existing.boss_tower_floor || 0) : 0;
-      const newXp = prevXp + xpEarned, newCoins = prevCoins + coinsEarned, newTokens = prevTokens + tokensEarned;
-      // Floors from 2 up drop two runes per clear.
-      const prevRunes = (existing && Array.isArray(existing.runes)) ? existing.runes : [];
-      const dropped = (result === 'win' && FLOOR_NUM >= 2) ? [rollRune(), rollRune()] : [];
-      const newRunes = prevRunes.concat(dropped);
-      const newFloor = result === 'win' ? Math.max(prevFloor, 2) : prevFloor;
-      if(existing) await sb.from('profiles').update({ xp:newXp, coins:newCoins, battle_tokens:newTokens, boss_tower_floor:newFloor, runes:newRunes, username, updated_at:new Date().toISOString() }).eq('user_id', user.id);
-      else await sb.from('profiles').insert({ user_id:user.id, username, xp:newXp, coins:newCoins, battle_tokens:newTokens, boss_tower_floor:newFloor, runes:newRunes });
-      await bumpQuests(user.id, { play:1, raid: result === 'win' ? 1 : 0 });
-      const leveledUp = levelFromXp(newXp) > levelFromXp(prevXp);
-      msg.className = 'submit-msg success';
-      const netTokens = tokensEarned - ENTRY_FEE_TOKENS;
-      const netTag = (netTokens >= 0 ? '+' : '') + netTokens + ' net tokens (paid ' + ENTRY_FEE_TOKENS + ', earned ' + tokensEarned + ')';
-      const runeLine = dropped.length
-        ? ' 🔮 Runes found: ' + dropped.map(id => RUNES[id].name).join(' + ') + '!'
-        : '';
-      msg.innerHTML = '+' + xpEarned + ' XP, +' + coinsEarned + ' coins, ' + netTag +
-        (leveledUp ? ' — LEVEL UP to ' + levelFromXp(newXp) + '!' : '') + runeLine;
-    } catch(e){
+    if(error || !res || !res.ok){
       msg.className = 'submit-msg error';
       msg.textContent = 'Could not record your rewards this time.';
+    } else {
+      const drops = Array.isArray(res.runes) ? res.runes : [];
+      const netTokens = res.tokens - ENTRY_FEE_TOKENS;
+      const netTag = (netTokens >= 0 ? '+' : '') + netTokens +
+        ' net tokens (paid ' + ENTRY_FEE_TOKENS + ', earned ' + res.tokens + ')';
+      const runeLine = drops.length
+        ? ' 🔮 Runes found: ' + drops.map(id => (RUNES[id] || {}).name || id).join(' + ') + '!'
+        : '';
+      msg.className = 'submit-msg success';
+      msg.innerHTML = '+' + res.xp + ' XP, +' + res.coins + ' coins, ' + netTag +
+        (res.leveled_up ? ' — LEVEL UP to ' + res.new_level + '!' : '') + runeLine;
     }
   }
 
@@ -1839,37 +1802,18 @@
       shopMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to purchase boss tanks.';
       return;
     }
-    const user = sessionData.session.user;
-    const { data: profile } = await sb.from('profiles').select('battle_tokens,boss_tanks_owned').eq('user_id', user.id).maybeSingle();
-    const tokens = profile ? (profile.battle_tokens || 0) : 0;
-    const owned = profile ? (profile.boss_tanks_owned || []) : [];
-    const price = BOSS_TANK_TYPES[key].price;
-
-    if(owned.includes(key)) return;
-    if(tokens < price){
+    // The server owns the price and the balance check now.
+    const { data: buyRes, error: buyErr } = await sb.rpc('buy_tank', { p_tank: key });
+    if(buyErr || !buyRes || !buyRes.ok){
+      const why = buyRes && buyRes.error;
       shopMsg.className = 'submit-msg error';
-      shopMsg.textContent = 'Not enough Battle Tokens for ' + BOSS_TANK_TYPES[key].name + '.';
+      shopMsg.textContent = why === 'not enough tokens'
+        ? 'Not enough Battle Tokens for ' + BOSS_TANK_TYPES[key].name + '.'
+        : why === 'already owned' ? '' : 'Purchase failed — please try again.';
       return;
     }
-
-    const newOwned = owned.concat([key]);
-    const newTokens = tokens - price;
-    let dbError = null;
-    if(profile){
-      const { error } = await sb.from('profiles').update({ battle_tokens:newTokens, boss_tanks_owned:newOwned }).eq('user_id', user.id);
-      dbError = error;
-    } else {
-      const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
-      const { error } = await sb.from('profiles').insert({ user_id:user.id, username, battle_tokens:newTokens, boss_tanks_owned:newOwned });
-      dbError = error;
-    }
-    if(dbError){
-      shopMsg.className = 'submit-msg error';
-      shopMsg.textContent = 'Purchase failed: ' + dbError.message;
-      console.error('buyTank error', dbError);
-      return;
-    }
-    ownedTanks = newOwned;
+    const newTokens = buyRes.tokens;
+    ownedTanks = buyRes.owned || [];
     shopMsg.className = 'submit-msg success';
     shopMsg.textContent = BOSS_TANK_TYPES[key].name + ' acquired!';
     renderShop(newTokens);
@@ -1939,18 +1883,18 @@
       deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad';
       return;
     }
-    const user = sessionData.session.user;
-    const { data: profile } = await sb.from('profiles').select('battle_tokens').eq('user_id', user.id).maybeSingle();
-    const currentTokens = profile ? (profile.battle_tokens || 0) : 0;
-
-    if(currentTokens < ENTRY_FEE_TOKENS){
+    const { data: startRes, error: startErr } = await sb.rpc('game_start_run', { p_game: 'boss-' + FLOOR_NUM });
+    if(startErr || !startRes || !startRes.ok){
+      const why = startRes && startRes.error;
       entryMsg.className = 'submit-msg error';
-      entryMsg.textContent = 'Not enough Battle Tokens (you have ' + currentTokens + ', need ' + ENTRY_FEE_TOKENS + ').';
-      deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad';
+      entryMsg.textContent =
+        why === 'not enough tokens' ? 'Not enough Battle Tokens (you have ' + startRes.tokens + ', need ' + startRes.need + ').'
+      : why === 'need 4 tanks'      ? 'You need any 4 tanks before entering the tower.'
+      : 'Could not enter this floor — please try again.';
+      deployBtn.disabled = false;
+      deployBtn.textContent = 'Deploy Squad';
       return;
     }
-
-    await sb.from('profiles').update({ battle_tokens: currentTokens - ENTRY_FEE_TOKENS }).eq('user_id', user.id);
 
     deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad';
     document.getElementById('start-overlay').classList.add('hidden');

@@ -207,6 +207,19 @@
 
   /* GAMES */
   .games{padding:100px 5vw;}
+  .library-split{ display:flex; align-items:center; gap:16px; max-width:1300px; margin:56px auto 6px; }
+  .library-split.first{ margin-top:0; }
+  .library-split-line{ flex:1; height:1px; background:linear-gradient(90deg, transparent, var(--line), transparent); }
+  .library-split-label{
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:26px; letter-spacing:0.06em;
+    white-space:nowrap; color:var(--amber);
+  }
+  .library-note{ max-width:1300px; margin:0 auto 26px; text-align:center; color:var(--muted); font-size:15px; }
+  @media (max-width:620px){
+    .library-split{ gap:10px; margin-top:40px; }
+    .library-split-label{ font-size:20px; }
+    .library-note{ font-size:13px; margin-bottom:20px; }
+  }
   .game-grid{
     display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
     gap:24px; max-width:1300px; margin:0 auto;
@@ -373,6 +386,14 @@
     <div class="eyebrow">Game Library</div>
     <h2>Pick a game</h2>
   </div>
+
+  <div class="library-split first">
+    <div class="library-split-line"></div>
+    <div class="library-split-label">🪙 Coins</div>
+    <div class="library-split-line"></div>
+  </div>
+  <p class="library-note">Quick solo runs. Every game pays out Coins and Battle Tokens.</p>
+
   <div class="game-grid">
     <div class="game-card">
       <div class="game-thumb" style="background:linear-gradient(135deg,#0e1f2c,#1a1230); padding:0; overflow:hidden;">
@@ -460,6 +481,69 @@
       <div class="game-meta"><span>One-button precision</span><span class="players">● Solo</span></div>
       <div class="game-footer"><span class="entry-fee">🪙 20 Coins</span><a href="game-orbit-snap.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
     </div>
+    <div class="game-card">
+      <div class="game-thumb" style="background:linear-gradient(135deg,#1a1508,#241d0e); padding:0; overflow:hidden; display:flex; align-items:center; justify-content:center;">
+        <svg viewBox="0 0 120 120" width="60%" height="60%">
+          <rect x="30" y="82" width="60" height="18" rx="3" fill="#2DE1FC" opacity="0.9"/>
+          <rect x="38" y="62" width="44" height="18" rx="3" fill="#34D399" opacity="0.9"/>
+          <rect x="26" y="42" width="52" height="18" rx="3" fill="#FFB627" opacity="0.95"/>
+          <rect x="44" y="22" width="30" height="18" rx="3" fill="#FF5CB6" opacity="0.95"/>
+          <!-- moving block sliding above the tower, about to drop -->
+          <rect x="20" y="2" width="30" height="15" rx="3" fill="#7CF9C0" opacity="0.95">
+            <animate attributeName="x" values="10;80;10" dur="2.1s" repeatCount="indefinite"/>
+          </rect>
+        </svg>
+      </div>
+      <div class="game-title">Stack Tower <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>
+      <div class="game-meta"><span>Precision stacking</span><span class="players">● Solo</span></div>
+      <div class="game-footer"><span class="entry-fee">🪙 20 Coins</span><a href="game-stack-tower.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
+    </div>
+    <div class="game-card">
+      <div class="game-thumb" style="background:linear-gradient(135deg,#0c1f16,#122a1c); padding:0; overflow:hidden; display:flex; align-items:center; justify-content:center;">
+        <svg viewBox="0 0 120 120" width="65%" height="65%">
+          <line x1="10" y1="90" x2="110" y2="90" stroke="#242B38" stroke-width="3" stroke-dasharray="6 6">
+            <animate attributeName="stroke-dashoffset" values="0;-24" dur="0.8s" repeatCount="indefinite"/>
+          </line>
+          <g>
+            <animateTransform attributeName="transform" type="translate" values="0 0; 0 -14; 0 0" dur="0.7s" repeatCount="indefinite"/>
+            <rect x="20" y="46" width="26" height="26" rx="4" fill="#2DE1FC"/>
+            <rect x="26" y="40" width="10" height="8" fill="#0F5C6E"/>
+          </g>
+          <g>
+            <animateTransform attributeName="transform" type="translate" values="30 0; -15 0; 30 0" dur="1.6s" repeatCount="indefinite"/>
+            <rect x="80" y="62" width="18" height="28" fill="#FF5C5C"/>
+            <rect x="66" y="58" width="10" height="32" fill="#FF9227"/>
+          </g>
+        </svg>
+      </div>
+      <div class="game-title">One-Button Dash <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>
+      <div class="game-meta"><span>Endless runner</span><span class="players">● Solo</span></div>
+      <div class="game-footer"><span class="entry-fee">🪙 20 Coins</span><a href="game-one-button-dash.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
+    </div>
+    <div class="game-card">
+      <div class="game-thumb" style="background:radial-gradient(ellipse at 50% 50%, #2a1508, #150a05); padding:0; overflow:hidden; display:flex; align-items:center; justify-content:center;">
+        <svg viewBox="0 0 120 120" width="66%" height="66%">
+          <circle cx="60" cy="60" r="46" fill="none" stroke="#241208" stroke-width="10"/>
+          <path d="M60 14 A46 46 0 0 1 96 76" fill="none" stroke="#FF5C5C" stroke-width="10" stroke-linecap="round"/>
+          <path d="M60 14 A46 46 0 0 0 30 32" fill="none" stroke="#34D399" stroke-width="10" stroke-linecap="round"/>
+          <circle cx="60" cy="60" r="9" fill="#FFB627"><animate attributeName="r" values="7;10;7" dur="1.1s" repeatCount="indefinite"/></circle>
+          <line x1="60" y1="60" x2="86" y2="34" stroke="#F4F6FA" stroke-width="3" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 60 60" to="360 60 60" dur="2.4s" repeatCount="indefinite"/></line>
+        </svg>
+      </div>
+      <div class="game-title">Meltdown <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>
+      <div class="game-meta"><span>High-stakes push your luck</span><span class="players">● Solo</span></div>
+      <div class="game-footer"><span class="entry-fee">🪙 100 Coins</span><a href="game-meltdown.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
+    </div>
+  </div>
+
+  <div class="library-split">
+    <div class="library-split-line"></div>
+    <div class="library-split-label">⚔ Battle Tokens</div>
+    <div class="library-split-line"></div>
+  </div>
+  <p class="library-note">Tactical modes. Battle Tokens are earned by playing the games above — they can't be bought.</p>
+
+  <div class="game-grid">
     <div class="game-card">
       <div class="game-thumb" style="background:radial-gradient(ellipse at 30% 60%, #1d3326, #0d1a12); padding:0; overflow:hidden;">
         <svg viewBox="0 0 400 180" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
@@ -564,59 +648,7 @@
       <div class="game-meta"><span>Tank Raid</span><span class="players">● PvE</span></div>
       <div class="game-footer"><span class="entry-fee" style="color:var(--pink);">⚔ Owned tanks only</span><a href="game-boss-battle.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
     </div>
-    <div class="game-card">
-      <div class="game-thumb" style="background:linear-gradient(135deg,#1a1508,#241d0e); padding:0; overflow:hidden; display:flex; align-items:center; justify-content:center;">
-        <svg viewBox="0 0 120 120" width="60%" height="60%">
-          <rect x="30" y="82" width="60" height="18" rx="3" fill="#2DE1FC" opacity="0.9"/>
-          <rect x="38" y="62" width="44" height="18" rx="3" fill="#34D399" opacity="0.9"/>
-          <rect x="26" y="42" width="52" height="18" rx="3" fill="#FFB627" opacity="0.95"/>
-          <rect x="44" y="22" width="30" height="18" rx="3" fill="#FF5CB6" opacity="0.95"/>
-          <!-- moving block sliding above the tower, about to drop -->
-          <rect x="20" y="2" width="30" height="15" rx="3" fill="#7CF9C0" opacity="0.95">
-            <animate attributeName="x" values="10;80;10" dur="2.1s" repeatCount="indefinite"/>
-          </rect>
-        </svg>
-      </div>
-      <div class="game-title">Stack Tower <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>
-      <div class="game-meta"><span>Precision stacking</span><span class="players">● Solo</span></div>
-      <div class="game-footer"><span class="entry-fee">🪙 20 Coins</span><a href="game-stack-tower.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
-    </div>
-    <div class="game-card">
-      <div class="game-thumb" style="background:linear-gradient(135deg,#0c1f16,#122a1c); padding:0; overflow:hidden; display:flex; align-items:center; justify-content:center;">
-        <svg viewBox="0 0 120 120" width="65%" height="65%">
-          <line x1="10" y1="90" x2="110" y2="90" stroke="#242B38" stroke-width="3" stroke-dasharray="6 6">
-            <animate attributeName="stroke-dashoffset" values="0;-24" dur="0.8s" repeatCount="indefinite"/>
-          </line>
-          <g>
-            <animateTransform attributeName="transform" type="translate" values="0 0; 0 -14; 0 0" dur="0.7s" repeatCount="indefinite"/>
-            <rect x="20" y="46" width="26" height="26" rx="4" fill="#2DE1FC"/>
-            <rect x="26" y="40" width="10" height="8" fill="#0F5C6E"/>
-          </g>
-          <g>
-            <animateTransform attributeName="transform" type="translate" values="30 0; -15 0; 30 0" dur="1.6s" repeatCount="indefinite"/>
-            <rect x="80" y="62" width="18" height="28" fill="#FF5C5C"/>
-            <rect x="66" y="58" width="10" height="32" fill="#FF9227"/>
-          </g>
-        </svg>
-      </div>
-      <div class="game-title">One-Button Dash <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>
-      <div class="game-meta"><span>Endless runner</span><span class="players">● Solo</span></div>
-      <div class="game-footer"><span class="entry-fee">🪙 20 Coins</span><a href="game-one-button-dash.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
-    </div>
-    <div class="game-card">
-      <div class="game-thumb" style="background:radial-gradient(ellipse at 50% 50%, #2a1508, #150a05); padding:0; overflow:hidden; display:flex; align-items:center; justify-content:center;">
-        <svg viewBox="0 0 120 120" width="66%" height="66%">
-          <circle cx="60" cy="60" r="46" fill="none" stroke="#241208" stroke-width="10"/>
-          <path d="M60 14 A46 46 0 0 1 96 76" fill="none" stroke="#FF5C5C" stroke-width="10" stroke-linecap="round"/>
-          <path d="M60 14 A46 46 0 0 0 30 32" fill="none" stroke="#34D399" stroke-width="10" stroke-linecap="round"/>
-          <circle cx="60" cy="60" r="9" fill="#FFB627"><animate attributeName="r" values="7;10;7" dur="1.1s" repeatCount="indefinite"/></circle>
-          <line x1="60" y1="60" x2="86" y2="34" stroke="#F4F6FA" stroke-width="3" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 60 60" to="360 60 60" dur="2.4s" repeatCount="indefinite"/></line>
-        </svg>
-      </div>
-      <div class="game-title">Meltdown <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>
-      <div class="game-meta"><span>High-stakes push your luck</span><span class="players">● Solo</span></div>
-      <div class="game-footer"><span class="entry-fee">🪙 100 Coins</span><a href="game-meltdown.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
-    </div>
+  </div>
   </div>
 </section>
 

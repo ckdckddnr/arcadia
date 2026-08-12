@@ -265,9 +265,9 @@
   // are ever taken to fund this.
   async function checkAndAwardOwnerBonus(game){
     try{
-      // Handled server-side: clients are no longer permitted to read or write
-      // another player's row, which is exactly what this used to do.
-      await sb.rpc('award_weekly_champion_bonus', { p_game: game });
+      // Nothing to do from here any more. The bonus is paid inside
+      // game_finish_run so it cannot be called on its own in a loop.
+      return;
     } catch(e){ /* non-critical, fail silently */ }
   }
 

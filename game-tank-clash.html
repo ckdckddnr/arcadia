@@ -521,6 +521,7 @@
     }
   }
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let runToken = null;   // issued by game_start_run, spent by game_finish_run
 
   const GAME_ID = 'tank-clash';
 
@@ -1573,7 +1574,7 @@
 
     const entryFeePaid = DIFFICULTY_ENTRY_FEE[matchDifficulty];
     const { data: res, error } = await sb.rpc('game_finish_run', {
-      p_game: 'tank-clash', p_win: result === 'win', p_difficulty: matchDifficulty
+      p_game: 'tank-clash', p_win: result === 'win', p_difficulty: matchDifficulty, p_token: runToken
     });
 
     if(error || !res || !res.ok){
@@ -1626,6 +1627,7 @@
       deployBtn.textContent = 'Deploy Squad';
       return;
     }
+    runToken = startRes.token;
 
     deployBtn.disabled = false;
     deployBtn.textContent = 'Deploy Squad';

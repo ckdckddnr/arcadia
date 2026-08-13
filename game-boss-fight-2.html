@@ -404,6 +404,7 @@
   const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let runToken = null;   // issued by game_start_run, spent by game_finish_run
 
   function xpForLevel(level){ return 25 * level * (level - 1); }
   function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
@@ -1749,7 +1750,7 @@
       return;
     }
     const { data: res, error } = await sb.rpc('game_finish_run', {
-      p_game: 'boss-' + FLOOR_NUM, p_win: result === 'win', p_floor: FLOOR_NUM
+      p_game: 'boss-' + FLOOR_NUM, p_win: result === 'win', p_floor: FLOOR_NUM, p_token: runToken
     });
 
     if(error || !res || !res.ok){
@@ -1895,6 +1896,7 @@
       deployBtn.textContent = 'Deploy Squad';
       return;
     }
+    runToken = startRes.token;
 
     deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad';
     document.getElementById('start-overlay').classList.add('hidden');

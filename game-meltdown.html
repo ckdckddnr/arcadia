@@ -156,6 +156,7 @@
   const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let runToken = null;   // issued by game_start_run, spent by game_finish_run
 
   function xpForLevel(level){ return 25 * level * (level - 1); }
   function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
@@ -574,7 +575,7 @@
     const username = (user.user_metadata && user.user_metadata.username) || user.email.split('@')[0];
 
     const { data: res, error } = await sb.rpc('game_finish_run', {
-      p_game: 'meltdown', p_score: scoreValue, p_tier: tierReached
+      p_game: 'meltdown', p_score: scoreValue, p_tier: tierReached, p_token: runToken
     });
 
     if(error || !res || !res.ok){
@@ -619,6 +620,7 @@
       actionBtns.forEach(b => b.disabled = false);
       return;
     }
+    runToken = startRes.token;
 
     actionBtns.forEach(b => b.disabled = false);
     document.getElementById('start-overlay').classList.add('hidden');

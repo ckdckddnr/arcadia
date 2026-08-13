@@ -66,49 +66,29 @@ export default async function handler(req, res) {
   );
 
   try {
-    // Idempotency: Stripe retries webhooks, so make sure one payment credits coins once.
-    const { data: alreadyDone } = await supabase
-      .from('coin_purchases')
-      .select('id')
-      .eq('stripe_session_id', session.id)
-      .maybeSingle();
+    // One database call does the whole thing atomically: it claims the payment
+    // by inserting the ledger row (the unique index on stripe_session_id is the
+    // gate) and only then increments the balance.
+    //
+    // This used to be a check, then a credit, then a record. Two Stripe
+    // deliveries arriving together could both pass the check and both pay out
+    // before either recorded anything — one payment, double the coins.
+    const { data: result, error } = await supabase.rpc('credit_coin_purchase', {
+      p_user_id: userId,
+      p_session_id: session.id,
+      p_coins: coins,
+      p_amount: session.amount_total,
+      p_currency: session.currency
+    });
 
-    if (alreadyDone) {
+    if (error) throw error;
+    if (!result || !result.ok) throw new Error(result ? result.error : 'no result from credit_coin_purchase');
+
+    if (result.already_credited) {
       return res.status(200).send('Already credited');
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('coins')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    const currentCoins = profile ? (profile.coins || 0) : 100;
-    const newCoins = currentCoins + coins;
-
-    if (profile) {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ coins: newCoins })
-        .eq('user_id', userId);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase
-        .from('profiles')
-        .insert({ user_id: userId, coins: newCoins });
-      if (error) throw error;
-    }
-
-    // Record it so a retry of this same session won't double-credit.
-    await supabase.from('coin_purchases').insert({
-      user_id: userId,
-      stripe_session_id: session.id,
-      coins_granted: coins,
-      amount_paid: session.amount_total,
-      currency: session.currency
-    });
-
-    console.log('Credited', coins, 'coins to', userId);
+    console.log('Credited', coins, 'coins to', userId, '- balance now', result.coins);
     return res.status(200).send('Credited');
   } catch (err) {
     // Return 500 so Stripe retries — better than silently losing a paid purchase.

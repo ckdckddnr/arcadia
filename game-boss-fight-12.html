@@ -336,7 +336,7 @@
 
 <nav>
   <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
-  <div class="game-title">FLOOR 11 · PRESSGANG</div>
+  <div class="game-title">FLOOR 12 · RIFTMAW</div>
   <a href="game-boss-battle.html" class="back-link">&larr; Tower</a>
 </nav>
 
@@ -353,7 +353,7 @@
       <div id="boss-portrait-wrap"><img id="boss-portrait" src="" alt="Boss"></div>
       <div id="boss-info">
         <div id="boss-name-row">
-          <div id="boss-name">Pressgang</div>
+          <div id="boss-name">Riftmaw</div>
           <div id="boss-phase-tag">Phase 1</div>
           <div id="boss-enrage-tag">⚡ ENRAGED</div>
           <div id="boss-exposed-tag">◎ EXPOSED</div>
@@ -379,16 +379,16 @@
   <!-- Start overlay -->
   <div class="overlay hidden" id="start-overlay">
     <div class="panel">
-      <div class="eyebrow">Floor 11 &middot; Boss Battle</div>
-      <h1>PRESS<span>GANG</span></h1>
-      <p>Two belts drag you to the centre and the press comes down on it. Standing still is not an option here.</p>
+      <div class="eyebrow">Floor 12 &middot; Boss Battle</div>
+      <h1>RIFT<span>MAW</span></h1>
+      <p>The floor is not on your side. Every fissure it opens collapses into rubble that never comes back — the arena you finish in is smaller than the one you deployed into.</p>
       <ul style="text-align:left; list-style:none; margin-bottom:16px;">
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Telegraphed attacks:</b> the boss shows upcoming strike zones as red tiles. Move your tanks off them before its turn.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Easier to dodge = harder it hits.</b> A single cross-shaped strike hurts more than a full-map strike.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">3 phases:</b> more simultaneous attack zones appear as its HP drops — plan ahead.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 30.</span></li>
       </ul>
-      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);" id="entry-fee-label">140 Battle Tokens</b> — win to earn more back.</div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);" id="entry-fee-label">155 Battle Tokens</b> — win to earn more back.</div>
       <div class="submit-msg" id="entry-msg"></div>
       <button class="btn btn-primary" id="deploy-btn" onclick="startGame()">Deploy Squad</button>
       <button class="btn btn-ghost" onclick="window.location.href='game-boss-battle.html'">Back to Tower</button>
@@ -477,6 +477,7 @@
     if(type === 'heavy' && siegeActive){ playClip('explosion_large_008.wav', 0.9); return; }
     playClip(TANK_FIRE_SOUND[type], 0.65);
   }
+  function sfxCollapse(){ playClip('explosion_large_mix_003.wav', 0.6); }
   function sfxPoison(){ playClipTimed('ambience_damaged_burning_metal_scratching_001.wav', 0.55, 2000); }
   function sfxRailgun(){ playClip('weapon_railgun_001.wav', 0.8); }
   function sfxShield(){ playClip('shield_up_002.wav', 0.7); }
@@ -525,7 +526,7 @@
     }
   }
 
-  const FLOOR_NUM = 11;
+  const FLOOR_NUM = 12;
 
   // ---------- Runes ----------
   // Tier weights are drop chances out of 100 and must sum to 100.
@@ -661,15 +662,65 @@
   // ---------- Terrain ----------
   // Opt-in per floor. An empty table means a bare arena, which is how every
   // floor up to 10 plays, so this layer costs them nothing.
-  // Two belts running the height of the arena, both feeding the centre.
-  const TERRAIN = (() => {
-    const t = {};
-    for(let r = 0; r < ROWS; r++){
-      t[r + ',2'] = { type:'conveyor', dx: 1 };   // pushes right, inward
-      t[r + ',5'] = { type:'conveyor', dx:-1 };   // pushes left, inward
+  // Riftmaw's arena starts bare. The terrain here is not laid out in advance —
+  // it is carved by the boss as the fight goes on, one collapse at a time.
+  const TERRAIN = {};
+
+  // Four tanks need somewhere to stand. Below this the rift stops biting, so a
+  // long fight can never wall the squad into a corner it cannot leave.
+  const MIN_OPEN_TILES = 24;
+  // A Fissure crosses twelve tiles. Letting it take all of them shrank the
+  // arena to its floor inside four casts, which is over before the fight has
+  // started — biting four at a time spreads the collapse across the whole run.
+  const MAX_COLLAPSE_PER_HIT = 4;
+
+  function openTileCount(){
+    let n = 0;
+    for(let r = 0; r < ROWS; r++) for(let c = 0; c < COLS; c++) if(!blocksMove(r, c)) n++;
+    return n;
+  }
+
+  function collapsedCount(){ return ROWS * COLS - openTileCount(); }
+
+  // A tank that cannot step anywhere is a tank that can only sit and be shot,
+  // so no single collapse is allowed to take an ally's last exit.
+  function tanksCanStillMove(){
+    return playerTanks.every(t => {
+      if(!t.alive) return true;
+      return [[1,0],[-1,0],[0,1],[0,-1]].some(([dr, dc]) => {
+        const r = t.r + dr, c = t.c + dc;
+        return inBounds(r, c) && !blocksMove(r, c);
+      });
+    });
+  }
+
+  // Called once a Fissure has finished dealing its damage. Occupied tiles are
+  // spared so nothing is entombed mid-turn; a tank destroyed by that same hit
+  // has already been cleared off the board, so its tile is fair game.
+  function collapseTiles(tiles){
+    let open = openTileCount();
+    const fell = [];
+    const order = tiles.slice().sort(() => Math.random() - 0.5);
+    for(const [r, c] of order){
+      if(fell.length >= MAX_COLLAPSE_PER_HIT) break;
+      if(open <= MIN_OPEN_TILES) break;
+      if(blocksMove(r, c)) continue;
+      if(board[r][c].occupant) continue;
+
+      const key = r + ',' + c;
+      TERRAIN[key] = { type:'rubble' };
+      if(!tanksCanStillMove()){ delete TERRAIN[key]; continue; }   // that one was somebody's way out
+
+      fell.push([r, c]);
+      open--;
     }
-    return t;
-  })();
+    if(fell.length){
+      sfxCollapse();
+      triggerBoardShake(0.4);
+      fell.forEach(([r, c]) => fxFloatText(r, c, '✖', '#C89B5A'));
+      log('The floor gives way — ' + fell.length + ' tile' + (fell.length > 1 ? 's' : '') + ' collapsed for good.');
+    }
+  }
 
   function terrainAt(r, c){ return TERRAIN[r + ',' + c] || null; }
   function blocksMove(r, c){ const t = terrainAt(r, c); return !!t && t.type === 'rubble'; }
@@ -721,7 +772,7 @@
     return TYPE_ORDER.slice(0, SQUAD_SIZE);
   }
 
-  const BOSS_MAX_HP = 40000;
+  const BOSS_MAX_HP = 46000;
   const PHASE_THRESHOLDS = { p2: 0.6, p3: 0.3 };
   const ENRAGE_TURN = 30;
   const DEFEAT_TURN_LIMIT = 60;
@@ -745,7 +796,7 @@
     pincer:    { label:'Crown Pincer', dmg:660, phase:2, color:'#FFA94D' },
     nova:      { label:'Sovereign Nova', dmg:690, phase:2, color:'#9FD8FF' },
     checkmate: { label:'Checkmate', dmg:620, phase:3, color:'#FFD700' },
-    press:     { label:'The Press',  dmg:900, phase:1, color:'#FFA94D' },
+    fissure:   { label:'Fissure',    dmg:820, phase:1, color:'#C89B5A' },
     full:      { label:'Full-Map',  dmg:300, phase:3, color:'#FFB627' }
   };
 
@@ -823,9 +874,12 @@
         const d = Math.abs(r-cr) + Math.abs(c-cc);
         if(d === 2 || d === 3) tiles.push([r,c]);
       }
-    } else if(type === 'press'){
-      // slams the two centre columns, the exact tiles the belts feed into
-      for(let r = 0; r < ROWS; r++){ tiles.push([r, 3]); tiles.push([r, 4]); }
+    } else if(type === 'fissure'){
+      // two full columns tear open; whatever they touch stops being floor
+      const c1 = Math.floor(Math.random() * COLS);
+      let c2 = Math.floor(Math.random() * COLS);
+      if(c2 === c1) c2 = (c1 + 1 + Math.floor(Math.random() * (COLS - 1))) % COLS;
+      for(let r = 0; r < ROWS; r++){ tiles.push([r, c1]); tiles.push([r, c2]); }
     } else if(type === 'checkmate'){
       // every other tile — half the board, so spacing your squad matters
       const parity = Math.random() < 0.5 ? 0 : 1;
@@ -1344,6 +1398,8 @@
     document.getElementById('boss-exposed-tag').style.display = 'none';
     document.getElementById('squad-buffs').innerHTML = '';
 
+    for(const k in TERRAIN) delete TERRAIN[k];   // last run's collapses do not carry over
+
     teamDmgBuffTurns = 0; teamDmgBuffMult = 1.2;
     bossExposedTurns = 0; bossExposedMult = 1.25;
     squadDecoyCharges = 0;
@@ -1367,13 +1423,13 @@
     const pool = ['cross','column','row','diagonal','quadrant','eclipse','spiral'];
     if(phase >= 2) pool.push('half','scattered','twincol','chase','pincer','nova');
     if(phase >= 3) pool.push('full','checkmate');
-    pool.push('press');   // the press runs in every phase — it is the whole fight
+    pool.push('fissure'); // the rift runs in every phase — it is the whole fight
     return pool;
   }
 
   function generateBatch(){
     const pool = poolForPhase();
-    const count = Math.min(3, phase + 1); // Pressgang starts at 2 simultaneous patterns, caps at 3
+    const count = Math.min(3, phase + 1); // Riftmaw starts at 2 simultaneous patterns, caps at 3
     const batch = [];
     for(let i=0;i<count;i++){
       const type = pool[Math.floor(Math.random()*pool.length)];
@@ -1408,7 +1464,7 @@
     if(newPhase !== phase){
       phase = newPhase;
       log('The boss enters Phase ' + phase + '!');
-      showAction('PRESSGANG ENTERS PHASE ' + phase + '!', 'a-warn');
+      showAction('RIFTMAW ENTERS PHASE ' + phase + '!', 'a-warn');
     }
   }
 
@@ -1463,7 +1519,7 @@
       let dmg = PATTERNS[tg.type].dmg;
       if(enraged) dmg = Math.round(dmg * 1.5);
 
-      showAction('PRESSGANG UNLEASHES ' + PATTERNS[tg.type].label.toUpperCase() + '!', 'a-warn');
+      showAction('RIFTMAW UNLEASHES ' + PATTERNS[tg.type].label.toUpperCase() + '!', 'a-warn');
       log('The boss strikes with a ' + PATTERNS[tg.type].label + ' attack!');
 
       const resolveHit = (hitDmg) => {
@@ -1497,6 +1553,7 @@
             }
           }
         });
+        if(tg.type === 'fissure') collapseTiles(tg.tiles);
         render();
       };
 
@@ -1559,7 +1616,7 @@
       boss.hp = Math.min(boss.maxHp, boss.hp + heal);
       boss.turnsSinceDamage = 0;
       log('The boss regenerates ' + heal + ' HP — you need to keep the pressure on!');
-      showAction('PRESSGANG REGENERATES!', 'a-heal');
+      showAction('RIFTMAW REGENERATES!', 'a-heal');
     }
 
     checkBossDefeated();
@@ -1570,7 +1627,7 @@
       enraged = true;
       document.getElementById('boss-enrage-tag').style.display = 'inline-block';
       log('The boss enrages — its attacks now hit far harder!');
-      showAction('PRESSGANG IS ENRAGED!', 'a-warn');
+      showAction('RIFTMAW IS ENRAGED!', 'a-warn');
     }
     telegraphQueue.shift();
     telegraphQueue.push(generateBatch());
@@ -1810,6 +1867,8 @@
     if(teamDmgBuffTurns > 0) chips.push('<span class="buff-chip warcry">⚔ Warcry +' + Math.round((teamDmgBuffMult - 1) * 100) + '% · ' + teamDmgBuffTurns + ' turn' + (teamDmgBuffTurns > 1 ? 's' : '') + '</span>');
     if(bossExposedTurns > 0) chips.push('<span class="buff-chip expose">◎ Exposed +' + Math.round((bossExposedMult - 1) * 100) + '% · ' + bossExposedTurns + ' turn' + (bossExposedTurns > 1 ? 's' : '') + '</span>');
     if(squadDecoyCharges > 0) chips.push('<span class="buff-chip decoy">◆ Decoy ready' + (squadDecoyCharges > 1 ? ' ×' + squadDecoyCharges : '') + '</span>');
+    const gone = collapsedCount();
+    if(gone > 0) chips.push('<span class="buff-chip decoy">✖ ' + gone + ' tile' + (gone > 1 ? 's' : '') + ' collapsed</span>');
     const auraPct = Math.round(marshalAura() * 100);
     if(auraPct > 0)          chips.push('<span class="buff-chip warcry">★ Chain of Command +' + auraPct + '% damage</span>');
     document.getElementById('squad-buffs').innerHTML = chips.join('');
@@ -1930,9 +1989,9 @@
 
     const aliveCount = playerTanks.filter(t => t.alive).length;
     if(result === 'win'){
-      document.getElementById('over-eyebrow').textContent = 'Floor 11 Cleared!';
+      document.getElementById('over-eyebrow').textContent = 'Floor 12 Cleared!';
       document.getElementById('over-eyebrow').style.color = 'var(--green)';
-      document.getElementById('battle-summary').textContent = 'Pressgang destroyed with ' + aliveCount + ' tank(s) still standing, in ' + Math.min(turnCount, DEFEAT_TURN_LIMIT) + ' turns.';
+      document.getElementById('battle-summary').textContent = 'Riftmaw destroyed with ' + aliveCount + ' tank(s) still standing, in ' + Math.min(turnCount, DEFEAT_TURN_LIMIT) + ' turns.';
     } else {
       document.getElementById('over-eyebrow').textContent = 'Defeat';
       document.getElementById('over-eyebrow').style.color = 'var(--red)';
@@ -2045,7 +2104,7 @@
     ownedTanks = profile ? (profile.boss_tanks_owned || []) : [];
     const clearedFloor = profile ? (profile.boss_tower_floor || 0) : 0;
     const TESTING_UNLOCK_ALL = true; // set to false to re-enable normal sequential floor gating
-    if(ownedTanks.length < SQUAD_SIZE || (!TESTING_UNLOCK_ALL && clearedFloor < 6)){
+    if(ownedTanks.length < SQUAD_SIZE || (!TESTING_UNLOCK_ALL && clearedFloor < 11)){
       window.location.href = 'game-boss-battle.html';
       return;
     }
@@ -2054,31 +2113,32 @@
 
   function bossSvg(){
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">' +
-      // gantry rails the press rides on
-      '<rect x="10" y="14" width="10" height="92" fill="#241A0C" stroke="#FFA94D" stroke-width="2"/>' +
-      '<rect x="100" y="14" width="10" height="92" fill="#241A0C" stroke="#FFA94D" stroke-width="2"/>' +
-      '<g stroke="#FFA94D" stroke-width="1.4" opacity="0.4">' +
-        '<path d="M15 30 L105 30"/><path d="M15 58 L105 58"/><path d="M15 86 L105 86"/>' +
+      // The split in the ground. A plain scale would grow it away from the
+      // origin and slide the crack sideways, so the motion lives in the glow,
+      // the tilting slabs and the falling debris instead.
+      '<path d="M60 8 L70 40 L62 58 L74 78 L60 112 L46 78 L58 58 L50 40 Z" fill="#1A1206" stroke="#C89B5A" stroke-width="2.4"/>' +
+      // molten light bleeding up out of the crack
+      '<path d="M60 16 L66 42 L59 58 L69 76 L60 104 L51 76 L61 58 L54 42 Z" fill="#FF8A3D" opacity="0.5">' +
+        '<animate attributeName="opacity" values="0.25;0.75;0.25" dur="1.8s" repeatCount="indefinite"/>' +
+      '</path>' +
+      // slabs of floor tipping into it on both sides
+      '<g stroke="#C89B5A" stroke-width="2" fill="#2A2116">' +
+        '<path d="M8 44 L44 38 L46 56 L10 62 Z"><animateTransform attributeName="transform" type="rotate" values="0 26 50; -4 26 50; 0 26 50" dur="3s" repeatCount="indefinite"/></path>' +
+        '<path d="M76 38 L112 44 L110 62 L74 56 Z"><animateTransform attributeName="transform" type="rotate" values="0 94 50; 4 94 50; 0 94 50" dur="3s" repeatCount="indefinite"/></path>' +
       '</g>' +
-      // the hammer head, riding up and down its stroke
-      '<g>' +
-        '<animateTransform attributeName="transform" type="translate" values="0 0; 0 26; 0 0" dur="2.2s" repeatCount="indefinite" keyTimes="0;0.55;1"/>' +
-        '<rect x="26" y="20" width="68" height="34" rx="4" fill="#3A2A12" stroke="#FFA94D" stroke-width="2.4"/>' +
-        '<rect x="34" y="54" width="52" height="12" fill="#241A0C" stroke="#FFA94D" stroke-width="2"/>' +
-        '<circle cx="46" cy="37" r="4" fill="#FFD9A0"><animate attributeName="opacity" values="1;0.3;1" dur="1.1s" repeatCount="indefinite"/></circle>' +
-        '<circle cx="74" cy="37" r="4" fill="#FFD9A0"><animate attributeName="opacity" values="1;0.3;1" dur="1.1s" begin="0.4s" repeatCount="indefinite"/></circle>' +
-        '<path d="M34 28 L52 28 L46 42 L34 42 Z" fill="#FFA94D" opacity="0.35"/>' +
+      // teeth along the rim
+      '<g fill="#C89B5A">' +
+        '<path d="M50 40 L54 30 L57 41 Z"/><path d="M63 41 L66 30 L70 40 Z"/>' +
+        '<path d="M52 78 L56 88 L59 77 Z"/><path d="M61 77 L65 88 L68 78 Z"/>' +
       '</g>' +
-      // anvil below, glowing where the hammer keeps landing
-      '<rect x="30" y="92" width="60" height="14" rx="3" fill="#3A2A12" stroke="#FFA94D" stroke-width="2.2"/>' +
-      '<rect x="38" y="88" width="44" height="5" fill="#FF8A3D"><animate attributeName="opacity" values="0.35;1;0.35" dur="2.2s" repeatCount="indefinite"/></rect>' +
-      // sparks kicked out on each strike
-      '<circle cx="34" cy="88" r="2.2" fill="#FFD9A0"><animate attributeName="cy" values="88;74;88" dur="2.2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" dur="2.2s" repeatCount="indefinite"/></circle>' +
-      '<circle cx="86" cy="88" r="2" fill="#FFD9A0"><animate attributeName="cy" values="88;76;88" dur="2.2s" begin="0.2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0;1;0" dur="2.2s" begin="0.2s" repeatCount="indefinite"/></circle>' +
+      // debris falling in
+      '<circle cx="42" cy="66" r="2.2" fill="#C89B5A"><animate attributeName="cy" values="60;96" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="2.4s" repeatCount="indefinite"/></circle>' +
+      '<circle cx="78" cy="62" r="1.8" fill="#C89B5A"><animate attributeName="cy" values="56;94" dur="2.4s" begin="0.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="2.4s" begin="0.8s" repeatCount="indefinite"/></circle>' +
+      '<circle cx="60" cy="24" r="2" fill="#FFD9A0"><animate attributeName="r" values="1.4;3;1.4" dur="1.4s" repeatCount="indefinite"/></circle>' +
     '</svg>';
   }
 
-  const ENTRY_FEE_TOKENS = 140;
+  const ENTRY_FEE_TOKENS = 155;
 
   async function startGame(){
     const entryMsg = document.getElementById('entry-msg');

@@ -118,6 +118,7 @@
   .tank-sprite-wrap.size-raider{ width:60%; height:60%; }
   .tank-sprite-wrap.size-sniper{ width:64%; height:64%; }
   .tank-sprite-wrap.size-warden{ width:78%; height:78%; }
+  .tank-sprite-wrap.size-marshal{ width:76%; height:76%; }
   .tank-sprite-wrap img{ transform:rotate(90deg); }
   .tank-sprite-wrap img{ width:100%; height:100%; object-fit:contain; image-rendering:pixelated; }
   .tank-sprite-wrap.siege-active img, .roster-tank img.siege-active{
@@ -216,6 +217,11 @@
   .roster-tank img.size-raider{ height:29px; }
   .roster-tank img.size-sniper{ height:38px; }
   .roster-tank img.size-warden{ height:34px; }
+  .roster-tank img.size-marshal{ height:34px; }
+  .roster-tank .lv-tag{ position:absolute; top:3px; left:3px; font-size:9px; font-weight:900;
+    color:#1A1C24; background:linear-gradient(180deg,#FFD770,#E8A93B); border-radius:4px; padding:1px 4px; letter-spacing:0.3px; }
+  .roster-tank .qa-passive{ display:flex; align-items:center; justify-content:center; gap:3px;
+    color:#FFD770; background:rgba(232,184,75,0.14); border:1px solid rgba(232,184,75,0.45); cursor:default; }
   .roster-tank .name{ font-size:12px; font-weight:800; margin-top:3px; }
   .roster-tank .hpbar{ height:5px; border-radius:3px; background:var(--surface); margin-top:4px; overflow:hidden; }
   .roster-tank .hpbar-fill{ height:100%; background:var(--green); }
@@ -292,6 +298,7 @@
   .shop-card img.size-raider{ height:51px; }
   .shop-card img.size-sniper{ height:68px; }
   .shop-card img.size-warden{ height:60px; }
+  .shop-card img.size-marshal{ height:60px; }
   .shop-card .name{ font-weight:800; font-size:13px; margin-bottom:2px; }
   .shop-card .role{ font-size:10px; color:var(--muted); margin-bottom:8px; min-height:26px; }
   .shop-card .price{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; color:var(--pink); font-size:13px; margin-bottom:8px; }
@@ -373,15 +380,15 @@
   <div class="overlay hidden" id="start-overlay">
     <div class="panel">
       <div class="eyebrow">Floor 2 &middot; Boss Battle</div>
-      <h1>CORE-<span>EATER</span></h1>
-      <p>A scrap-devouring horror built from the husks of fallen tanks. No fog here — it's always visible, and so are you.</p>
+      <h1>VOLT<span>JAW</span></h1>
+      <p>A storm-fed maw that chews through the arena in arcs. It strikes in wider bands than the Core-Eater ever did.</p>
       <ul style="text-align:left; list-style:none; margin-bottom:16px;">
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Telegraphed attacks:</b> the boss shows upcoming strike zones as red tiles. Move your tanks off them before its turn.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Easier to dodge = harder it hits.</b> A single cross-shaped strike hurts more than a full-map strike.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">3 phases:</b> more simultaneous attack zones appear as its HP drops — plan ahead.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 30.</span></li>
       </ul>
-      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);">20 Battle Tokens</b> — win to earn more back.</div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);" id="entry-fee-label">20 Battle Tokens</b> — win to earn more back.</div>
       <div class="submit-msg" id="entry-msg"></div>
       <button class="btn btn-primary" id="deploy-btn" onclick="startGame()">Deploy Squad</button>
       <button class="btn btn-ghost" onclick="window.location.href='game-boss-battle.html'">Back to Tower</button>
@@ -457,10 +464,12 @@
   }
 
   const TANK_CLICK_SOUND = { light:'gui_041.wav', medium:'weapon_outofammo_008.wav', heavy:'weapon_outofammo_005.wav', guardian:'gui_036.wav',
-    medic:'gui_006.wav', raider:'gui_009.wav', sniper:'gui_014.wav', warden:'gui_021.wav' };
+    medic:'gui_006.wav', raider:'gui_009.wav', sniper:'gui_014.wav', warden:'gui_021.wav',
+    marshal:'gui_028.wav' };
   const TANK_FIRE_SOUND = { light:'weapon_mortar_003.wav', medium:'explosion_med_015.wav', heavy:'explosion_large_005.wav', guardian:'explosion_small_014.wav',
     medic:'weapon_laser_003.wav', raider:'weapon_blaster_002.wav',
-    sniper:'weapon_railgun_002.wav', warden:'weapon_blaster_004.wav' };
+    sniper:'weapon_railgun_002.wav', warden:'weapon_blaster_004.wav',
+    marshal:'weapon_mortar_004.wav' };
 
   function sfxTankClick(type){ playClip(TANK_CLICK_SOUND[type], 0.6); }
   function sfxMove(){ playTone(150, 0.13, 'square', 0.06, 90); playNoise(0.08, 0.05, 400); }
@@ -570,15 +579,46 @@
     return b;
   }
 
-  function loadTankRunes(){
-    try{
-      const raw = JSON.parse(localStorage.getItem(TANK_RUNES_KEY) || '{}');
-      const out = {};
-      for(const k in raw) out[k] = (raw[k] || []).filter(id => RUNES[id]).slice(0, MAX_RUNES_PER_TANK);
-      return out;
-    } catch(e){ return {}; }
+  function sanitiseRunes(raw){
+    const out = {};
+    for(const k in (raw || {})) out[k] = (raw[k] || []).filter(id => RUNES[id]).slice(0, MAX_RUNES_PER_TANK + 1);
+    return out;
   }
-  const EQUIPPED_RUNES = loadTankRunes();
+
+  function loadTankRunes(){
+    try{ return sanitiseRunes(JSON.parse(localStorage.getItem(TANK_RUNES_KEY) || '{}')); }
+    catch(e){ return {}; }
+  }
+  let EQUIPPED_RUNES = loadTankRunes();
+
+  // ---------- Tank levels ----------
+  // Levels ride in on the entry response from game_start_run, so the fight
+  // never has to trust localStorage for a number that changes the outcome.
+  let TANK_LEVELS = {};
+  // Skill power climbs far faster than the stat line on purpose: five of the
+  // nine tanks are built entirely around their skill, and a flat +30% at Lv4
+  // would have made upgrading them feel pointless.
+  const LEVEL_STATS = [null,
+    { hp:1.00, atk:1.00, skill:0.00 },
+    { hp:1.05, atk:1.05, skill:0.15 },
+    { hp:1.15, atk:1.15, skill:0.50 },
+    { hp:1.30, atk:1.30, skill:1.00 },
+    { hp:1.30, atk:1.30, skill:1.00 }   // Lv5 pays out as a fourth rune socket
+  ];
+  function tankLevel(key){ const n = parseInt(TANK_LEVELS[key], 10); return (n >= 2 && n <= 5) ? n : 1; }
+  function runeSlots(key){ return tankLevel(key) >= 5 ? 4 : 3; }
+
+  // Runes and levels feed one number, so every skill scales the same way
+  // whether it deals flat damage or a percentage.
+  function skillPower(t){ return 1 + (t && t.runes ? t.runes.skill : 0); }
+
+  // The Marshal has no active skill at all — this aura is its entire
+  // contribution, which is why skill power drives it too.
+  const MARSHAL_AURA = 0.10;
+  function marshalAura(){
+    const m = playerTanks.find(t => t.type === 'marshal' && t.alive);
+    return m ? MARSHAL_AURA * skillPower(m) : 0;
+  }
 
   // ---------- Boss Tank roster ----------
   const BOSS_TANK_TYPES = {
@@ -597,13 +637,17 @@
     sniper: { key:'sniper', name:'Sniper Tank', img:'sniper_tank.png', hp:900, atk:380, moveCost:1, attackCost:3, price:150,
       skill:{ key:'expose', name:'Expose', cost:4, desc:'Marks the boss — it takes +25% damage from every tank for 2 turns.' } },
     warden: { key:'warden', name:'Warden Tank', img:'warden_tank.png', hp:2200, atk:110, moveCost:1, attackCost:2, price:140,
-      skill:{ key:'decoy', name:'Decoy', cost:5, desc:'Deploys a decoy that absorbs the next boss attack completely.' } }
+      skill:{ key:'decoy', name:'Decoy', cost:5, desc:'Deploys a decoy that absorbs the next boss attack completely.' } },
+    marshal: { key:'marshal', name:'Marshal Tank', img:'marshal_tank.png', hp:1900, atk:240, moveCost:1, attackCost:2, price:160,
+      skill:null,
+      passive:{ name:'Chain of Command', desc:'No active skill. While the Marshal lives, every tank in the squad deals +10% damage.' } }
   };
-  const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider','sniper','warden'];
+  const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider','sniper','warden','marshal'];
   const ROLE_TEXT = {
     light:'Sustained poison damage', medium:'Single devastating burst', heavy:'Brace for +50% damage', guardian:'Shields the whole squad',
     medic:'Heals and wards an ally', raider:'Moves 2 tiles, rallies the squad',
-    sniper:'Huge damage, rooted after firing', warden:'Decoy eats one boss attack'
+    sniper:'Huge damage, rooted after firing', warden:'Decoy eats one boss attack',
+    marshal:'No skill — the whole squad hits harder'
   };
 
   // ---------- Board config ----------
@@ -668,7 +712,8 @@
   const PHASE_THRESHOLDS = { p2: 0.6, p3: 0.3 };
   const ENRAGE_TURN = 30;
   const DEFEAT_TURN_LIMIT = 60;
-  const POISON_TICK_RATE = 0.005; // 0.5% of max HP per stack per boss turn
+  const POISON_TICK_RATE = 0.005; // 0.5% of max HP per stack per boss turn, before skill power
+  const POISON_MAX_RATE  = 0.04;  // hard ceiling — a stacked Lv4 Light would otherwise melt a boss unattended
   const REGEN_TURNS = 3;
   const REGEN_PCT = 0.02;
 
@@ -727,8 +772,11 @@
   let boss, turn, turnCount, gameOver, phase, enraged;
   let selectedTankId = null, skillMode = null, uidCounter = 0;
   let playerMana = 0, playerMaxMana = 0, teamDmgBuffTurns = 0;
-  let bossExposedTurns = 0;   // Sniper's Expose
-  let squadDecoyActive = false; // Warden's Decoy
+  // A buff outlives the turn it was cast on and is read by other tanks, so its
+  // strength is banked at cast time rather than recomputed from the caster.
+  let teamDmgBuffMult = 1.2;
+  let bossExposedTurns = 0, bossExposedMult = 1.25;   // Sniper's Expose
+  let squadDecoyCharges = 0;  // Warden's Decoy — Lv5 deploys two
 
   function inBounds(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS; }
 
@@ -736,12 +784,16 @@
     uidCounter++;
     const def = BOSS_TANK_TYPES[typeKey];
     const [r,c] = SQUAD_SLOTS[slot % SQUAD_SIZE];
-    const rb = runeBonuses(EQUIPPED_RUNES[typeKey]);
-    const maxHp = def.hp + rb.hp;
+    const lvl = tankLevel(typeKey);
+    const ls = LEVEL_STATS[lvl];
+    const rb = runeBonuses((EQUIPPED_RUNES[typeKey] || []).slice(0, runeSlots(typeKey)));
+    rb.skill += ls.skill;   // a level and a rune are the same currency here
+    const maxHp = Math.round(def.hp * ls.hp) + rb.hp;
     return { uid:'t'+uidCounter, type:typeKey, name:def.name, img:def.img, hp:maxHp, maxHp:maxHp,
-      atk:Math.round(def.atk * (1 + rb.atk)), moveCost:def.moveCost, attackCost:def.attackCost,
-      moveRange:def.moveRange || 1, skill:def.skill, runes:rb,
-      skillUsed:false, siegeModeTurnsLeft:0, shield:0, wardTurnsLeft:0, firedThisTurn:false, r, c, alive:true };
+      atk:Math.round(def.atk * ls.atk * (1 + rb.atk)), moveCost:def.moveCost, attackCost:def.attackCost,
+      moveRange:def.moveRange || 1, skill:def.skill, passive:def.passive || null, runes:rb, level:lvl,
+      skillUsed:false, siegeModeTurnsLeft:0, siegeMult:1.5, shield:0, wardTurnsLeft:0, wardMult:0.85,
+      firedThisTurn:false, r, c, alive:true };
   }
 
   function formatHp(hp){
@@ -1171,16 +1223,16 @@
     document.getElementById('boss-exposed-tag').style.display = 'none';
     document.getElementById('squad-buffs').innerHTML = '';
 
-    teamDmgBuffTurns = 0;
-    bossExposedTurns = 0;
-    squadDecoyActive = false;
+    teamDmgBuffTurns = 0; teamDmgBuffMult = 1.2;
+    bossExposedTurns = 0; bossExposedMult = 1.25;
+    squadDecoyCharges = 0;
     getSquad().forEach((key, i) => {
       const t = makeTank(key, i);
       playerTanks.push(t);
       board[t.r][t.c].occupant = t;
     });
 
-    boss = { hp: BOSS_MAX_HP, maxHp: BOSS_MAX_HP, poisonStacks: 0, turnsSinceDamage: 0 };
+    boss = { hp: BOSS_MAX_HP, maxHp: BOSS_MAX_HP, poisonStacks: 0, poisonRate: 0, turnsSinceDamage: 0 };
     telegraphQueue = [];
     initTelegraphQueue();
 
@@ -1293,8 +1345,8 @@
       log('The boss strikes with a ' + PATTERNS[tg.type].label + ' attack!');
 
       const resolveHit = (hitDmg) => {
-        if(squadDecoyActive){
-          squadDecoyActive = false;
+        if(squadDecoyCharges > 0){
+          squadDecoyCharges--;
           sfxDecoy();
           fxDecoyBlock();
           showAction('THE WARDEN DECOY SOAKS THE ATTACK', 'a-heal');
@@ -1307,7 +1359,7 @@
           const occ = board[r][c].occupant;
           if(occ && occ.alive){
             let actualDmg = hitDmg;
-            if(occ.wardTurnsLeft > 0) actualDmg = Math.round(actualDmg * 0.85); // Medic's ward
+            if(occ.wardTurnsLeft > 0) actualDmg = Math.round(actualDmg * (occ.wardMult || 0.85)); // Medic's ward
             if(occ.runes && occ.runes.dr > 0) actualDmg = Math.round(actualDmg * (1 - occ.runes.dr));
             if(occ.shield > 0){
               const absorbed = Math.min(occ.shield, actualDmg);
@@ -1366,11 +1418,14 @@
 
     // poison tick
     if(boss.poisonStacks > 0 && boss.hp > 0){
-      const poisonDmg = Math.round(boss.maxHp * POISON_TICK_RATE * boss.poisonStacks);
+      const rawRate = boss.poisonRate * (1 + marshalAura());
+      const rate = Math.min(POISON_MAX_RATE, rawRate);
+      const poisonDmg = Math.round(boss.maxHp * rate);
       boss.hp -= poisonDmg;
       boss.turnsSinceDamage = 0;
       fxFlashBossHit();
-      log('Acid poison burns the boss for ' + poisonDmg + ' (' + boss.poisonStacks + ' stacks).');
+      log('Acid poison burns the boss for ' + poisonDmg + ' (' + boss.poisonStacks + ' stack' +
+          (boss.poisonStacks > 1 ? 's' : '') + (rawRate > POISON_MAX_RATE ? ', capped at 4%' : '') + ').');
       showAction('ACID POISON TICKS FOR ' + poisonDmg + '!', 'a-dmg');
     } else {
       boss.turnsSinceDamage++;
@@ -1458,7 +1513,7 @@
     render();
   }
 
-  const TANK_PROJECTILE_COLOR = { light:'#2DE1FC', medium:'#FFB627', heavy:'#FF5C5C', guardian:'#FF5CB6', medic:'#34D399', raider:'#A78BFA', sniper:'#C7D96B', warden:'#6BA8FF' };
+  const TANK_PROJECTILE_COLOR = { light:'#2DE1FC', medium:'#FFB627', heavy:'#FF5C5C', guardian:'#FF5CB6', medic:'#34D399', raider:'#A78BFA', sniper:'#C7D96B', warden:'#6BA8FF', marshal:'#E8B84B' };
 
   function quickAttack(uid){
     if(turn !== 'player' || gameOver) return;
@@ -1467,9 +1522,11 @@
     if(playerMana < t.attackCost){ sfxInsufficientMana(); return; }
     playerMana -= t.attackCost;
     let dmg = t.atk;
-    if(t.siegeModeTurnsLeft > 0) dmg = Math.round(dmg * 1.5);
-    if(teamDmgBuffTurns > 0) dmg = Math.round(dmg * 1.2); // Raider's Warcry
-    if(bossExposedTurns > 0) dmg = Math.round(dmg * 1.25); // Sniper's Expose
+    if(t.siegeModeTurnsLeft > 0) dmg = Math.round(dmg * (t.siegeMult || 1.5));
+    if(teamDmgBuffTurns > 0) dmg = Math.round(dmg * teamDmgBuffMult); // Raider's Warcry
+    if(bossExposedTurns > 0) dmg = Math.round(dmg * bossExposedMult); // Sniper's Expose
+    const atkAura = marshalAura();
+    if(atkAura > 0) dmg = Math.round(dmg * (1 + atkAura)); // Marshal's Chain of Command
     t.firedThisTurn = true;
     sfxAttack(t.type, t.siegeModeTurnsLeft > 0);
     render();
@@ -1496,13 +1553,15 @@
     if(healer.skillUsed || playerMana < sk.cost){ render(); return; }
     playerMana -= sk.cost;
     healer.skillUsed = true;
-    const healed = Math.min(Math.round(500 * (1 + (healer.runes ? healer.runes.skill : 0))), target.maxHp - target.hp);
+    const healed = Math.min(Math.round(500 * skillPower(healer)), target.maxHp - target.hp);
     target.hp += healed;
     target.wardTurnsLeft = 2;
+    target.wardMult = Math.max(0.4, 1 - 0.15 * skillPower(healer));
     sfxRepair();
     fxFloatText(target.r, target.c, '+' + healed, '#34D399');
     showAction('YOUR ' + healer.name.toUpperCase() + ' REPAIRS ' + target.name.toUpperCase() + ' (+' + healed + ')', 'a-heal');
-    log('Your ' + healer.name + ' repairs ' + target.name + ' for ' + healed + ' and wards it for 2 turns.');
+    log('Your ' + healer.name + ' repairs ' + target.name + ' for ' + healed + ' and cuts its incoming damage by ' +
+        Math.round((1 - target.wardMult) * 100) + '% for 2 turns.');
     render();
   }
 
@@ -1511,12 +1570,14 @@
     const t = playerTanks.find(x => x.uid === uid && x.alive);
     if(!t) return;
     const sk = t.skill;
+    if(!sk) return;          // the Marshal fights with its aura, not a button
     if(t.skillUsed) return;
     if(playerMana < sk.cost){ sfxInsufficientMana(); return; }
 
     if(sk.key === 'poison'){
       playerMana -= sk.cost; t.skillUsed = true;
       boss.poisonStacks++;
+      boss.poisonRate += POISON_TICK_RATE * skillPower(t);
       sfxPoison();
       render();
       animateProjectileToBoss(t.r, t.c, '#34D399', () => {
@@ -1529,8 +1590,10 @@
       sfxRailgun();
       render();
       animateProjectileToBoss(t.r, t.c, '#FFB627', () => {
-        let rgDmg = Math.round(500 * (1 + (t.runes ? t.runes.skill : 0)));
-        if(bossExposedTurns > 0) rgDmg = Math.round(rgDmg * 1.25);
+        let rgDmg = Math.round(500 * skillPower(t));
+        if(bossExposedTurns > 0) rgDmg = Math.round(rgDmg * bossExposedMult);
+        const rgAura = marshalAura();
+        if(rgAura > 0) rgDmg = Math.round(rgDmg * (1 + rgAura));
         boss.hp -= rgDmg; boss.turnsSinceDamage = 0;
         fxFlashBossHit(); triggerBoardShake(0.35);
         showAction('YOUR ' + t.name.toUpperCase() + ' FIRES THE RAILGUN FOR ' + rgDmg + '!', 'a-dmg');
@@ -1541,14 +1604,16 @@
     } else if(sk.key === 'siegemode'){
       playerMana -= sk.cost; t.skillUsed = true;
       t.siegeModeTurnsLeft = 3;
+      t.siegeMult = 1 + 0.5 * skillPower(t);
       sfxSiege();
-      showAction('YOUR ' + t.name.toUpperCase() + ' ENTERS SIEGE MODE', 'a-warn');
-      log('Your ' + t.name + ' braces into siege mode (+50% damage, 3 turns).');
+      const siegePct = Math.round((t.siegeMult - 1) * 100);
+      showAction('YOUR ' + t.name.toUpperCase() + ' ENTERS SIEGE MODE (+' + siegePct + '%)', 'a-warn');
+      log('Your ' + t.name + ' braces into siege mode (+' + siegePct + '% damage, 3 turns).');
       render();
     } else if(sk.key === 'shieldall'){
       playerMana -= sk.cost; t.skillUsed = true;
       sfxShield();
-      const shieldAmt = Math.round(200 * (1 + (t.runes ? t.runes.skill : 0)));
+      const shieldAmt = Math.round(200 * skillPower(t));
       playerTanks.forEach(a => { if(a.alive) a.shield = shieldAmt; });
       showAction('YOUR ' + t.name.toUpperCase() + ' SHIELDS THE SQUAD (' + shieldAmt + ')', 'a-heal');
       log('Your ' + t.name + ' shields every ally for ' + shieldAmt + ' damage.');
@@ -1564,23 +1629,29 @@
     } else if(sk.key === 'expose'){
       playerMana -= sk.cost; t.skillUsed = true;
       bossExposedTurns = 2;
+      bossExposedMult = 1 + 0.25 * skillPower(t);
       sfxExpose();
-      showAction('YOUR ' + t.name.toUpperCase() + ' EXPOSES THE BOSS (+25% DAMAGE TAKEN)', 'a-warn');
-      log('Your ' + t.name + ' marks the boss — it takes +25% damage for 2 turns.');
+      const expPct = Math.round((bossExposedMult - 1) * 100);
+      showAction('YOUR ' + t.name.toUpperCase() + ' EXPOSES THE BOSS (+' + expPct + '% DAMAGE TAKEN)', 'a-warn');
+      log('Your ' + t.name + ' marks the boss — it takes +' + expPct + '% damage for 2 turns.');
       render();
     } else if(sk.key === 'decoy'){
       playerMana -= sk.cost; t.skillUsed = true;
-      squadDecoyActive = true;
+      const decoys = tankLevel(t.type) >= 5 ? 2 : 1;   // the Lv5 perk for a tank with no numbers to scale
+      squadDecoyCharges += decoys;
       sfxDecoy();
-      showAction('YOUR ' + t.name.toUpperCase() + ' DEPLOYS A DECOY', 'a-heal');
-      log('Your ' + t.name + ' deploys a decoy — the next boss attack is absorbed.');
+      showAction('YOUR ' + t.name.toUpperCase() + ' DEPLOYS A DECOY' + (decoys > 1 ? ' ×2' : ''), 'a-heal');
+      log('Your ' + t.name + ' deploys ' + (decoys > 1 ? 'two decoys' : 'a decoy') + ' — the next ' +
+          (decoys > 1 ? 'two boss attacks are' : 'boss attack is') + ' absorbed.');
       render();
     } else if(sk.key === 'warcry'){
       playerMana -= sk.cost; t.skillUsed = true;
       teamDmgBuffTurns = 3;
+      teamDmgBuffMult = 1 + 0.2 * skillPower(t);
       sfxWarcry();
-      showAction('YOUR ' + t.name.toUpperCase() + ' SOUNDS THE WARCRY (+20% SQUAD DAMAGE)', 'a-warn');
-      log('Your ' + t.name + ' rallies the squad — +20% damage for 3 turns.');
+      const cryPct = Math.round((teamDmgBuffMult - 1) * 100);
+      showAction('YOUR ' + t.name.toUpperCase() + ' SOUNDS THE WARCRY (+' + cryPct + '% SQUAD DAMAGE)', 'a-warn');
+      log('Your ' + t.name + ' rallies the squad — +' + cryPct + '% damage for 3 turns.');
       render();
     }
   }
@@ -1611,12 +1682,14 @@
 
     const exposedTag = document.getElementById('boss-exposed-tag');
     exposedTag.style.display = bossExposedTurns > 0 ? 'inline-block' : 'none';
-    exposedTag.textContent = '◎ EXPOSED +25% (' + bossExposedTurns + ')';
+    exposedTag.textContent = '◎ EXPOSED +' + Math.round((bossExposedMult - 1) * 100) + '% (' + bossExposedTurns + ')';
 
     const chips = [];
-    if(teamDmgBuffTurns > 0) chips.push('<span class="buff-chip warcry">⚔ Warcry +20% · ' + teamDmgBuffTurns + ' turn' + (teamDmgBuffTurns > 1 ? 's' : '') + '</span>');
-    if(bossExposedTurns > 0) chips.push('<span class="buff-chip expose">◎ Exposed +25% · ' + bossExposedTurns + ' turn' + (bossExposedTurns > 1 ? 's' : '') + '</span>');
-    if(squadDecoyActive)     chips.push('<span class="buff-chip decoy">◆ Decoy ready</span>');
+    if(teamDmgBuffTurns > 0) chips.push('<span class="buff-chip warcry">⚔ Warcry +' + Math.round((teamDmgBuffMult - 1) * 100) + '% · ' + teamDmgBuffTurns + ' turn' + (teamDmgBuffTurns > 1 ? 's' : '') + '</span>');
+    if(bossExposedTurns > 0) chips.push('<span class="buff-chip expose">◎ Exposed +' + Math.round((bossExposedMult - 1) * 100) + '% · ' + bossExposedTurns + ' turn' + (bossExposedTurns > 1 ? 's' : '') + '</span>');
+    if(squadDecoyCharges > 0) chips.push('<span class="buff-chip decoy">◆ Decoy ready' + (squadDecoyCharges > 1 ? ' ×' + squadDecoyCharges : '') + '</span>');
+    const auraPct = Math.round(marshalAura() * 100);
+    if(auraPct > 0)          chips.push('<span class="buff-chip warcry">★ Chain of Command +' + auraPct + '% damage</span>');
     document.getElementById('squad-buffs').innerHTML = chips.join('');
     document.getElementById('boss-turn-count').textContent = 'Turn ' + Math.min(turnCount, DEFEAT_TURN_LIMIT);
 
@@ -1686,19 +1759,27 @@
 
       const canAct = t.alive && turn === 'player' && !gameOver;
       const atkDisabled = !canAct || playerMana < t.attackCost;
-      const skillDisabled = !canAct || t.skillUsed || playerMana < t.skill.cost;
-      const skillLabel = t.skillUsed ? '✓' : '✦';
-      const skillCostLabel = t.skillUsed ? 'used' : t.skill.cost;
+      const lvlTag = t.level > 1 ? '<div class="lv-tag">Lv' + t.level + '</div>' : '';
+
+      // The Marshal has no skill button — its slot shows the aura instead.
+      const skillBtn = t.skill
+        ? '<button class="qa-btn qa-skill" ' + ((!canAct || t.skillUsed || playerMana < t.skill.cost) ? 'disabled' : '') +
+          ' onclick="event.stopPropagation(); quickSkill(\'' + t.uid + '\')" title="' + t.skill.name + ' — ' + t.skill.desc + '">' +
+          (t.skillUsed ? '✓' : '✦') + '<span>' + (t.skillUsed ? 'used' : t.skill.cost) + '</span></button>'
+        : '<div class="qa-btn qa-passive" title="' + t.passive.name + ' — ' + t.passive.desc + '">★<span>+' +
+          Math.round(MARSHAL_AURA * skillPower(t) * 100) + '%</span></div>';
+      const btnTitle = t.skill ? t.skill.name : t.passive.name;
 
       return '<div class="roster-tank' + deadCls + selCls + '" ' + onclick + '>' +
+        lvlTag +
         '<img class="size-' + t.type + ' ' + (t.siegeModeTurnsLeft > 0 ? 'siege-active' : '') + '" src="' + t.img + '" alt="">' +
         '<div class="name">' + t.name + '</div>' +
         shieldTag + siegeTag +
         '<div class="hpbar"><div class="hpbar-fill" style="width:' + Math.max(0,(t.hp/t.maxHp*100)) + '%;"></div></div>' +
         '<div class="costs">Move ' + t.moveCost + ' MP</div>' +
         '<div class="tank-quick-actions">' +
-          '<button class="qa-btn qa-atk" ' + (atkDisabled?'disabled':'') + ' onclick="event.stopPropagation(); quickAttack(\'' + t.uid + '\')" title="' + t.skill.name + '">⚔<span>' + t.attackCost + '</span></button>' +
-          '<button class="qa-btn qa-skill" ' + (skillDisabled?'disabled':'') + ' onclick="event.stopPropagation(); quickSkill(\'' + t.uid + '\')" title="' + t.skill.name + '">' + skillLabel + '<span>' + skillCostLabel + '</span></button>' +
+          '<button class="qa-btn qa-atk" ' + (atkDisabled?'disabled':'') + ' onclick="event.stopPropagation(); quickAttack(\'' + t.uid + '\')" title="' + btnTitle + '">⚔<span>' + t.attackCost + '</span></button>' +
+          skillBtn +
         '</div>' +
       '</div>';
     }).join('');
@@ -1818,7 +1899,7 @@
     shopMsg.className = 'submit-msg success';
     shopMsg.textContent = BOSS_TANK_TYPES[key].name + ' acquired!';
     renderShop(newTokens);
-    if(TYPE_ORDER.every(k => ownedTanks.includes(k))){
+    if(ownedTanks.length >= SQUAD_SIZE){
       setTimeout(() => {
         document.getElementById('shop-overlay').classList.add('hidden');
         document.getElementById('start-overlay').classList.remove('hidden');
@@ -1827,6 +1908,8 @@
   }
 
   async function initPage(){
+    const feeLabel = document.getElementById('entry-fee-label');
+    if(feeLabel) feeLabel.textContent = ENTRY_FEE_TOKENS + ' Battle Tokens';
     document.getElementById('boss-portrait').src = 'data:image/svg+xml;utf8,' + encodeURIComponent(bossSvg());
 
     const { data: sessionData } = await sb.auth.getSession();
@@ -1840,7 +1923,7 @@
     ownedTanks = profile ? (profile.boss_tanks_owned || []) : [];
     const clearedFloor = profile ? (profile.boss_tower_floor || 0) : 0;
     const TESTING_UNLOCK_ALL = true; // set to false to re-enable normal sequential floor gating
-    if(!TYPE_ORDER.every(k => ownedTanks.includes(k)) || (!TESTING_UNLOCK_ALL && clearedFloor < 1)){
+    if(ownedTanks.length < SQUAD_SIZE || (!TESTING_UNLOCK_ALL && clearedFloor < 1)){
       window.location.href = 'game-boss-battle.html';
       return;
     }
@@ -1897,6 +1980,8 @@
       return;
     }
     runToken = startRes.token;
+    TANK_LEVELS = startRes.tank_levels || {};
+    if(startRes.tank_runes) EQUIPPED_RUNES = sanitiseRunes(startRes.tank_runes);
 
     deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad';
     document.getElementById('start-overlay').classList.add('hidden');

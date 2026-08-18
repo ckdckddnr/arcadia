@@ -573,10 +573,13 @@
     medic: { name:'Medic Tank', img:'medic_tank.png', price:110, role:'Heals and wards an ally', h:66 },
     raider: { name:'Raider Tank', img:'raider_tank.png', price:120, role:'Moves 2 tiles, rallies the squad', h:54 },
     sniper: { name:'Sniper Tank', img:'sniper_tank.png', price:150, role:'Huge damage, rooted after firing', h:72 },
-    warden: { name:'Warden Tank', img:'warden_tank.png', price:140, role:'Decoy eats one boss attack', h:64 }
+    warden: { name:'Warden Tank', img:'warden_tank.png', price:140, role:'Decoy eats one boss attack', h:64 },
+    marshal: { name:'Marshal Tank', img:'marshal_tank.png', price:160, role:'No skill — the whole squad hits harder', h:64 }
   };
   let currentTokens = 0;
   let ownedBossTanks = [];
+  let bossTankLevels = {};
+  function bossTankLevel(key){ const n = parseInt(bossTankLevels[key], 10); return (n >= 2 && n <= 5) ? n : 1; }
 
   function renderTankShop(){
     const total = Object.keys(BOSS_TANKS).length;
@@ -595,7 +598,14 @@
       if(owned) btnHtml = '<button disabled style="width:100%; padding:8px; border-radius:7px; border:none; font-weight:800; font-size:12px; background:var(--green); color:#04150E;">✓ Owned</button>';
       else if(canAfford) btnHtml = '<button onclick="buyBossTank(\'' + key + '\')" style="width:100%; padding:8px; border-radius:7px; border:none; font-weight:800; font-size:12px; cursor:pointer; background:var(--pink); color:#2A0A1F;">Buy — ' + def.price + ' ⚔</button>';
       else btnHtml = '<button disabled style="width:100%; padding:8px; border-radius:7px; font-weight:800; font-size:12px; background:var(--surface); color:var(--muted); border:1px solid var(--line);">Need ' + def.price + ' ⚔</button>';
-      return '<div style="background:var(--surface-2); border:1.5px solid ' + (owned ? 'var(--green)' : 'var(--line)') + '; border-radius:12px; padding:12px; text-align:center;">' +
+      // levels are earned in the tower lobby; this page only reports them
+      const lv = bossTankLevel(key);
+      const lvTag = (owned && lv > 1)
+        ? '<div style="position:absolute; top:8px; left:8px; font-size:10px; font-weight:900; color:#1A1C24;' +
+          ' background:linear-gradient(180deg,#FFD770,#E8A93B); border-radius:5px; padding:1px 5px;">Lv' + lv + '</div>'
+        : '';
+      return '<div style="position:relative; background:var(--surface-2); border:1.5px solid ' + (owned ? 'var(--green)' : 'var(--line)') + '; border-radius:12px; padding:12px; text-align:center;">' +
+        lvTag +
         '<div style="height:76px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:6px;">' +
           '<img src="' + def.img + '" alt="" style="height:' + def.h + 'px; width:auto; object-fit:contain; image-rendering:pixelated;">' +
         '</div>' +
@@ -641,7 +651,7 @@
     document.getElementById('profile-email').value = user.email;
     document.getElementById('profile-username').value = (user.user_metadata && user.user_metadata.username) || '';
 
-    const { data: profile } = await sb.from('profiles').select('xp,coins,battle_tokens,boss_tanks_owned,checkin_streak,last_checkin_date,weekly_quests').eq('user_id', user.id).maybeSingle();
+    const { data: profile } = await sb.from('profiles').select('xp,coins,battle_tokens,boss_tanks_owned,tank_levels,checkin_streak,last_checkin_date,weekly_quests').eq('user_id', user.id).maybeSingle();
     const xp = profile ? profile.xp : 0;
     const coins = profile ? profile.coins : 100;
     const tokens = profile ? (profile.battle_tokens || 0) : 0;
@@ -650,6 +660,7 @@
     checkinStreak = profile ? (profile.checkin_streak || 0) : 0;
     lastCheckinDate = profile ? (profile.last_checkin_date || null) : null;
     ownedBossTanks = profile ? (profile.boss_tanks_owned || []) : [];
+    bossTankLevels = (profile && profile.tank_levels && typeof profile.tank_levels === 'object') ? profile.tank_levels : {};
     const level = levelFromXp(xp);
     const curFloor = xpForLevel(level);
     const nextFloor = xpForLevel(level + 1);

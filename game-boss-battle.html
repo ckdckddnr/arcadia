@@ -495,7 +495,10 @@
     }).join('');
   }
 
-  const TESTING_UNLOCK_ALL = false; // set to true to unlock every floor while testing
+  // TESTING — every floor is enterable regardless of progress. The fight pages
+  // carry the same flag and are also true. Set all of them to false to put the
+  // tower back on sequential gating before launch.
+  const TESTING_UNLOCK_ALL = true;
 
   // ---------- Runes: inventory and per-tank loadout ----------
   let runeInventory = [];  // rune ids, duplicates allowed

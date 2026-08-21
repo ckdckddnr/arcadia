@@ -143,6 +143,19 @@
     position:absolute; bottom:18px; left:0; right:0; text-align:center;
     color:var(--muted); font-size:13px; z-index:10; pointer-events:none;
   }
+
+  /* ---- Phones: the panel scrolls, the action does not ----
+     The rules push the primary button below the panel's visible area on short
+     screens (235px past it on Orbit Snap), so it sticks to the bottom edge and
+     the rules scroll behind it instead. */
+  @media (max-height:860px){
+    .panel{ padding-bottom:16px; }
+    .start-action-btn{
+      position:sticky; bottom:0; z-index:2; margin-bottom:0;
+      box-shadow:0 0 0 8px var(--surface), 0 -20px 22px -8px var(--surface);
+    }
+    .btn-ghost.start-action-btn{ background:var(--surface); }
+  }
 </style>
 </head>
 <body>

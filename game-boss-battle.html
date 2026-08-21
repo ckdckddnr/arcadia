@@ -217,6 +217,35 @@
   .floor-tag.locked-tag{ background:var(--surface); color:var(--muted); border:1px solid var(--line); }
   .floor-tag.cleared{ background:rgba(255,182,39,0.15); color:var(--amber); }
 
+  /* ---- What a floor pays, and what it drops ---- */
+  .pay-legend{
+    display:grid; gap:7px; margin-bottom:16px; padding:13px 15px; border-radius:12px;
+    background:var(--surface-2); border:1px solid var(--line); font-size:12.5px; color:var(--muted); line-height:1.55; }
+  .pay-legend b{ color:var(--text); }
+  .pay-legend .k{ color:var(--green); }
+  .floor-pay{
+    display:flex; flex-wrap:wrap; gap:5px 7px; margin-top:8px;
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:11px; font-weight:700; }
+  .floor-pay span{
+    padding:2px 8px; border-radius:6px; background:var(--surface);
+    border:1px solid var(--line); color:var(--muted); }
+  .floor-pay span.on{ color:var(--text); border-color:rgba(52,211,153,0.5); background:rgba(52,211,153,0.10); }
+  .floor-pay .tok{ color:var(--pink); }
+  .floor-pay .coin{ color:var(--amber); }
+  .floor-runes{ display:flex; align-items:center; gap:9px; margin-top:7px; font-size:10.5px; color:var(--muted); }
+  .odds-bar{
+    display:flex; height:8px; border-radius:4px; overflow:hidden; flex:1; max-width:240px;
+    background:var(--surface); border:1px solid var(--line); }
+  .odds-bar i{ display:block; height:100%; }
+  .floor-runes .top{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; color:#FFD9A0; white-space:nowrap; }
+  @media (max-width:600px){
+    /* the odds label will not shrink, so give it its own line instead of
+       letting it stretch the floor card past the screen */
+    .floor-runes{ flex-wrap:wrap; gap:5px 8px; }
+    .floor-runes .top{ white-space:normal; }
+    .odds-bar{ max-width:none; flex-basis:100%; }
+  }
+
   @media (max-width:600px){
     .tower-hero h1{ font-size:38px; }
     .shop-grid{ grid-template-columns:repeat(2,1fr); }
@@ -323,6 +352,11 @@
   <div class="card">
     <div class="section-title">Floors</div>
     <div class="section-sub">Climb as high as you can. New floors are added over time.</div>
+    <div class="pay-legend">
+      <div><b class="k">★ First clear</b> pays the full purse — XP, coins and Battle Tokens. It happens once per floor.</div>
+      <div><b>Running a cleared floor again</b> pays back less than it costs to enter. Re-runs are for farming runes, not currency.</div>
+      <div><b>The higher the floor, the better the runes.</b> Every win from floor 2 up drops 2 runes, and Mythic odds climb from 1% on floor 2 to 5% on floor 15.</div>
+    </div>
     <div class="floor-list" id="floor-list"></div>
   </div>
 </main>
@@ -441,6 +475,9 @@
   let currentTokens = 0;
   let clearedFloor = 0;
   let selectedSquad = [];
+  // fee, both payouts and drop odds for all 15 floors, straight from the
+  // functions that do the paying — see boss_floor_table()
+  let floorPay = {};
 
   // ---------- Squad selection ----------
   function loadSquad(){
@@ -826,10 +863,39 @@
         ? '<a href="' + f.href + '" class="' + cls + '">'
         : '<div class="' + cls + '">';
       const closeTag = (f.live && enterable) ? '</a>' : '</div>';
+      // The payout that applies to *this* player is the lit one; the other is
+      // shown greyed so the difference between the two is legible up front.
+      const pay = floorPay[f.num];
+      let payRow = '', runeRow = '';
+      if(pay){
+        const money = p => '<b class="tok">+' + p.tokens + ' \u2694</b> <b class="coin">+' + p.coins + ' \u{1FA99}</b>';
+        payRow = '<div class="floor-pay">' +
+          '<span>Entry <b class="tok">' + pay.fee + ' \u2694</b></span>' +
+          '<span class="' + (cleared ? '' : 'on') + '">\u2605 First clear ' + money(pay.first) + '</span>' +
+          '<span class="' + (cleared ? 'on' : '') + '">Repeat ' + money(pay.again) + '</span>' +
+        '</div>';
+
+        if(pay.runes > 0){
+          const order = ['common','uncommon','epic','legendary','mythic'];
+          const bar = order.map(t =>
+            '<i style="width:' + pay.odds[t] + '%; background:' + RUNE_TIERS[t].color + ';" title="' +
+            RUNE_TIERS[t].label + ' ' + pay.odds[t] + '%"></i>').join('');
+          const full = order.map(t => RUNE_TIERS[t].label + ' ' + pay.odds[t] + '%').join(' · ');
+          runeRow = '<div class="floor-runes" title="' + full + '">' +
+            '<span>' + pay.runes + ' runes</span>' +
+            '<div class="odds-bar">' + bar + '</div>' +
+            '<span class="top">Legendary ' + pay.odds.legendary + '% \u00B7 Mythic ' + pay.odds.mythic + '%</span>' +
+          '</div>';
+        } else {
+          runeRow = '<div class="floor-runes"><span>No rune drops \u2014 the tower starts dropping from floor 2.</span></div>';
+        }
+      }
+
       return tagEl +
         '<div class="floor-num">' + f.num + '</div>' +
         (BOSS_ART[f.num] ? '<div class="floor-art">' + BOSS_ART[f.num] + '</div>' : '') +
-        '<div class="floor-info"><div class="floor-name">' + f.name + '</div><div class="floor-desc">' + f.desc + '</div></div>' +
+        '<div class="floor-info"><div class="floor-name">' + f.name + '</div>' +
+          '<div class="floor-desc">' + f.desc + '</div>' + payRow + runeRow + '</div>' +
         tag +
       closeTag;
     }).join('');
@@ -870,7 +936,18 @@
     renderFloors();
   }
 
+  async function loadFloorPay(){
+    try{
+      const { data, error } = await sb.rpc('boss_floor_table');
+      if(error || !Array.isArray(data)) return;
+      floorPay = {};
+      data.forEach(row => { floorPay[row.floor] = row; });
+    } catch(e){ /* the tower still lists without it */ }
+  }
+
   async function initPage(){
+    await loadFloorPay();
+
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
       renderShop();

@@ -339,6 +339,21 @@
   .btn-primary{ background:var(--red); color:#2A0000; }
   .btn-ghost{ background:transparent; color:var(--text); border:1px solid var(--line); }
   .btn[disabled]{ opacity:0.5; cursor:not-allowed; }
+  #pay-note{
+    margin-bottom:12px; padding:11px 13px; border-radius:10px; text-align:left;
+    background:var(--surface); border:1px solid var(--line); font-size:12px; line-height:1.6; color:var(--muted); }
+  #pay-note.first{ border-color:rgba(52,211,153,0.45); background:rgba(52,211,153,0.08); }
+  #pay-note .hd{ font-weight:800; font-size:12.5px; margin-bottom:2px; color:var(--amber); }
+  #pay-note.first .hd{ color:var(--green); }
+  #pay-note b{ color:var(--text); font-family:'IBM Plex Mono','Noto Sans KR',monospace; }
+  #pay-note .tok{ color:var(--pink); }
+  #pay-note .coin{ color:var(--amber); }
+  #pay-note .odds{ margin-top:7px; display:flex; align-items:center; gap:8px; font-size:10.5px; }
+  #pay-note .odds-bar{
+    display:flex; height:8px; border-radius:4px; overflow:hidden; flex:1;
+    background:var(--surface-2); border:1px solid var(--line); }
+  #pay-note .odds-bar i{ display:block; height:100%; }
+  #pay-note .odds .top{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; color:#FFD9A0; white-space:nowrap; }
   .submit-msg{ font-size:11px; font-weight:600; margin-bottom:10px; min-height:14px; }
   .submit-msg.error{ color:#FF8A8A; }
   .submit-msg.success{ color:var(--green); }
@@ -369,7 +384,18 @@
 
   @media (max-width:480px){
     #board{ grid-template-columns:repeat(8, minmax(28px,42px)); grid-template-rows:repeat(6, minmax(28px,42px)); gap:2px; }
-    .roster-tank{ width:100px; }
+    /* Four cards, three gaps and the rail padding have to live inside 375px,
+       so the card is sized to fit rather than left to scroll off-frame. */
+    .roster{ gap:5px; padding:6px 8px; justify-content:center; }
+    .roster-tank{ width:82px; padding:6px 4px; }
+    .roster-tank img{ height:26px; }
+    .roster-tank .name{ font-size:10.5px; }
+    .roster-tank .costs{ font-size:10.5px; }
+    .roster-tank .rune-stats{ font-size:9.5px; gap:1px 3px; }
+    .roster-tank .lv-tag{ font-size:8.5px; padding:1px 3px; }
+    .roster-tank .shield-tag, .roster-tank .siege-tag{ font-size:10px; }
+    .tank-quick-actions{ gap:3px; margin-top:5px; }
+    .qa-btn{ height:32px; font-size:12px; }
     .shop-grid{ grid-template-columns:1fr; }
     .board-wrap{ flex:2.2; }
     #boss-banner{ flex:1; padding:6px 4px; gap:6px; }
@@ -457,6 +483,7 @@
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 30.</span></li>
       </ul>
       <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);" id="entry-fee-label">35 Battle Tokens</b> — win to earn more back.</div>
+      <div id="pay-note"></div>
       <div class="submit-msg" id="entry-msg"></div>
       <button class="btn btn-primary" id="deploy-btn" onclick="startGame()">Deploy Squad</button>
       <button class="btn btn-ghost" onclick="window.location.href='game-boss-battle.html'">Back to Tower</button>
@@ -1920,7 +1947,12 @@
 
     // action buttons
     const fullMapWarning = hasFullMap ? '<div style="color:var(--amber); font-weight:800; margin-bottom:2px;">⚠ FULL-MAP ATTACK INCOMING — everyone takes damage</div>' : '';
-    if(selected && turn === 'player' && !gameOver){
+    if(skillMode && turn === 'player' && !gameOver){
+      // a skill is aiming — say so, rather than telling them to move
+      document.getElementById('action-hint').innerHTML = fullMapWarning +
+        '<b style="color:var(--green);">Repair Pulse</b> — tap any ally tank to heal it ' +
+        '<span class="mono" style="color:var(--muted);">(tap the skill again to cancel)</span>';
+    } else if(selected && turn === 'player' && !gameOver){
       document.getElementById('action-hint').innerHTML = fullMapWarning +
         '<b style="color:var(--amber);">' + selected.name + '</b> selected — click an adjacent tile to move (' + selected.moveCost + ' MP) ' +
         '<span class="mono" style="color:var(--muted);">(you have ' + playerMana + ' MP)</span>';
@@ -1976,10 +2008,56 @@
       const runeLine = drops.length
         ? ' 🔮 Runes found: ' + drops.map(id => (RUNES[id] || {}).name || id).join(' + ') + '!'
         : '';
+      const clearTag = result === 'win'
+        ? (res.first_clear ? '<b style="color:var(--green);">\u2605 FIRST CLEAR</b> \u2014 full purse. '
+                           : '<b style="color:var(--muted);">Repeat clear</b> \u2014 reduced purse. ')
+        : '';
       msg.className = 'submit-msg success';
-      msg.innerHTML = '+' + res.xp + ' XP, +' + res.coins + ' coins, ' + netTag +
+      msg.innerHTML = clearTag + '+' + res.xp + ' XP, +' + res.coins + ' coins, ' + netTag +
         (res.leveled_up ? ' — LEVEL UP to ' + res.new_level + '!' : '') + runeLine;
     }
+  }
+
+
+  // ---------- What this run pays ----------
+  // Read from boss_floor_table(), the same functions game_finish_run pays out
+  // through, so this panel cannot promise something the payout will not honour.
+  async function renderPayNote(alreadyCleared){
+    const el = document.getElementById('pay-note');
+    if(!el) return;
+    let row = null;
+    try{
+      const { data } = await sb.rpc('boss_floor_table');
+      row = Array.isArray(data) ? data.find(r => r.floor === FLOOR_NUM) : null;
+    } catch(e){}
+    if(!row){ el.style.display = 'none'; return; }
+
+    const money = p => '<b class="tok">+' + p.tokens + ' \u2694</b> and <b class="coin">+' + p.coins +
+                       ' \u{1FA99}</b> <b>+' + p.xp + ' XP</b>';
+    let html;
+    if(alreadyCleared){
+      const net = row.again.tokens - row.fee;
+      el.className = '';
+      html = '<div class="hd">Already cleared \u2014 this is a rune run</div>' +
+        'Repeat clears pay ' + money(row.again) + ', against an entry of <b class="tok">' + row.fee + ' \u2694</b>. ' +
+        'That is <b>' + net + '</b> tokens on the run: you are here for the drops, not the currency.';
+    } else {
+      el.className = 'first';
+      html = '<div class="hd">\u2605 First clear \u2014 full purse</div>' +
+        'Beating this floor for the first time pays ' + money(row.first) + '. ' +
+        'After that it drops to ' + money(row.again) + ' per run.';
+    }
+
+    if(row.runes > 0){
+      const order = ['common','uncommon','epic','legendary','mythic'];
+      const bar = order.map(t => '<i style="width:' + row.odds[t] + '%; background:' + RUNE_TIERS[t].color +
+                                 ';" title="' + RUNE_TIERS[t].label + ' ' + row.odds[t] + '%"></i>').join('');
+      html += '<div class="odds"><span>' + row.runes + ' runes on a win</span>' +
+              '<div class="odds-bar" title="' + order.map(t => RUNE_TIERS[t].label + ' ' + row.odds[t] + '%').join(' \u00B7 ') +
+              '">' + bar + '</div>' +
+              '<span class="top">Legendary ' + row.odds.legendary + '% \u00B7 Mythic ' + row.odds.mythic + '%</span></div>';
+    }
+    el.innerHTML = html;
   }
 
   // ---------- Shop ----------
@@ -2058,6 +2136,7 @@
       window.location.href = 'game-boss-battle.html';
       return;
     }
+    renderPayNote(clearedFloor >= FLOOR_NUM);
     document.getElementById('start-overlay').classList.remove('hidden');
   }
 

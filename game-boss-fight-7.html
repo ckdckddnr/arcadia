@@ -33,6 +33,57 @@
 
   .battle-row{ flex:1; display:flex; flex-direction:row; overflow:hidden; min-height:0; position:relative; }
 
+  /* ---- Backdrop ----
+     A place to fight in rather than a black rectangle. Two silhouette bands pan
+     at different speeds for parallax, particles drift on top, and the whole
+     thing sits under a board that is now slightly translucent — so on the
+     shaped floors you see the scene through the collapsed and void tiles. */
+  #backdrop{ position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+  #backdrop > div{ position:absolute; inset:0; }
+  .bd-band{ background-repeat:repeat-x; will-change:background-position; }
+  .bd-far{ animation:bd-pan var(--far-dur,130s) linear infinite; }
+  .bd-near{ animation:bd-pan var(--near-dur,80s) linear infinite; }
+  @keyframes bd-pan{ from{ background-position-x:0; } to{ background-position-x:-1200px; } }
+
+  .bd-mote{ position:absolute; border-radius:50%; opacity:0; will-change:transform,opacity; }
+  @keyframes bd-rise{
+    0%{ transform:translateY(0); opacity:0; } 14%{ opacity:var(--o); }
+    82%{ opacity:var(--o); } 100%{ transform:translateY(-110vh); opacity:0; } }
+  @keyframes bd-fall{
+    0%{ transform:translateY(0); opacity:0; } 14%{ opacity:var(--o); }
+    82%{ opacity:var(--o); } 100%{ transform:translateY(110vh); opacity:0; } }
+  @keyframes bd-float{
+    0%,100%{ transform:translate(0,0); opacity:calc(var(--o) * 0.45); }
+    50%{ transform:translate(var(--dx,14px), var(--dy,-18px)); opacity:var(--o); } }
+  @keyframes bd-twinkle{
+    0%,100%{ opacity:calc(var(--o) * 0.18); transform:scale(0.85); }
+    50%{ opacity:var(--o); transform:scale(1); } }
+  @keyframes bd-swirl{
+    0%{ transform:rotate(0deg) translateX(var(--r)); opacity:0; }
+    18%{ opacity:var(--o); }
+    100%{ transform:rotate(300deg) translateX(0px); opacity:0; } }
+  .bd-mote.swirl{ left:50%; top:50%; }
+
+  .bd-flash{ opacity:0; mix-blend-mode:screen; }
+  @keyframes bd-strike{
+    0%,88%,100%{ opacity:0; }
+    89%{ opacity:1; } 91%{ opacity:0.12; } 93%{ opacity:0.7; } 96%{ opacity:0; } }
+
+  /* the board floats on the scene instead of hiding it */
+  .board-wrap{ z-index:1; }
+  #boss-banner{ position:relative; z-index:1; }
+
+  @media (prefers-reduced-motion: reduce){
+    .bd-far, .bd-near, .bd-mote, .bd-flash{ animation:none !important; }
+    .bd-mote{ opacity:var(--o); }
+  }
+  /* toxicmire */
+  .bd-sky{ background:radial-gradient(ellipse at 50% 105%, #143A18 0%, #0A1C0E 45%, #040A05 100%); }
+  .bd-far{ background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27300%27%20height%3D%27100%27%20viewBox%3D%270%200%20300%20100%27%3E%3Cpath%20d%3D%27M0%20100%20L0%2062%20Q38%2040%2076%2058%20T152%2054%20T228%2060%20T300%2048%20L300%20100%20Z%27%20fill%3D%27%230E2412%27%2F%3E%3C%2Fsvg%3E"); background-size:auto 26%; background-position:0 100%; opacity:0.8; --far-dur:135s; }
+  .bd-near{ background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27300%27%20height%3D%27120%27%20viewBox%3D%270%200%20300%20120%27%3E%3Cpath%20d%3D%27M0%20120%20L0%2070%20L28%2034%20L52%2062%20L78%2018%20L104%2058%20L130%2030%20L156%2066%20L182%2026%20L210%2060%20L238%2036%20L266%2068%20L300%2040%20L300%20120%20Z%27%20fill%3D%27%2306120A%27%2F%3E%3C%2Fsvg%3E"); background-size:auto 20%; background-position:0 100%; opacity:0.9; --near-dur:78s; }
+  .bd-flash{ display:none; }
+
+
   /* ---- Boss side panel ---- */
   #boss-banner{
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:16px;
@@ -58,7 +109,7 @@
   }
   #board{
     display:grid; grid-template-columns:repeat(8, minmax(32px,64px)); grid-template-rows:repeat(6, minmax(32px,64px));
-    gap:3px; background:linear-gradient(160deg, #1a1f2c, #12161f); padding:8px; border-radius:12px;
+    gap:3px; background:linear-gradient(160deg, rgba(26,31,44,0.80), rgba(18,22,31,0.86)); padding:8px; border-radius:12px; backdrop-filter:blur(1px);
     border:1px solid var(--line); box-shadow:0 0 0 1px rgba(255,92,92,0.08), 0 20px 50px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03);
   }
   #board.shake{ animation:board-shake 0.35s ease; }
@@ -357,6 +408,13 @@
   <div id="turn-banner"></div>
 
   <div class="battle-row">
+    <div id="backdrop" aria-hidden="true">
+      <div class="bd-sky"></div>
+      <div class="bd-band bd-far"></div>
+      <div class="bd-band bd-near"></div>
+      <div id="bd-motes"></div>
+      <div class="bd-flash"></div>
+    </div>
     <div class="board-wrap"><div id="board"></div></div>
 
     <div id="boss-banner">
@@ -2119,6 +2177,39 @@
     startBgAmbience();
     sfxGameStart();
   }
+
+  const BACKDROP_MOTES = { n:28, color:'#8CFF6B', anim:'float', lo:2, hi:4, dmin:10, dmax:22, o:0.4 };
+
+  // ---------- Backdrop ----------
+  // Particles are built once and left to CSS. Randomised delays mean the field
+  // never visibly loops, and every value is inline so one shared stylesheet
+  // serves whatever theme this floor picked.
+  function buildBackdrop(){
+    const host = document.getElementById('bd-motes');
+    if(!host || !BACKDROP_MOTES) return;
+    const m = BACKDROP_MOTES;
+    const rand = (a, b) => a + Math.random() * (b - a);
+    let html = '';
+    for(let i = 0; i < m.n; i++){
+      const size = rand(m.lo, m.hi).toFixed(1);
+      const dur = rand(m.dmin, m.dmax).toFixed(1);
+      const delay = (-Math.random() * dur).toFixed(1);
+      let pos;
+      if(m.anim === 'rise')       pos = 'left:' + rand(0, 100).toFixed(1) + '%; top:100%;';
+      else if(m.anim === 'fall')  pos = 'left:' + rand(0, 100).toFixed(1) + '%; top:-4%;';
+      else if(m.anim === 'swirl') pos = '--r:' + rand(60, 320).toFixed(0) + 'px;';
+      else                        pos = 'left:' + rand(0, 100).toFixed(1) + '%; top:' + rand(0, 100).toFixed(1) + '%;';
+      const wob = m.anim === 'float'
+        ? '--dx:' + rand(-26, 26).toFixed(0) + 'px; --dy:' + rand(-34, -8).toFixed(0) + 'px;'
+        : '';
+      html += '<i class="bd-mote ' + m.anim + '" style="' + pos + wob +
+        'width:' + size + 'px; height:' + size + 'px; background:' + m.color +
+        '; box-shadow:0 0 ' + (size * 3).toFixed(1) + 'px ' + m.color +
+        '; --o:' + m.o + '; animation:bd-' + m.anim + ' ' + dur + 's linear ' + delay + 's infinite;"></i>';
+    }
+    host.innerHTML = html;
+  }
+  buildBackdrop();
 
   initPage();
 </script>

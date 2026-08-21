@@ -228,6 +228,16 @@
   .roster-tank .costs{ font-size:12px; color:var(--text); margin-top:3px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:700; }
   .roster-tank .shield-tag{ font-size:12px; color:var(--cyan); font-weight:800; margin-top:2px; }
   .roster-tank .siege-tag{ font-size:12px; color:var(--pink); font-weight:800; margin-top:2px; }
+  /* What this tank is actually carrying — levels and runes rolled together,
+     since that is the number that decides the fight. */
+  .roster-tank .rune-stats{
+    display:grid; grid-template-columns:1fr 1fr; gap:2px 4px; margin-top:5px;
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:11px; font-weight:800; line-height:1.25;
+  }
+  .roster-tank .rune-stats span{ white-space:nowrap; }
+  .rs-hp{ color:var(--green); }  .rs-atk{ color:var(--amber); }
+  .rs-dr{ color:var(--cyan); }   .rs-sk{ color:#C4B5FD; }
+  .rs-ls{ color:#FF8FB1; }       .rs-rg{ color:#E8ECF4; }
   .tank-quick-actions{ display:flex; gap:4px; margin-top:6px; }
   .qa-btn{
     flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
@@ -575,7 +585,8 @@
       if(!r) return;
       for(const k in r.fx) b[k] += r.fx[k];
     });
-    b.dr = Math.min(0.6, b.dr); // stacking must never reach immunity
+    b.dr = Math.min(0.6, b.dr);       // stacking must never reach immunity
+    b.leech = Math.min(0.25, b.leech); // nor may four Gold runes make a tank unkillable
     return b;
   }
 
@@ -613,10 +624,11 @@
   function skillPower(t){ return 1 + (t && t.runes ? t.runes.skill : 0); }
 
   // The Marshal has no active skill at all — this aura is its entire
-  // contribution, which is why skill power drives it too.
+  // contribution, which is why skill power drives it too. Orders stand once
+  // given, so losing the Marshal costs the squad a gun but not its discipline.
   const MARSHAL_AURA = 0.10;
   function marshalAura(){
-    const m = playerTanks.find(t => t.type === 'marshal' && t.alive);
+    const m = playerTanks.find(t => t.type === 'marshal');
     return m ? MARSHAL_AURA * skillPower(m) : 0;
   }
 
@@ -640,7 +652,7 @@
       skill:{ key:'decoy', name:'Decoy', cost:5, desc:'Deploys a decoy that absorbs the next boss attack completely.' } },
     marshal: { key:'marshal', name:'Marshal Tank', img:'marshal_tank.png', hp:1900, atk:240, moveCost:1, attackCost:2, price:160,
       skill:null,
-      passive:{ name:'Chain of Command', desc:'No active skill. While the Marshal lives, every tank in the squad deals +10% damage.' } }
+      passive:{ name:'Chain of Command', desc:'No active skill. Every tank in the squad deals +10% damage for the whole fight, even after the Marshal falls.' } }
   };
   const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider','sniper','warden','marshal'];
   const ROLE_TEXT = {
@@ -712,6 +724,11 @@
   const PHASE_THRESHOLDS = { p2: 0.6, p3: 0.3 };
   const ENRAGE_TURN = 30;
   const DEFEAT_TURN_LIMIT = 60;
+  // Leech reads off damage, and damage carries siege, warcry, expose and the
+  // Marshal's aura — so the more the squad buffed, the more one tank healed.
+  // Measuring the cap against the tank's own health breaks that loop: a Lv5
+  // Sniper stacked with Gold was healing 112% of its own bar every shot.
+  const LEECH_MAX_PER_HIT = 0.10;   // of the attacker's max HP
   const POISON_TICK_RATE = 0.005; // 0.5% of max HP per stack per boss turn, before skill power
   const POISON_MAX_RATE  = 0.04;  // hard ceiling — a stacked Lv4 Light would otherwise melt a boss unattended
   const REGEN_TURNS = 3;
@@ -1534,7 +1551,8 @@
       boss.hp -= dmg;
       boss.turnsSinceDamage = 0;
       if(t.runes && t.runes.leech > 0 && t.alive){
-        const drained = Math.min(Math.round(dmg * t.runes.leech), t.maxHp - t.hp);
+        const ceiling = Math.round(t.maxHp * LEECH_MAX_PER_HIT);
+        const drained = Math.min(Math.round(dmg * t.runes.leech), ceiling, t.maxHp - t.hp);
         if(drained > 0){ t.hp += drained; fxFloatText(t.r, t.c, '+' + drained, '#7CF9C0'); }
       }
       fxFlashBossHit();
@@ -1761,6 +1779,22 @@
       const atkDisabled = !canAct || playerMana < t.attackCost;
       const lvlTag = t.level > 1 ? '<div class="lv-tag">Lv' + t.level + '</div>' : '';
 
+      const rb = t.runes || {};
+      const pct = v => Math.round(v * 100) + '%';
+      const stats = ['<span class="rs-hp">\u2665' + formatHp(t.maxHp) + '</span>',
+                     '<span class="rs-atk">\u2694' + t.atk + '</span>'];
+      if(rb.dr > 0)    stats.push('<span class="rs-dr" title="Damage taken">\u26E8' + pct(rb.dr) + '</span>');
+      if(rb.skill > 0) stats.push('<span class="rs-sk" title="Skill power">\u2726' + pct(rb.skill) + '</span>');
+      if(rb.leech > 0) stats.push('<span class="rs-ls" title="Lifesteal">\u2695' + pct(rb.leech) + '</span>');
+      if(rb.regen > 0) stats.push('<span class="rs-rg" title="Regen per turn">\u267A' + rb.regen + '</span>');
+      const statStrip = '<div class="rune-stats">' + stats.join('') + '</div>';
+      const statTitle = t.name + (t.level > 1 ? ' Lv' + t.level : '') +
+        ' \u2014 ' + formatHp(t.maxHp) + ' HP, ' + t.atk + ' damage' +
+        (rb.skill > 0 ? ', +' + pct(rb.skill) + ' skill power' : '') +
+        (rb.dr > 0    ? ', ' + pct(rb.dr) + ' less damage taken' : '') +
+        (rb.leech > 0 ? ', ' + pct(rb.leech) + ' lifesteal' : '') +
+        (rb.regen > 0 ? ', +' + rb.regen + ' HP per turn' : '');
+
       // The Marshal has no skill button — its slot shows the aura instead.
       const skillBtn = t.skill
         ? '<button class="qa-btn qa-skill" ' + ((!canAct || t.skillUsed || playerMana < t.skill.cost) ? 'disabled' : '') +
@@ -1770,12 +1804,13 @@
           Math.round(MARSHAL_AURA * skillPower(t) * 100) + '%</span></div>';
       const btnTitle = t.skill ? t.skill.name : t.passive.name;
 
-      return '<div class="roster-tank' + deadCls + selCls + '" ' + onclick + '>' +
+      return '<div class="roster-tank' + deadCls + selCls + '" title="' + statTitle + '" ' + onclick + '>' +
         lvlTag +
         '<img class="size-' + t.type + ' ' + (t.siegeModeTurnsLeft > 0 ? 'siege-active' : '') + '" src="' + t.img + '" alt="">' +
         '<div class="name">' + t.name + '</div>' +
         shieldTag + siegeTag +
         '<div class="hpbar"><div class="hpbar-fill" style="width:' + Math.max(0,(t.hp/t.maxHp*100)) + '%;"></div></div>' +
+        statStrip +
         '<div class="costs">Move ' + t.moveCost + ' MP</div>' +
         '<div class="tank-quick-actions">' +
           '<button class="qa-btn qa-atk" ' + (atkDisabled?'disabled':'') + ' onclick="event.stopPropagation(); quickAttack(\'' + t.uid + '\')" title="' + btnTitle + '">⚔<span>' + t.attackCost + '</span></button>' +

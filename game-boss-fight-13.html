@@ -40,15 +40,15 @@
     flex:1; min-width:0; overflow-y:auto; text-align:center;
   }
   #boss-portrait-wrap{ width:150px; height:150px; flex-shrink:0; animation:boss-idle 2.4s ease-in-out infinite; }
-  #boss-portrait{ width:100%; height:100%; filter:drop-shadow(0 0 18px rgba(255,92,92,0.6)); transition:filter 0.15s; }
+  #boss-portrait{ width:100%; height:100%; filter:drop-shadow(0 0 22px rgba(140,255,107,0.7)); transition:filter 0.15s; }
   @keyframes boss-idle{ 0%,100%{ transform:translateY(0) scale(1); } 50%{ transform:translateY(-4px) scale(1.03); } }
   #boss-info{ width:90%; max-width:280px; }
   #boss-name-row{ display:flex; flex-direction:column; align-items:center; gap:6px; margin-bottom:10px; }
-  #boss-name{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:26px; letter-spacing:0.03em; color:var(--red); text-shadow:0 0 14px rgba(255,92,92,0.5); }
+  #boss-name{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:26px; letter-spacing:0.03em; color:#FFA94D; text-shadow:0 0 16px rgba(255,169,77,0.6);}
   #boss-phase-tag{ font-size:13px; font-weight:800; padding:3px 11px; border-radius:11px; background:rgba(255,182,39,0.18); color:var(--amber); border:2px solid rgba(255,182,39,0.6); letter-spacing:0.04em; }
   #boss-enrage-tag{ font-size:13px; font-weight:800; padding:3px 11px; border-radius:11px; background:rgba(255,92,92,0.22); color:var(--red); border:2px solid rgba(255,92,92,0.7); letter-spacing:0.04em; display:none; }
-  #boss-hp-outer{ height:26px; background:var(--surface-2); border:2px solid var(--red); border-radius:8px; overflow:hidden; position:relative; box-shadow:0 0 16px rgba(255,92,92,0.25); }
-  #boss-hp-fill{ height:100%; background:linear-gradient(90deg, #7A1F1F, var(--red)); transition:width 0.5s ease; }
+  #boss-hp-outer{ height:26px; background:var(--surface-2); border:2px solid #8CFF6B; border-radius:8px; overflow:hidden; position:relative; box-shadow:0 0 18px rgba(140,255,107,0.3); }
+  #boss-hp-fill{ height:100%; background:linear-gradient(90deg, #1A3A14, #8CFF6B); transition:width 0.5s ease; }
   #boss-hp-text{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:14px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.9); }
   #boss-turn-count{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:15px; font-weight:800; color:var(--amber); background:rgba(255,182,39,0.1); border:1px solid rgba(255,182,39,0.3); border-radius:8px; padding:6px 14px; flex-shrink:0; margin-top:6px; }
 
@@ -75,6 +75,8 @@
   .tile:nth-child(odd){ background:#1e2434; }
 
   /* ---- Terrain ---- */
+  /* Outside the arena. Fully invisible so the board reads as its own shape. */
+  .tile.terrain-void{ background:transparent !important; box-shadow:none !important; pointer-events:none; }
   .tile.terrain-conveyor{ background:rgba(255,182,39,0.08); }
   .tile.terrain-conveyor::after{
     content:''; position:absolute; inset:0; z-index:0; pointer-events:none; border-radius:5px; opacity:0.55;
@@ -346,7 +348,7 @@
 
 <nav>
   <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
-  <div class="game-title">FLOOR 1 · CORE-EATER</div>
+  <div class="game-title">FLOOR 13 · SUNDERJAW</div>
   <a href="game-boss-battle.html" class="back-link">&larr; Tower</a>
 </nav>
 
@@ -363,7 +365,7 @@
       <div id="boss-portrait-wrap"><img id="boss-portrait" src="" alt="Boss"></div>
       <div id="boss-info">
         <div id="boss-name-row">
-          <div id="boss-name">Core-Eater</div>
+          <div id="boss-name">Sunderjaw</div>
           <div id="boss-phase-tag">Phase 1</div>
           <div id="boss-enrage-tag">⚡ ENRAGED</div>
           <div id="boss-exposed-tag">◎ EXPOSED</div>
@@ -389,15 +391,16 @@
   <!-- Start overlay -->
   <div class="overlay hidden" id="start-overlay">
     <div class="panel">
-      <div class="eyebrow">Floor 1 &middot; Boss Battle</div>
-      <h1>CORE-<span>EATER</span></h1>
-      <p>A scrap-devouring horror built from the husks of fallen tanks. No fog here — it's always visible, and so are you.</p>
+      <div class="eyebrow">Floor 13 &middot; Boss Battle</div>
+      <h1>SUNDER<span>JAW</span></h1>
+      <p>Two halves of a jaw with the arena caught between them. The waist is the only way across, and every fissure makes it narrower.</p>
       <ul style="text-align:left; list-style:none; margin-bottom:16px;">
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Telegraphed attacks:</b> the boss shows upcoming strike zones as red tiles. Move your tanks off them before its turn.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Easier to dodge = harder it hits.</b> A single cross-shaped strike hurts more than a full-map strike.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">3 phases:</b> more simultaneous attack zones appear as its HP drops — plan ahead.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 30.</span></li>
       </ul>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);" id="entry-fee-label">170 Battle Tokens</b> — win to earn more back.</div>
       <div class="submit-msg" id="entry-msg"></div>
       <button class="btn btn-primary" id="deploy-btn" onclick="startGame()">Deploy Squad</button>
       <button class="btn btn-ghost" onclick="window.location.href='game-boss-battle.html'">Back to Tower</button>
@@ -486,6 +489,7 @@
     if(type === 'heavy' && siegeActive){ playClip('explosion_large_008.wav', 0.9); return; }
     playClip(TANK_FIRE_SOUND[type], 0.65);
   }
+  function sfxCollapse(){ playClip('explosion_large_mix_003.wav', 0.6); }
   function sfxPoison(){ playClipTimed('ambience_damaged_burning_metal_scratching_001.wav', 0.55, 2000); }
   function sfxRailgun(){ playClip('weapon_railgun_001.wav', 0.8); }
   function sfxShield(){ playClip('shield_up_002.wav', 0.7); }
@@ -495,16 +499,22 @@
   function sfxDecoy(){ playClip('shield_boost.wav', 0.75); }
   function sfxBossHit(){ playNoise(0.15, 0.18, 1500); playTone(220, 0.1, 'square', 0.1, 110); }
   const PATTERN_SOUND = {
-    cross: 'impact_blaster_001.wav',
-    column: 'impact_blaster_003.wav',
-    row: 'impact_blaster_003.wav',
-    half: 'explosion_small_016.wav',
-    scattered: 'impact_blaster_001.wav'
+    cross: 'explosion_large_008.wav',
+    column: 'explosion_large_001.wav',
+    row: 'explosion_large_001.wav',
+    diagonal: 'explosion_large_002.wav',
+    quadrant: 'explosion_large_mix_001.wav',
+    eclipse: 'explosion_large_mix_002.wav',
+    spiral: 'explosion_large_005.wav',
+    twincol: 'explosion_large_mix_003.wav',
+    chase: 'explosion_large_004.wav',
+    half: 'explosion_large_mix_004.wav',
+    scattered: 'explosion_large_006.wav'
   };
   function sfxBossAttack(type){
-    playClipTimed(PATTERN_SOUND[type] || 'impact_blaster_001.wav', 0.85, 4000);
+    playClipTimed(PATTERN_SOUND[type] || 'explosion_large_001.wav', 0.85, 4000);
   }
-  function sfxBossFullMap(){ playClipTimed('explosion_small_fading_001.wav', 0.85, 4000); }
+  function sfxBossFullMap(){ playClipTimed('explosion_large_fade_mix_002.wav', 0.9, 4000); }
   function sfxSiege(){ playClip('mechanical_004.wav', 0.75); }
   function sfxVictory(){ playTone(523,0.15,'sine',0.15,660); setTimeout(()=>playTone(659,0.15,'sine',0.15,784),140); setTimeout(()=>playTone(784,0.3,'sine',0.15,1046),280); }
   function sfxDefeat(){ playTone(220,0.4,'sawtooth',0.15,90); }
@@ -528,7 +538,7 @@
     }
   }
 
-  const FLOOR_NUM = 1;
+  const FLOOR_NUM = 13;
 
   // ---------- Runes ----------
   // Tier weights are drop chances out of 100 and must sum to 100.
@@ -663,13 +673,99 @@
   // ---------- Board config ----------
   const COLS = 8, ROWS = 6;
 
+  // ---------- Arena shape ----------
+  // Floors 12 and up are not plain rectangles. ARENA_SHAPE decides which grid
+  // squares are part of the arena at all; the rest are void — nothing stands
+  // there, nothing is drawn, and no attack targets them. Deploy slots
+  // ([1,1] [1,6] [4,1] [4,6]) must stay inside whatever shape a floor picks.
+  //
+  // Sunderjaw: an hourglass. The centre columns are open only across the middle
+  // two rows, so the squad has to commit to a side or hold the waist.
+  function inArena(r, c){
+    if(c === 3 || c === 4) return r >= 2 && r <= 3;
+    return true;
+  }
+
+  const ARENA_VOID = (() => {
+    const s = new Set();
+    for(let r = 0; r < ROWS; r++) for(let c = 0; c < COLS; c++) if(!inArena(r, c)) s.add(r + ',' + c);
+    return s;
+  })();
+  const ARENA_TILES = ROWS * COLS - ARENA_VOID.size;
+  function isVoid(r, c){ return ARENA_VOID.has(r + ',' + c); }
+
   // ---------- Terrain ----------
-  // Opt-in per floor. An empty table means a bare arena, which is how every
-  // floor up to 10 plays, so this layer costs them nothing.
+  // Sunderjaw lays out no terrain in advance beyond the arena wall — the rest is
+  // carved by the boss as the fight goes on, one collapse at a time.
   const TERRAIN = {};
 
+  function buildArena(){
+    for(const k in TERRAIN) delete TERRAIN[k];
+    ARENA_VOID.forEach(k => { TERRAIN[k] = { type:'void' }; });
+  }
+  buildArena();
+
+  // Four tanks need somewhere to stand. Below this the rift stops biting, so a
+  // long fight can never wall the squad into a corner it cannot leave. Scaled
+  // off the arena so a smaller shape keeps the same breathing room.
+  const MIN_OPEN_TILES = Math.max(16, Math.round(ARENA_TILES * 0.55));
+  // A Fissure crosses a whole column pair. Letting it take all of them shrank
+  // the arena to its floor inside four casts, which is over before the fight
+  // has started — biting four at a time spreads it across the whole run.
+  const MAX_COLLAPSE_PER_HIT = 4;
+
+  function openTileCount(){
+    let n = 0;
+    for(let r = 0; r < ROWS; r++) for(let c = 0; c < COLS; c++) if(!blocksMove(r, c)) n++;
+    return n;
+  }
+
+  // Void was never floor, so it does not count as something you lost.
+  function collapsedCount(){ return ARENA_TILES - openTileCount(); }
+
+  // A tank that cannot step anywhere is a tank that can only sit and be shot,
+  // so no single collapse is allowed to take an ally's last exit.
+  function tanksCanStillMove(){
+    return playerTanks.every(t => {
+      if(!t.alive) return true;
+      return [[1,0],[-1,0],[0,1],[0,-1]].some(([dr, dc]) => {
+        const r = t.r + dr, c = t.c + dc;
+        return inBounds(r, c) && !blocksMove(r, c);
+      });
+    });
+  }
+
+  // Called once a Fissure has finished dealing its damage. Occupied tiles are
+  // spared so nothing is entombed mid-turn; a tank destroyed by that same hit
+  // has already been cleared off the board, so its tile is fair game.
+  function collapseTiles(tiles){
+    let open = openTileCount();
+    const fell = [];
+    const order = tiles.slice().sort(() => Math.random() - 0.5);
+    for(const [r, c] of order){
+      if(fell.length >= MAX_COLLAPSE_PER_HIT) break;
+      if(open <= MIN_OPEN_TILES) break;
+      if(blocksMove(r, c)) continue;
+      if(board[r][c].occupant) continue;
+
+      const key = r + ',' + c;
+      TERRAIN[key] = { type:'rubble' };
+      if(!tanksCanStillMove()){ delete TERRAIN[key]; continue; }   // that one was somebody's way out
+
+      fell.push([r, c]);
+      open--;
+    }
+    if(fell.length){
+      sfxCollapse();
+      triggerBoardShake(0.4);
+      fell.forEach(([r, c]) => fxFloatText(r, c, '✖', '#C89B5A'));
+      log('The floor gives way — ' + fell.length + ' tile' + (fell.length > 1 ? 's' : '') + ' collapsed for good.');
+    }
+  }
+
   function terrainAt(r, c){ return TERRAIN[r + ',' + c] || null; }
-  function blocksMove(r, c){ const t = terrainAt(r, c); return !!t && t.type === 'rubble'; }
+  // Rubble is floor that fell in; void was never floor. Both are impassable.
+  function blocksMove(r, c){ const t = terrainAt(r, c); return !!t && (t.type === 'rubble' || t.type === 'void'); }
 
   // Resolved when the player commits their turn, so a tile that looked safe
   // can still hand you to the boss before it fires.
@@ -718,7 +814,7 @@
     return TYPE_ORDER.slice(0, SQUAD_SIZE);
   }
 
-  const BOSS_MAX_HP = 7000;
+  const BOSS_MAX_HP = 52000;
   const PHASE_THRESHOLDS = { p2: 0.6, p3: 0.3 };
   const ENRAGE_TURN = 30;
   const DEFEAT_TURN_LIMIT = 60;
@@ -733,12 +829,22 @@
   const REGEN_PCT = 0.02;
 
   const PATTERNS = {
-    cross:     { label:'Cross',     dmg:400, phase:1, color:'#FF5C5C' },
-    column:    { label:'Column',    dmg:350, phase:1, color:'#2DE1FC' },
-    row:       { label:'Row',       dmg:350, phase:1, color:'#FF5CB6' },
-    half:      { label:'Half-Map',  dmg:250, phase:2, color:'#FF9227' },
-    scattered: { label:'Scattered', dmg:200, phase:2, color:'#B84DFF' },
-    full:      { label:'Full-Map',  dmg:100, phase:3, color:'#FFB627' }
+    cross:     { label:'Cross',     dmg:960, phase:1, color:'#FF5C5C' },
+    column:    { label:'Column',    dmg:830, phase:1, color:'#2DE1FC' },
+    row:       { label:'Row',       dmg:830, phase:1, color:'#FF5CB6' },
+    diagonal:  { label:'Diagonal',  dmg:880, phase:1, color:'#7CF9C0' },
+    quadrant:  { label:'Quadrant',  dmg:760, phase:1, color:'#FF8A3D' },
+    eclipse:   { label:'Eclipse',   dmg:730, phase:1, color:'#B084F0' },
+    spiral:    { label:'Coil Lash', dmg:610, phase:1, color:'#8CFF6B' },
+    twincol:   { label:'Twin Columns', dmg:830, phase:2, color:'#A0A8FF' },
+    chase:     { label:'Hunter Lock', dmg:730, phase:2, color:'#FF3D7A' },
+    half:      { label:'Half-Map',  dmg:700, phase:2, color:'#FF9227' },
+    scattered: { label:'Scattered', dmg:540, phase:2, color:'#B84DFF' },
+    pincer:    { label:'Crown Pincer', dmg:660, phase:2, color:'#FFA94D' },
+    nova:      { label:'Sovereign Nova', dmg:690, phase:2, color:'#9FD8FF' },
+    checkmate: { label:'Checkmate', dmg:620, phase:3, color:'#FFD700' },
+    fissure:   { label:'Fissure',    dmg:820, phase:1, color:'#C89B5A' },
+    full:      { label:'Full-Map',  dmg:300, phase:3, color:'#FFB627' }
   };
 
   function patternTiles(type){
@@ -749,6 +855,48 @@
       for(let d=1; d<=2; d++){
         [[cr-d,cc],[cr+d,cc],[cr,cc-d],[cr,cc+d]].forEach(([r,c]) => { if(r>=0&&r<ROWS&&c>=0&&c<COLS) tiles.push([r,c]); });
       }
+    } else if(type === 'diagonal'){
+      const flip = Math.random() < 0.5;
+      const span = Math.min(ROWS, COLS);
+      const offset = Math.floor(Math.random() * (COLS - span + 1));
+      for(let i=0;i<span;i++){
+        const r = i;
+        const c = flip ? (COLS - 1 - i - offset) : (i + offset);
+        if(r>=0&&r<ROWS&&c>=0&&c<COLS) tiles.push([r,c]);
+        // thicken the diagonal by one tile so it reads clearly on a wide board
+        const c2 = c + (flip ? -1 : 1);
+        if(r>=0&&r<ROWS&&c2>=0&&c2<COLS) tiles.push([r,c2]);
+      }
+    } else if(type === 'spiral'){
+      let r = Math.floor(ROWS/2), c = Math.floor(COLS/2);
+      let dr = 0, dc = 1, steps = 1, stepCount = 0, turns = 0;
+      const maxTiles = 12;
+      while(tiles.length < maxTiles && turns < 8){
+        for(let s=0; s<steps && tiles.length<maxTiles; s++){
+          if(r>=0&&r<ROWS&&c>=0&&c<COLS) tiles.push([r,c]);
+          r += dr; c += dc;
+        }
+        const tmp = dr; dr = dc; dc = -tmp;
+        stepCount++;
+        if(stepCount % 2 === 0) steps++;
+        turns++;
+      }
+    } else if(type === 'eclipse'){
+      const cr = Math.floor(Math.random()*ROWS), cc = Math.floor(Math.random()*COLS);
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+        if(Math.abs(r-cr) + Math.abs(c-cc) <= 2) tiles.push([r,c]);
+      }
+    } else if(type === 'quadrant'){
+      const cornerR = Math.random() < 0.5 ? 0 : ROWS - 3;
+      const cornerC = Math.random() < 0.5 ? 0 : COLS - 4;
+      for(let r=cornerR; r<cornerR+3; r++) for(let c=cornerC; c<cornerC+4; c++) tiles.push([r,c]);
+    } else if(type === 'twincol'){
+      const c1 = Math.floor(Math.random() * (COLS/2));
+      const c2 = c1 + Math.floor(COLS/2) + Math.floor(Math.random() * (COLS/2 - 1));
+      for(let r=0;r<ROWS;r++){ tiles.push([r,c1]); tiles.push([r, Math.min(c2, COLS-1)]); }
+    } else if(type === 'chase'){
+      playerTanks.filter(t => t.alive).forEach(t => tiles.push([t.r, t.c]));
+      if(tiles.length === 0){ tiles.push([Math.floor(Math.random()*ROWS), Math.floor(Math.random()*COLS)]); }
     } else if(type === 'column'){
       const cc = Math.floor(Math.random()*(COLS-1));
       for(let r=0;r<ROWS;r++){ tiles.push([r,cc]); tiles.push([r,cc+1]); }
@@ -763,6 +911,26 @@
       for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) all.push([r,c]);
       for(let i=all.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [all[i],all[j]]=[all[j],all[i]]; }
       for(let i=0;i<7;i++) tiles.push(all[i]);
+    } else if(type === 'pincer'){
+      // jaws closing from the top and bottom edges — the middle rows are safe
+      for(let c=0;c<COLS;c++){ tiles.push([0,c]); tiles.push([ROWS-1,c]); }
+    } else if(type === 'nova'){
+      // an expanding ring; the eye of the blast is the safe spot
+      const cr = 1 + Math.floor(Math.random()*(ROWS-2)), cc = 1 + Math.floor(Math.random()*(COLS-2));
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+        const d = Math.abs(r-cr) + Math.abs(c-cc);
+        if(d === 2 || d === 3) tiles.push([r,c]);
+      }
+    } else if(type === 'fissure'){
+      // two full columns tear open; whatever they touch stops being floor
+      const c1 = Math.floor(Math.random() * COLS);
+      let c2 = Math.floor(Math.random() * COLS);
+      if(c2 === c1) c2 = (c1 + 1 + Math.floor(Math.random() * (COLS - 1))) % COLS;
+      for(let r = 0; r < ROWS; r++){ tiles.push([r, c1]); tiles.push([r, c2]); }
+    } else if(type === 'checkmate'){
+      // every other tile — half the board, so spacing your squad matters
+      const parity = Math.random() < 0.5 ? 0 : 1;
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if((r+c) % 2 === parity) tiles.push([r,c]);
     } else if(type === 'full'){
       for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) tiles.push([r,c]);
     }
@@ -946,15 +1114,97 @@
   function animateBossAttackFX(type, tiles, onDone){
     if(type === 'cross'){
       animateBossBeamSingle(tiles, onDone);
+    } else if(type === 'diagonal'){
+      animateBossDiagonal(tiles, onDone);
+    } else if(type === 'twincol'){
+      animateBossTwinCol(tiles, onDone);
+    } else if(type === 'chase'){
+      animateBossChase(tiles, onDone);
     } else if(type === 'column' || type === 'row'){
       animateBossSweep(tiles, onDone);
-    } else if(type === 'half'){
+    } else if(type === 'half' || type === 'quadrant' || type === 'eclipse'){
       animateBossWave(tiles, onDone);
-    } else if(type === 'scattered'){
+    } else if(type === 'scattered' || type === 'spiral'){
       animateBossScatterShots(tiles, onDone);
     } else {
       animateBossBeamSingle(tiles, onDone);
     }
+  }
+
+  function animateBossChase(tiles, onDone){
+    const start = bossCenter();
+    const layer = document.getElementById('fx-layer');
+    fxChargeUp(start.x, start.y, '#FF3D7A', 160);
+    setTimeout(() => {
+      tiles.forEach(([r,c], i) => {
+        setTimeout(() => {
+          const p = tileCenter(r,c);
+          const reticle = document.createElement('div');
+          reticle.style.cssText = 'position:absolute; left:'+p.x+'px; top:'+p.y+'px; width:52px; height:52px; border-radius:50%; transform:translate(-50%,-50%) scale(1.6); pointer-events:none; border:3px solid #FF3D7A; box-shadow:0 0 14px rgba(255,61,122,0.7); z-index:6; opacity:0; transition:transform 0.2s cubic-bezier(.3,.6,.2,1), opacity 0.2s ease;';
+          layer.appendChild(reticle);
+          requestAnimationFrame(() => { reticle.style.transform = 'translate(-50%,-50%) scale(1)'; reticle.style.opacity = '1'; });
+          setTimeout(() => {
+            reticle.style.opacity = '0';
+            fxBurst(p.x, p.y, '#FF3D7Aee', 80);
+          }, 220);
+          setTimeout(() => reticle.remove(), 420);
+        }, i * 70);
+      });
+      triggerBoardShake(0.3);
+      setTimeout(() => { if(onDone) onDone(); }, tiles.length * 70 + 300);
+    }, 160);
+  }
+
+  function animateBossTwinCol(tiles, onDone){
+    const start = bossCenter();
+    const uniqueCols = [...new Set(tiles.map(([r,c]) => c))];
+    const layer = document.getElementById('fx-layer');
+    fxChargeUp(start.x, start.y, '#A0A8FF', 170);
+    setTimeout(() => {
+      uniqueCols.forEach(col => {
+        const colTiles = tiles.filter(([r,c]) => c === col);
+        const box = tilesBoundingBox(colTiles);
+        const glow = document.createElement('div');
+        glow.style.cssText = 'position:absolute; left:'+box.x+'px; top:'+(box.y - box.h/2 - 14)+'px; width:14px; height:0px; border-radius:8px; transform:translate(-50%,0); pointer-events:none; background:rgba(160,168,255,0.35); filter:blur(3px); z-index:6; transition:height 0.24s cubic-bezier(.2,.8,.3,1), opacity 0.2s ease 0.22s;';
+        layer.appendChild(glow);
+        const core = document.createElement('div');
+        core.style.cssText = 'position:absolute; left:'+box.x+'px; top:'+(box.y - box.h/2 - 12)+'px; width:5px; height:0px; border-radius:4px; transform:translate(-50%,0); pointer-events:none; background:linear-gradient(180deg, #F0F1FF, #A0A8FF); box-shadow:0 0 16px rgba(160,168,255,0.9); z-index:7; transition:height 0.24s cubic-bezier(.2,.8,.3,1), opacity 0.2s ease 0.22s;';
+        layer.appendChild(core);
+        requestAnimationFrame(() => { glow.style.height = (box.h+24)+'px'; core.style.height = (box.h+24)+'px'; });
+        setTimeout(() => { glow.style.opacity='0'; core.style.opacity='0'; }, 240);
+        setTimeout(() => { glow.remove(); core.remove(); }, 380);
+      });
+      triggerBoardShake(0.3);
+      setTimeout(() => { if(onDone) onDone(); }, 400);
+    }, 170);
+  }
+
+  function animateBossDiagonal(tiles, onDone){
+    const start = bossCenter();
+    const p1 = tileCenter(tiles[0][0], tiles[0][1]);
+    const p2 = tileCenter(tiles[tiles.length-1][0], tiles[tiles.length-1][1]);
+    const layer = document.getElementById('fx-layer');
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    const len = Math.sqrt(dx*dx+dy*dy);
+    const angle = Math.atan2(dy,dx) * 180/Math.PI;
+
+    fxChargeUp(start.x, start.y, '#7CF9C0', 170);
+    setTimeout(() => {
+      const glow = document.createElement('div');
+      glow.style.cssText = 'position:absolute; left:'+p1.x+'px; top:'+p1.y+'px; width:0px; height:26px; border-radius:12px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle+'deg); pointer-events:none; background:rgba(124,249,192,0.35); filter:blur(3px); z-index:6; transition:width 0.24s cubic-bezier(.2,.8,.3,1), opacity 0.2s ease 0.22s;';
+      layer.appendChild(glow);
+      const core = document.createElement('div');
+      core.style.cssText = 'position:absolute; left:'+p1.x+'px; top:'+p1.y+'px; width:0px; height:7px; border-radius:4px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle+'deg); pointer-events:none; background:linear-gradient(90deg, #EAFFFE, #7CF9C0); box-shadow:0 0 18px rgba(124,249,192,0.9); z-index:7; transition:width 0.24s cubic-bezier(.2,.8,.3,1), opacity 0.2s ease 0.22s;';
+      layer.appendChild(core);
+      requestAnimationFrame(() => { glow.style.width = len+'px'; core.style.width = len+'px'; });
+      setTimeout(() => { glow.style.opacity='0'; core.style.opacity='0'; }, 240);
+      setTimeout(() => {
+        glow.remove(); core.remove();
+        fxBurst((p1.x+p2.x)/2, (p1.y+p2.y)/2, '#7CF9C0ee', 85);
+        triggerBoardShake(0.25);
+        if(onDone) onDone();
+      }, 380);
+    }, 170);
   }
 
   function animateBossBeamSingle(tiles, onDone){
@@ -1195,6 +1445,8 @@
     document.getElementById('boss-exposed-tag').style.display = 'none';
     document.getElementById('squad-buffs').innerHTML = '';
 
+    buildArena();   // last run's collapses go, the arena wall stays
+
     teamDmgBuffTurns = 0; teamDmgBuffMult = 1.2;
     bossExposedTurns = 0; bossExposedMult = 1.25;
     squadDecoyCharges = 0;
@@ -1215,19 +1467,22 @@
   const QUEUE_DEPTH = 1;
 
   function poolForPhase(){
-    const pool = ['cross','column','row'];
-    if(phase >= 2) pool.push('half','scattered');
-    if(phase >= 3) pool.push('full');
+    const pool = ['cross','column','row','diagonal','quadrant','eclipse','spiral'];
+    if(phase >= 2) pool.push('half','scattered','twincol','chase','pincer','nova');
+    if(phase >= 3) pool.push('full','checkmate');
+    pool.push('fissure'); // the rift runs in every phase — it is the whole fight
     return pool;
   }
 
   function generateBatch(){
     const pool = poolForPhase();
-    const count = phase; // phase 1/2/3 -> 1/2/3 simultaneous patterns in this batch
+    const count = Math.min(3, phase + 1); // Sunderjaw starts at 2 simultaneous patterns, caps at 3
     const batch = [];
     for(let i=0;i<count;i++){
       const type = pool[Math.floor(Math.random()*pool.length)];
-      batch.push({ type, tiles: patternTiles(type) });
+      // patterns are written against the full grid, so trim anything that
+      // falls outside this floor's shape before it is ever telegraphed
+      batch.push({ type, tiles: patternTiles(type).filter(([r, c]) => !isVoid(r, c)) });
     }
     return batch;
   }
@@ -1258,7 +1513,7 @@
     if(newPhase !== phase){
       phase = newPhase;
       log('The boss enters Phase ' + phase + '!');
-      showAction('CORE-EATER ENTERS PHASE ' + phase + '!', 'a-warn');
+      showAction('SUNDERJAW ENTERS PHASE ' + phase + '!', 'a-warn');
     }
   }
 
@@ -1313,7 +1568,7 @@
       let dmg = PATTERNS[tg.type].dmg;
       if(enraged) dmg = Math.round(dmg * 1.5);
 
-      showAction('CORE-EATER UNLEASHES ' + PATTERNS[tg.type].label.toUpperCase() + '!', 'a-warn');
+      showAction('SUNDERJAW UNLEASHES ' + PATTERNS[tg.type].label.toUpperCase() + '!', 'a-warn');
       log('The boss strikes with a ' + PATTERNS[tg.type].label + ' attack!');
 
       const resolveHit = (hitDmg) => {
@@ -1347,10 +1602,11 @@
             }
           }
         });
+        if(tg.type === 'fissure') collapseTiles(tg.tiles);
         render();
       };
 
-      const MULTI_HIT_PATTERNS = [];
+      const MULTI_HIT_PATTERNS = ['quadrant','half','twincol'];
       const applyDamage = () => {
         if(MULTI_HIT_PATTERNS.includes(tg.type)){
           const hit1 = Math.round(dmg * 0.55);
@@ -1409,7 +1665,7 @@
       boss.hp = Math.min(boss.maxHp, boss.hp + heal);
       boss.turnsSinceDamage = 0;
       log('The boss regenerates ' + heal + ' HP — you need to keep the pressure on!');
-      showAction('CORE-EATER REGENERATES!', 'a-heal');
+      showAction('SUNDERJAW REGENERATES!', 'a-heal');
     }
 
     checkBossDefeated();
@@ -1420,7 +1676,7 @@
       enraged = true;
       document.getElementById('boss-enrage-tag').style.display = 'inline-block';
       log('The boss enrages — its attacks now hit far harder!');
-      showAction('CORE-EATER IS ENRAGED!', 'a-warn');
+      showAction('SUNDERJAW IS ENRAGED!', 'a-warn');
     }
     telegraphQueue.shift();
     telegraphQueue.push(generateBatch());
@@ -1661,6 +1917,8 @@
     if(teamDmgBuffTurns > 0) chips.push('<span class="buff-chip warcry">⚔ Warcry +' + Math.round((teamDmgBuffMult - 1) * 100) + '% · ' + teamDmgBuffTurns + ' turn' + (teamDmgBuffTurns > 1 ? 's' : '') + '</span>');
     if(bossExposedTurns > 0) chips.push('<span class="buff-chip expose">◎ Exposed +' + Math.round((bossExposedMult - 1) * 100) + '% · ' + bossExposedTurns + ' turn' + (bossExposedTurns > 1 ? 's' : '') + '</span>');
     if(squadDecoyCharges > 0) chips.push('<span class="buff-chip decoy">◆ Decoy ready' + (squadDecoyCharges > 1 ? ' ×' + squadDecoyCharges : '') + '</span>');
+    const gone = collapsedCount();
+    if(gone > 0) chips.push('<span class="buff-chip decoy">✖ ' + gone + ' tile' + (gone > 1 ? 's' : '') + ' collapsed</span>');
     const auraPct = Math.round(marshalAura() * 100);
     if(auraPct > 0)          chips.push('<span class="buff-chip warcry">★ Chain of Command +' + auraPct + '% damage</span>');
     document.getElementById('squad-buffs').innerHTML = chips.join('');
@@ -1679,6 +1937,10 @@
     let html = '';
     for(let r=0;r<ROWS;r++){
       for(let c=0;c<COLS;c++){
+        // Outside the arena: draw nothing at all, so the shape reads as a
+        // silhouette rather than as a grid with some dead squares in it.
+        if(isVoid(r, c)){ html += '<div class="tile terrain-void"></div>'; continue; }
+
         let cls = 'tile';
         const ter = terrainAt(r, c);
         if(ter) cls += ' terrain-' + ter.type + (ter.dx > 0 ? ' conv-right' : ter.dx < 0 ? ' conv-left' : '');
@@ -1798,9 +2060,9 @@
 
     const aliveCount = playerTanks.filter(t => t.alive).length;
     if(result === 'win'){
-      document.getElementById('over-eyebrow').textContent = 'Floor 1 Cleared!';
+      document.getElementById('over-eyebrow').textContent = 'Floor 13 Cleared!';
       document.getElementById('over-eyebrow').style.color = 'var(--green)';
-      document.getElementById('battle-summary').textContent = 'Core-Eater destroyed with ' + aliveCount + ' tank(s) still standing, in ' + Math.min(turnCount, DEFEAT_TURN_LIMIT) + ' turns.';
+      document.getElementById('battle-summary').textContent = 'Sunderjaw destroyed with ' + aliveCount + ' tank(s) still standing, in ' + Math.min(turnCount, DEFEAT_TURN_LIMIT) + ' turns.';
     } else {
       document.getElementById('over-eyebrow').textContent = 'Defeat';
       document.getElementById('over-eyebrow').style.color = 'var(--red)';
@@ -1898,6 +2160,8 @@
   }
 
   async function initPage(){
+    const feeLabel = document.getElementById('entry-fee-label');
+    if(feeLabel) feeLabel.textContent = ENTRY_FEE_TOKENS + ' Battle Tokens';
     document.getElementById('boss-portrait').src = 'data:image/svg+xml;utf8,' + encodeURIComponent(bossSvg());
 
     const { data: sessionData } = await sb.auth.getSession();
@@ -1906,10 +2170,12 @@
       return;
     }
     const user = sessionData.session.user;
-    const { data: profile, error } = await sb.from('profiles').select('boss_tanks_owned').eq('user_id', user.id).maybeSingle();
-    if(error) console.error('boss_tanks_owned fetch error', error);
+    const { data: profile, error } = await sb.from('profiles').select('boss_tanks_owned,boss_tower_floor').eq('user_id', user.id).maybeSingle();
+    if(error) console.error('profile fetch error', error);
     ownedTanks = profile ? (profile.boss_tanks_owned || []) : [];
-    if(ownedTanks.length < SQUAD_SIZE){
+    const clearedFloor = profile ? (profile.boss_tower_floor || 0) : 0;
+    const TESTING_UNLOCK_ALL = true; // set to false to re-enable normal sequential floor gating
+    if(ownedTanks.length < SQUAD_SIZE || (!TESTING_UNLOCK_ALL && clearedFloor < 12)){
       window.location.href = 'game-boss-battle.html';
       return;
     }
@@ -1918,52 +2184,54 @@
 
   function bossSvg(){
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">' +
-      // outer jagged scrap shell
-      '<path d="M60 4 L74 16 L92 12 L88 32 L104 44 L90 56 L100 76 L78 76 L68 96 L60 82 L52 96 L42 76 L20 76 L30 56 L16 44 L32 32 L28 12 L46 16 Z" fill="#1c1212" stroke="#FF5C5C" stroke-width="2.2"/>' +
-      // inner armor plate layer
-      '<path d="M60 22 L74 30 L78 50 L66 62 L60 58 L54 62 L42 50 L46 30 Z" fill="#2a1616" stroke="#FF5C5C" stroke-width="1.6"/>' +
-      // side claw arms
-      '<path d="M22 46 L6 60 L14 74 L26 66" fill="none" stroke="#7A1F1F" stroke-width="5" stroke-linecap="round"/>' +
-      '<path d="M98 46 L114 60 L106 74 L94 66" fill="none" stroke="#7A1F1F" stroke-width="5" stroke-linecap="round"/>' +
-      '<circle cx="10" cy="66" r="4" fill="#FF5C5C"/><circle cx="110" cy="66" r="4" fill="#FF5C5C"/>' +
-      // glowing core (pulses)
-      '<circle cx="60" cy="52" r="17" fill="#2a1010" stroke="#FF5C5C" stroke-width="2"/>' +
-      '<circle cx="60" cy="52" r="9" fill="#FF5C5C"><animate attributeName="r" values="8;11;8" dur="1.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.85;1;0.85" dur="1.4s" repeatCount="indefinite"/></circle>' +
-      '<circle cx="60" cy="52" r="4" fill="#FFE8B0"/>' +
-      // eye lights
-      '<circle cx="46" cy="30" r="3.2" fill="#FFB627"><animate attributeName="opacity" values="1;0.3;1" dur="2.2s" repeatCount="indefinite"/></circle>' +
-      '<circle cx="74" cy="30" r="3.2" fill="#FFB627"><animate attributeName="opacity" values="1;0.3;1" dur="2.2s" begin="0.4s" repeatCount="indefinite"/></circle>' +
-      // lower jaw / fangs
-      '<path d="M46 80 L60 92 L74 80 L68 74 L60 78 L52 74 Z" fill="#3a1414" stroke="#FF5C5C" stroke-width="1.4"/>' +
+      '<path d="M18 10 L102 10 L66 58 L102 110 L18 110 L54 58 Z" fill="#1A1206" stroke="#E0743C" stroke-width="2.6"/>' +
+      '<path d="M28 18 L92 18 L62 58 L92 102 L28 102 L58 58 Z" fill="#2E1A0C" stroke="#E0743C" stroke-width="1.4" opacity="0.8"/>' +
+      '<g fill="#E0743C">' +
+        '<path d="M34 20 L40 34 L46 20 Z"/><path d="M52 20 L58 32 L64 20 Z"/><path d="M70 20 L76 34 L82 20 Z"/>' +
+        '<path d="M34 100 L40 86 L46 100 Z"/><path d="M52 100 L58 88 L64 100 Z"/><path d="M70 100 L76 86 L82 100 Z"/>' +
+      '</g>' +
+      '<circle cx="60" cy="58" r="9" fill="#FFB627">' +
+        '<animate attributeName="r" values="6;11;6" dur="1.6s" repeatCount="indefinite"/>' +
+        '<animate attributeName="opacity" values="0.7;1;0.7" dur="1.6s" repeatCount="indefinite"/>' +
+      '</circle>' +
+      '<circle cx="60" cy="58" r="3.5" fill="#FFF3D0"/>' +
+      '<circle cx="60" cy="34" r="2" fill="#FFD9A0"><animate attributeName="cy" values="30;54" dur="2.2s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="2.2s" repeatCount="indefinite"/></circle>' +
+      '<circle cx="60" cy="86" r="1.8" fill="#FFD9A0"><animate attributeName="cy" values="90;64" dur="2.2s" begin="0.9s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="2.2s" begin="0.9s" repeatCount="indefinite"/></circle>' +
     '</svg>';
   }
 
-  async function startGame(){
-    // Floor 1 is free, but still go through the server so the "own 4 tanks"
-    // rule holds for someone who reached this page without the lobby.
-    const deployBtn = document.getElementById('deploy-btn');
-    const entryMsg = document.getElementById('entry-msg');
-    if(deployBtn){ deployBtn.disabled = true; deployBtn.textContent = 'Checking squad...'; }
+  const ENTRY_FEE_TOKENS = 170;
 
-    const { data: startRes, error: startErr } = await sb.rpc('game_start_run', { p_game: 'boss-1' });
+  async function startGame(){
+    const entryMsg = document.getElementById('entry-msg');
+    const deployBtn = document.getElementById('deploy-btn');
+    entryMsg.className = 'submit-msg'; entryMsg.textContent = '';
+    deployBtn.disabled = true; deployBtn.textContent = 'Checking Battle Tokens...';
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to enter — this floor requires ' + ENTRY_FEE_TOKENS + ' Battle Tokens.';
+      deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad';
+      return;
+    }
+    const { data: startRes, error: startErr } = await sb.rpc('game_start_run', { p_game: 'boss-' + FLOOR_NUM });
     if(startErr || !startRes || !startRes.ok){
       const why = startRes && startRes.error;
-      if(entryMsg){
-        entryMsg.className = 'submit-msg error';
-        entryMsg.innerHTML = why === 'need 4 tanks'
-          ? 'You need any 4 tanks before entering the tower. <a href="game-boss-battle.html" class="link-text">Open the armory</a>.'
-          : why === 'not signed in'
-            ? '<a href="auth.html" class="link-text">Log in</a> to enter the tower.'
-            : 'Could not enter this floor — please try again.';
-      }
-      if(deployBtn){ deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad'; }
+      entryMsg.className = 'submit-msg error';
+      entryMsg.textContent =
+        why === 'not enough tokens' ? 'Not enough Battle Tokens (you have ' + startRes.tokens + ', need ' + startRes.need + ').'
+      : why === 'need 4 tanks'      ? 'You need any 4 tanks before entering the tower.'
+      : 'Could not enter this floor — please try again.';
+      deployBtn.disabled = false;
+      deployBtn.textContent = 'Deploy Squad';
       return;
     }
     runToken = startRes.token;
     TANK_LEVELS = startRes.tank_levels || {};
     if(startRes.tank_runes) EQUIPPED_RUNES = sanitiseRunes(startRes.tank_runes);
 
-    if(deployBtn){ deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad'; }
+    deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad';
     document.getElementById('start-overlay').classList.add('hidden');
     document.getElementById('over-overlay').classList.add('hidden');
     resetGame();

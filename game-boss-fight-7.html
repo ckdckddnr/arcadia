@@ -170,7 +170,29 @@
   .tank-sprite-wrap.size-sniper{ width:64%; height:64%; }
   .tank-sprite-wrap.size-warden{ width:78%; height:78%; }
   .tank-sprite-wrap.size-marshal{ width:76%; height:76%; }
-  .tank-sprite-wrap img{ transform:rotate(90deg); }
+  /* Facing is the `rotate` property on its own, which leaves `translate` and
+     `scale` free for the idle and the recoil to animate without fighting it. */
+  .tank-sprite-wrap img{ rotate:90deg; transform-origin:50% 50%; }
+  .tank-sprite-wrap.idle img{ animation:tank-idle 2.8s ease-in-out infinite; }
+  @keyframes tank-idle{
+    0%,100%{ translate:0 0;     scale:1; }
+    50%    { translate:0 1.8%;  scale:0.985; }
+  }
+  /* translate resolves before rotate, so the kick travels down the barrel */
+  .tank-sprite-wrap.recoil img{ animation:tank-recoil 0.28s cubic-bezier(.2,.85,.3,1); }
+  @keyframes tank-recoil{
+    0%  { translate:0 0;    scale:1; }
+    16% { translate:0 24%;  scale:1.07; }
+    100%{ translate:0 0;    scale:1; }
+  }
+  /* Flash sits on the wrapper's filter, which the image's own animations do
+     not touch, so a tank can be lit up while it is mid-recoil. */
+  .tank-sprite-wrap.hurt{ animation:tank-hurt 0.34s ease-out; }
+  @keyframes tank-hurt{
+    0%  { filter:brightness(3.4) saturate(0.15); }
+    55% { filter:brightness(1); }
+    100%{ filter:brightness(1); }
+  }
   .tank-sprite-wrap img{ width:100%; height:100%; object-fit:contain; image-rendering:pixelated; }
   .tank-sprite-wrap.siege-active img, .roster-tank img.siege-active{
     filter:saturate(2.1) brightness(1.18) contrast(1.25) drop-shadow(0 0 6px rgba(255,92,182,0.6));
@@ -776,6 +798,7 @@
         const nc = t.c + ter.dx;
         if(nc < 0 || nc >= COLS) continue;
         if(board[t.r][nc].occupant || blocksMove(t.r, nc)) continue;
+        t.slideFrom = [t.r, t.c];
         board[t.r][t.c].occupant = null;
         t.c = nc;
         board[t.r][nc].occupant = t;
@@ -993,6 +1016,70 @@
     setTimeout(() => b.classList.remove('shake'), (dur||0.35)*1000);
   }
 
+  // A short flare where the shell leaves the barrel. Lives in the fx layer so a
+  // board rebuild cannot wipe it mid-flight.
+  function fxMuzzle(x, y, angleDeg, colour){
+    const layer = document.getElementById('fx-layer');
+    if(!layer) return;
+    const f = document.createElement('div');
+    const base = 'position:absolute; left:' + x + 'px; top:' + y + 'px; width:38px; height:15px;' +
+      'pointer-events:none; z-index:8; transform-origin:0 50%; opacity:1;' +
+      'background:radial-gradient(ellipse at 0% 50%, #fff 0%, ' + colour + ' 42%, rgba(0,0,0,0) 74%);' +
+      'transition:transform 0.1s ease-out, opacity 0.14s ease 0.05s;';
+    f.style.cssText = base + 'transform:translate(0,-50%) rotate(' + angleDeg + 'deg) scaleX(0.15);';
+    layer.appendChild(f);
+    void f.offsetWidth;
+    f.style.transform = 'translate(0,-50%) rotate(' + angleDeg + 'deg) scaleX(1)';
+    f.style.opacity = '0';
+    setTimeout(() => f.remove(), 240);
+  }
+
+  // The boss sits in a side panel, so every tank has its own line to it. Aiming
+  // each barrel down that line is most of what stops the board looking parked.
+  function applyTankMotion(){
+    const boardEl = document.getElementById('board');
+    const layer = document.getElementById('fx-layer');
+    if(!boardEl || !layer || !layer.getBoundingClientRect().width) return;
+    const boss = bossCenter();
+    if(!boss.x && !boss.y) return;                 // panel not laid out yet
+    const now = performance.now();
+
+    boardEl.querySelectorAll('.tank-sprite-wrap').forEach(wrap => {
+      const tile = wrap.parentElement;
+      const r = +tile.dataset.r, c = +tile.dataset.c;
+      const occ = board[r] && board[r][c] && board[r][c].occupant;
+      if(!occ) return;
+
+      const p = tileCenter(r, c);
+      const ang = Math.atan2(boss.y - p.y, boss.x - p.x) * 180 / Math.PI;
+      occ.facing = ang;
+      const img = wrap.querySelector('img');
+      if(!img) return;
+      img.style.rotate = (ang + 90) + 'deg';
+
+      const firing = occ.firedAt && (now - occ.firedAt) < 280;
+      wrap.classList.toggle('recoil', !!firing);
+      wrap.classList.toggle('idle', !firing);
+      // resume the motion where it already was rather than restarting it
+      img.style.animationDelay = '-' + (firing ? (now - occ.firedAt) : (now % 2800)) + 'ms';
+
+      wrap.classList.toggle('hurt', !!(occ.hitAt && now - occ.hitAt < 340));
+
+      // Slide in from the tile it left. The board has already been rebuilt with
+      // the tank in its new home, so the sprite is offset back to where it was
+      // and then released.
+      if(occ.slideFrom){
+        const from = tileCenter(occ.slideFrom[0], occ.slideFrom[1]);
+        occ.slideFrom = null;
+        wrap.style.transition = 'none';
+        wrap.style.transform = 'translate(' + (from.x - p.x) + 'px,' + (from.y - p.y) + 'px)';
+        void wrap.offsetWidth;        // commit the offset without waiting for a frame
+        wrap.style.transition = 'transform 0.24s cubic-bezier(.32,.72,.3,1)';
+        wrap.style.transform = 'translate(0,0)';
+      }
+    });
+  }
+
   function tileCenter(r, c){
     const boardEl = document.getElementById('board');
     const wrapEl = document.getElementById('fx-layer');
@@ -1061,6 +1148,10 @@
   function animateProjectileToBoss(fromR, fromC, color, onDone){
     const start = tileCenter(fromR, fromC);
     const end = bossCenter();
+    const muzzleAng = Math.atan2(end.y - start.y, end.x - start.x);
+    const reach = 16;
+    fxMuzzle(start.x + Math.cos(muzzleAng) * reach, start.y + Math.sin(muzzleAng) * reach,
+             muzzleAng * 180 / Math.PI, color);
     fxBurst(start.x, start.y, color + 'cc', 34);
     const layer = document.getElementById('fx-layer');
     const trail = document.createElement('div');
@@ -1561,6 +1652,7 @@
               occ.shield = 0;
             }
             occ.hp -= actualDmg;
+            occ.hitAt = performance.now();
             fxFloatText(r, c, '-' + actualDmg, '#FF5C5C');
             if(occ.hp <= 0){
               occ.alive = false;
@@ -1697,6 +1789,7 @@
     if(attacker.siegeModeTurnsLeft > 0) return;
 
     playerMana -= attacker.moveCost;
+    attacker.slideFrom = [attacker.r, attacker.c];   // applyTankMotion slides it in from here
     board[attacker.r][attacker.c].occupant = null;
     attacker.r = r; attacker.c = c;
     board[r][c].occupant = attacker;
@@ -1715,6 +1808,7 @@
     if(!t) return;
     if(playerMana < t.attackCost){ sfxInsufficientMana(); return; }
     playerMana -= t.attackCost;
+    t.firedAt = performance.now();   // drives the recoil in applyTankMotion
     let dmg = t.atk;
     if(t.siegeModeTurnsLeft > 0) dmg = Math.round(dmg * (t.siegeMult || 1.5));
     if(teamDmgBuffTurns > 0) dmg = Math.round(dmg * teamDmgBuffMult); // Raider's Warcry
@@ -1770,7 +1864,7 @@
     if(playerMana < sk.cost){ sfxInsufficientMana(); return; }
 
     if(sk.key === 'poison'){
-      playerMana -= sk.cost; t.skillUsed = true;
+      playerMana -= sk.cost; t.skillUsed = true; t.firedAt = performance.now();
       boss.poisonStacks++;
       boss.poisonRate += POISON_TICK_RATE * skillPower(t);
       sfxPoison();
@@ -1781,7 +1875,7 @@
         render();
       });
     } else if(sk.key === 'railgun'){
-      playerMana -= sk.cost; t.skillUsed = true;
+      playerMana -= sk.cost; t.skillUsed = true; t.firedAt = performance.now();
       sfxRailgun();
       render();
       animateProjectileToBoss(t.r, t.c, '#FFB627', () => {
@@ -2013,6 +2107,8 @@
     } else if(turn === 'player' && !gameOver){
       document.getElementById('action-hint').innerHTML = fullMapWarning + 'Tap a tank to move it, or use its Attack/Skill buttons below.';
     }
+
+    applyTankMotion();
   }
 
   // ---------- Game over ----------
@@ -2289,6 +2385,10 @@
     host.innerHTML = html;
   }
   buildBackdrop();
+
+  // Nothing else redraws the board while the player is thinking, so the idle
+  // motion needs its own slow pulse to stay alive between actions.
+  setInterval(() => { if(turn === 'player' && !gameOver) applyTankMotion(); }, 900);
 
   initPage();
 </script>

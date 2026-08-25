@@ -28,12 +28,15 @@
   main{max-width:720px; margin:0 auto; padding:56px 5vw 100px;}
   h1{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:44px; margin-bottom:8px;}
   .updated{color:var(--muted); font-size:14px; margin-bottom:36px;}
-  h2{font-size:20px; margin:32px 0 12px; font-weight:800;}
+  h2{font-size:20px; margin:32px 0 12px; font-weight:800; scroll-margin-top:24px;}
   p{color:#C7CDDA; margin-bottom:14px; font-size:15px;}
-  .notice{
+  ul{color:#C7CDDA; font-size:15px; margin:0 0 14px 20px;}
+  li{margin-bottom:7px;}
+  .key{
     background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--amber);
-    border-radius:8px; padding:16px 20px; margin-bottom:30px; font-size:14px; color:var(--muted);
+    border-radius:8px; padding:16px 20px; margin-bottom:30px; font-size:15px; color:#C7CDDA;
   }
+  .key b{color:var(--text);}
   a{color:var(--cyan);}
 </style>
 </head>
@@ -44,32 +47,68 @@
 </nav>
 <main>
   <h1>Terms of Service</h1>
-  <div class="updated">Last updated: July 2026</div>
+  <div class="updated">Last updated: 25 August 2026</div>
 
-  <div class="notice">
-    This is a placeholder terms page for a project in development. It is not final legal language — before real users, real money, or real prizes are involved, this should be reviewed and finalized by a qualified attorney familiar with skill-gaming and gambling law in the states where the service operates.
+  <div class="key">
+    <b>The short version.</b> Arcadia sells Coins, which are a virtual currency used to play games on this
+    site. Coins have no cash value, cannot be withdrawn, transferred, or exchanged for money or anything
+    outside Arcadia, and are not a wager on an outcome. Nothing you win here is money — you win more Coins
+    and Battle Tokens, which are also only usable inside Arcadia.
   </div>
 
-  <h2>1. Who can use Arcadia</h2>
-  <p>You must be at least 18 years old to create an account or participate in any paid game or tournament. By signing up, you confirm that you meet this requirement and that participation is legal in your state or country.</p>
+  <h2 id="eligibility">1. Who can use Arcadia</h2>
+  <p>You must be at least 18 years old to create an account or buy Coins. By signing up you confirm you meet
+    that requirement. One account per person.</p>
 
-  <h2>2. Skill-based competition</h2>
-  <p>Arcadia's games are designed to be skill-based competitions, not games of chance. Outcomes are determined primarily by player performance. Entry fees, where applicable, are pooled and distributed to top-performing players according to the rules shown for each game.</p>
+  <h2 id="currency">2. Coins and Battle Tokens</h2>
+  <p>Arcadia uses two virtual currencies, and neither is money:</p>
+  <ul>
+    <li><b>Coins</b> can be bought with real money or earned by playing. They are spent on game entries.</li>
+    <li><b>Battle Tokens</b> cannot be bought. They are earned by playing, and are spent on tanks and upgrades.</li>
+  </ul>
+  <p>Both are a limited, personal, non-transferable licence to use a feature of this site. They are not your
+    property, carry no cash value, and cannot be sold, traded, gifted, withdrawn, or converted into money or
+    any other currency. Arcadia does not run cash tournaments and does not pay out prizes.</p>
 
-  <h2>3. Your account</h2>
-  <p>You're responsible for keeping your login credentials secure and for all activity under your account. Don't share your account with others or attempt to create multiple accounts to gain an unfair advantage.</p>
+  <h2 id="buying">3. Buying Coins</h2>
+  <p>Coin prices are shown in US dollars on the <a href="shop.html">Coin Shop</a> before you pay. Payments are
+    handled by Stripe; Arcadia never sees or stores your card details. Coins are added to your account as soon
+    as the payment is confirmed, which is normally within a few seconds.</p>
+  <p>If a payment succeeds but your balance has not updated within a few minutes, contact us and we will
+    correct it.</p>
 
-  <h2>4. Fair play</h2>
-  <p>Use of bots, scripts, exploits, or any tool that gives an unfair advantage is prohibited and may result in disqualification, forfeiture of winnings, and account termination.</p>
+  <h2 id="refunds">4. Refunds</h2>
+  <p><b>You can request a full refund within 14 days of purchase, as long as none of the Coins from that
+    purchase have been spent.</b> Refunds are returned to the original payment method, and the unspent Coins
+    are removed from your account.</p>
+  <p>Once Coins from a purchase have been spent — on any game entry — that purchase is no longer refundable,
+    because the thing you bought has been used. Coins earned by playing are never refundable, since no money
+    was paid for them.</p>
+  <p>To request a refund, contact us with the email address on your account and the approximate date of the
+    purchase. This policy is in addition to any refund rights you have under the consumer law of your own
+    country, which we do not limit.</p>
 
-  <h2>5. Payments and payouts</h2>
-  <p>Where real-money entry fees and prize pools are enabled, payouts are subject to identity verification and applicable state restrictions. Arcadia may withhold payouts pending fraud review.</p>
+  <h2 id="account">5. Your account</h2>
+  <p>You are responsible for keeping your login details secure and for activity under your account. Do not
+    share your account or create additional accounts.</p>
 
-  <h2>6. Changes to these terms</h2>
-  <p>These terms may be updated as the service evolves. Continued use of Arcadia after changes means you accept the updated terms.</p>
+  <h2 id="fairplay">6. Fair play</h2>
+  <p>Bots, scripts, automated play, and exploiting bugs are not allowed. If we find them, we may remove
+    affected Coins and Battle Tokens, restrict features, or close the account. Where an account is closed for
+    cheating, unspent purchased Coins remain refundable under section 4.</p>
 
-  <h2>7. Contact</h2>
-  <p>Questions about these terms can be sent through the contact options listed on the site.</p>
+  <h2 id="service">7. The service can change</h2>
+  <p>Arcadia is under active development. Games, prices, balance, and rewards may change, and features may be
+    added or removed. If we discontinue the site entirely, we will give notice on this site beforehand and
+    honour refund requests for unspent purchased Coins made within the notice period.</p>
+
+  <h2 id="changes">8. Changes to these terms</h2>
+  <p>These terms may be updated as the service evolves. The date at the top shows when they last changed.
+    Continued use after a change means you accept the updated terms.</p>
+
+  <h2 id="contact">9. Contact</h2>
+  <p>Questions about these terms, a payment, or a refund:
+    <a href="mailto:csunrisegaming@gmail.com">csunrisegaming@gmail.com</a>. We aim to reply within a few business days.</p>
 </main>
 </body>
 </html>

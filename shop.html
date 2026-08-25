@@ -98,8 +98,11 @@
   <div class="pack-grid" id="pack-grid"></div>
 
   <div class="fine-print">
-    Payments are handled by Stripe — Arcadia never sees your card details.<br>
-    Coins are for in-game use only and can't be exchanged for cash.
+    All prices are in <b>US dollars</b>. Payments are handled by Stripe — Arcadia never sees your card details.<br>
+    Coins are for in-game use only. They have no cash value and can't be withdrawn, transferred, or exchanged for money.<br>
+    <b>Refunds:</b> within 14 days of purchase, as long as none of those Coins have been spent —
+    see the <a href="terms.html#refunds">refund policy</a>.
+    By buying you agree to the <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>.
   </div>
 </main>
 
@@ -116,10 +119,21 @@
     { id:'mega',    icon:'👑', coins:10000, price:'$19.99', badge:null }
   ];
 
-  function showStatus(kind, text){
+  const SUPPORT_EMAIL = 'csunrisegaming@gmail.com';
+  const PENDING_KEY = 'arcadia-pending-purchase';
+
+  function showStatus(kind, text, html){
     const el = document.getElementById('status-msg');
     el.className = 'status-msg show ' + kind;
-    el.textContent = text;
+    if(html) el.innerHTML = text; else el.textContent = text;
+  }
+
+  async function readCoins(){
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session) return null;
+    const { data: profile } = await sb.from('profiles').select('coins')
+      .eq('user_id', sessionData.session.user.id).maybeSingle();
+    return profile ? (profile.coins || 0) : null;
   }
 
   function renderPacks(signedIn){
@@ -166,6 +180,16 @@
         return;
       }
 
+      // Remember the balance we are leaving with. On the way back this is what
+      // tells us whether the coins actually landed, rather than guessing.
+      const pack = PACKS.find(p => p.id === packId);
+      try{
+        sessionStorage.setItem(PENDING_KEY, JSON.stringify({
+          packId, expect: pack ? pack.coins : 0,
+          before: await readCoins(), at: Date.now()
+        }));
+      } catch(e){}
+
       window.location.href = data.url;
     } catch(err){
       showStatus('error', 'Could not reach the checkout server. Try again.');
@@ -188,15 +212,52 @@
     renderPacks(true);
   }
 
-  // Stripe sends the shopper back here with a status flag.
+  // Stripe sends the shopper back here the moment they pay, but the coins are
+  // credited by the webhook, which lands separately and can be a few seconds
+  // behind. Rather than telling people to refresh and hope, watch the balance
+  // until it moves — and if it never does, say so plainly and tell them how to
+  // get it sorted instead of leaving them staring at an unchanged number.
+  async function watchForCredit(){
+    let pending = null;
+    try{ pending = JSON.parse(sessionStorage.getItem(PENDING_KEY) || 'null'); } catch(e){}
+
+    const deadline = Date.now() + 45000;
+    const before = pending && typeof pending.before === 'number' ? pending.before : null;
+
+    showStatus('info', 'Payment received. Adding your coins…');
+
+    while(Date.now() < deadline){
+      const coins = await readCoins();
+      if(coins !== null){
+        document.getElementById('coin-balance').textContent = coins.toLocaleString();
+        if(before === null || coins > before){
+          const gained = before === null ? (pending && pending.expect) : coins - before;
+          sessionStorage.removeItem(PENDING_KEY);
+          showStatus('success', gained
+            ? '✓ ' + gained.toLocaleString() + ' coins added. Balance is now ' + coins.toLocaleString() + '.'
+            : '✓ Your coins have been added.');
+          renderPacks(true);
+          return;
+        }
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    // Still nothing after 45 seconds. The payment is real and recorded on
+    // Stripe's side, so this is ours to fix — make that clear.
+    showStatus('error',
+      'Your payment went through, but the coins have not appeared yet. ' +
+      'Nothing has been lost — email <a href="mailto:' + SUPPORT_EMAIL + '">' + SUPPORT_EMAIL +
+      '</a> from your account address and we will add them by hand.', true);
+  }
+
   (function handleReturn(){
     const params = new URLSearchParams(window.location.search);
     const status = params.get('status');
     if(status === 'success'){
-      showStatus('success', 'Payment received — your coins are being added. Refresh in a moment if the balance looks stale.');
-      // The webhook credits asynchronously, so re-check the balance shortly after.
-      setTimeout(loadBalance, 3000);
+      watchForCredit();
     } else if(status === 'cancelled'){
+      sessionStorage.removeItem(PENDING_KEY);
       showStatus('info', 'Checkout cancelled — no charge was made.');
     }
   })();

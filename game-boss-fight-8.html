@@ -2285,7 +2285,7 @@
     if(error) console.error('profile fetch error', error);
     ownedTanks = profile ? (profile.boss_tanks_owned || []) : [];
     const clearedFloor = profile ? (profile.boss_tower_floor || 0) : 0;
-    const TESTING_UNLOCK_ALL = true; // set to false to re-enable normal sequential floor gating
+    const TESTING_UNLOCK_ALL = false; // set to false to re-enable normal sequential floor gating
     if(ownedTanks.length < SQUAD_SIZE || (!TESTING_UNLOCK_ALL && clearedFloor < 7)){
       window.location.href = 'game-boss-battle.html';
       return;

@@ -63,7 +63,10 @@
   <p>We use <b>Supabase</b> for account authentication and data storage. If you sign in with Google or Apple, those providers share basic profile information (like your email) with us to create your account.</p>
   <p>We use <b>Stripe</b> to process payments. When you buy Coins, Stripe collects and handles your payment details directly under
     <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">its own privacy policy</a>. We send Stripe only what is needed to identify the purchase, and Stripe tells us whether the payment succeeded.</p>
-  <p>The site is hosted on <b>Vercel</b>, which processes standard server request logs.</p>
+  <p>The site is hosted on <b>Vercel</b>, which processes standard server request logs. We also use
+    <b>Vercel Web Analytics</b> to count visits — which pages were opened, roughly where in the world from,
+    and what kind of device. It sets no cookies, does not follow you across other sites, and does not identify
+    you personally, which is why this site has no cookie banner.</p>
 
   <h2>4. What we don't do</h2>
   <p>We don't sell your personal data to advertisers or other third parties.</p>
@@ -75,5 +78,8 @@
   <h2>6. Changes to this policy</h2>
   <p>We may update this policy as the service evolves. Material changes will be reflected here with an updated date.</p>
 </main>
+  <!-- Vercel Web Analytics. Cookieless and per-visit, so it needs no consent
+       banner; it also does nothing until the project has it switched on. -->
+  <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>

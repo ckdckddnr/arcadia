@@ -10,3 +10,10 @@ node_modules/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Screen recordings and raw promo footage. These land in this folder because it
+# is where the site lives, but they are hundreds of megabytes and would be
+# published to the live site as well as bloating the repo permanently.
+*.mp4
+*.mov
+*.webm

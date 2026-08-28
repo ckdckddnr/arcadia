@@ -135,6 +135,22 @@
     <div class="page-sub">Manage your account details and password.</div>
 
     <div class="card">
+      <h2>Redeem a Code</h2>
+      <div class="card-sub">Got a code from us? Enter it here. Each code works once per account.</div>
+      <div class="form-msg" id="promo-msg"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <input type="text" id="promo-input" placeholder="Enter your code"
+               autocomplete="off" autocapitalize="characters" spellcheck="false"
+               style="flex:1; min-width:200px; padding:13px 14px; background:var(--surface-2);
+                      border:1px solid var(--line); border-radius:8px; color:var(--text);
+                      font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:15px;
+                      font-weight:700; letter-spacing:0.08em; text-transform:uppercase;">
+        <button class="btn btn-primary" id="promo-btn" onclick="redeemPromo()"
+                style="min-width:120px;">Redeem</button>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>Daily Check-In</h2>
       <div class="card-sub">Come back every day — the streak reward grows through day 7, then starts over.</div>
       <div class="form-msg" id="checkin-msg"></div>
@@ -526,6 +542,60 @@
         '<div class="mono" style="font-size:10px; color:var(--muted); margin-top:2px;">D' + (i+1) + '</div>' +
       '</div>';
     }).join('');
+  }
+
+  async function redeemPromo(){
+    const msg = document.getElementById('promo-msg');
+    const btn = document.getElementById('promo-btn');
+    const input = document.getElementById('promo-input');
+    msg.className = 'form-msg'; msg.textContent = '';
+
+    const code = input.value.trim();
+    if(!code){
+      msg.className = 'form-msg show error';
+      msg.textContent = 'Enter a code first.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Checking...';
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      msg.className = 'form-msg show error';
+      msg.innerHTML = '<a href="auth.html" style="color:var(--cyan);">Log in</a> to redeem a code.';
+      btn.disabled = false; btn.textContent = 'Redeem';
+      return;
+    }
+
+    const { data: res, error } = await sb.rpc('redeem_promo', { p_code: code });
+    btn.disabled = false;
+    btn.textContent = 'Redeem';
+
+    if(error || !res || !res.ok){
+      const why = res && res.error;
+      msg.className = 'form-msg show error';
+      msg.textContent =
+          why === 'already redeemed'  ? 'You have already used this code.'
+        : why === 'invalid code'      ? "That code doesn't exist — check the spelling."
+        : why === 'all claimed'       ? 'This code has been fully claimed. Sorry!'
+        : why === 'expired'           ? 'This code has expired.'
+        : why === 'too many attempts' ? 'Too many tries. Wait a few minutes and try again.'
+        : 'Could not redeem that code — please try again.';
+      return;
+    }
+
+    currentCoins = res.balance_coins;
+    currentTokens = res.balance_tokens;
+    document.getElementById('profile-coins').textContent = currentCoins.toLocaleString();
+    document.getElementById('profile-tokens').textContent = currentTokens.toLocaleString();
+    input.value = '';
+
+    const parts = [];
+    if(res.coins)  parts.push('+' + res.coins.toLocaleString() + ' coins');
+    if(res.tokens) parts.push('+' + res.tokens.toLocaleString() + ' battle tokens');
+    msg.className = 'form-msg show success';
+    msg.textContent = 'Code accepted — ' + parts.join(' and ') + '. Enjoy.';
+    renderTankShop();   // new tokens may put a tank in reach
   }
 
   async function claimCheckIn(){

@@ -670,7 +670,7 @@
       </div>
       <div class="game-title">Tank Raid <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>
       <div class="game-meta"><span>Tank Raid</span><span class="players">● PvE</span></div>
-      <div class="game-footer"><span class="entry-fee" style="color:var(--pink);">⚔ Owned tanks only</span><a href="game-boss-battle.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
+      <div class="game-footer"><span class="entry-fee" style="color:var(--pink);">⚔ Floor 1 free · Floor 2+ needs 4 tanks</span><a href="game-boss-battle.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
     </div>
   </div>
   </div>
@@ -961,8 +961,8 @@
       // Coins an account starts with, so it is not what a stranger should read
       // first. Guests play these for free.
       document.querySelectorAll('.entry-fee').forEach(el => {
-        if(el.textContent.indexOf('Owned tanks') !== -1){
-          el.textContent = '⚔ Floor 1 free';
+        if(el.textContent.indexOf('Floor 1 free') !== -1){
+          return;   // already says the right thing to a signed-out visitor
         } else {
           el.style.color = 'var(--green)';
           el.textContent = '✓ Free to play';

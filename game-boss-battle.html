@@ -846,20 +846,22 @@
   }
 
   function renderFloors(){
-    // Any 4 tanks gets you in, as long as exactly 4 are picked to deploy.
-    // A guest owns nothing, so Floor 1 hands them the four starter tanks and
-    // everything above it is the reason to make an account.
-    const squadReady = guestMode || (ownedTanks.length >= SQUAD_SIZE && selectedSquad.length === SQUAD_SIZE);
+    // Floor 1 is the free practice floor: open to everyone, guest or not, with
+    // no tanks required and no purse. Owning four tanks is the gate for floor 2
+    // upward, which is also where the tower starts paying.
+    const squadReady = ownedTanks.length >= SQUAD_SIZE && selectedSquad.length === SQUAD_SIZE;
     document.getElementById('floor-list').innerHTML = FLOORS.map(f => {
-      const cleared = f.live && clearedFloor >= f.num;
-      const unlocked = guestMode ? f.num === 1
-        : (TESTING_UNLOCK_ALL || f.num === 1 || clearedFloor >= f.num - 1);
-      const enterable = f.live && squadReady && unlocked;
+      const practice = f.num === 1;
+      const cleared = f.live && !practice && clearedFloor >= f.num;
+      const unlocked = practice ? true
+        : guestMode ? false
+        : (TESTING_UNLOCK_ALL || clearedFloor >= f.num - 1);
+      const enterable = f.live && unlocked && (practice || squadReady);
       const cls = enterable ? 'floor-card enterable' : 'floor-card locked';
       const tag = !f.live ? '<span class="floor-tag locked-tag">Coming Soon</span>'
+        : practice ? '<span class="floor-tag ready">Free Practice</span>'
         : cleared ? '<span class="floor-tag cleared">★ Cleared</span>'
-        : (guestMode && f.num === 1) ? '<span class="floor-tag ready">Free — No Account</span>'
-        : (guestMode) ? '<span class="floor-tag locked-tag">Sign Up to Unlock</span>'
+        : guestMode ? '<span class="floor-tag locked-tag">Sign Up to Unlock</span>'
         : !unlocked ? '<span class="floor-tag locked-tag">Clear Floor ' + (f.num - 1) + ' First</span>'
         : squadReady ? '<span class="floor-tag ready">Ready</span>'
         : ownedTanks.length < SQUAD_SIZE
@@ -873,7 +875,15 @@
       // shown greyed so the difference between the two is legible up front.
       const pay = floorPay[f.num];
       let payRow = '', runeRow = '';
-      if(pay){
+      if(practice){
+        // Nothing in, nothing out. A fee and a purse of zeroes would only
+        // read as broken here.
+        payRow = '<div class="floor-pay">' +
+          '<span class="on">Free to enter — no tanks needed</span>' +
+          '<span>No rewards — practice only</span>' +
+        '</div>';
+        runeRow = '<div class="floor-runes"><span>Learn the fight here, then buy four tanks for floor 2.</span></div>';
+      } else if(pay){
         const money = p => '<b class="tok">+' + p.tokens + ' \u2694</b> <b class="coin">+' + p.coins + ' \u{1FA99}</b>';
         payRow = '<div class="floor-pay">' +
           '<span>Entry <b class="tok">' + pay.fee + ' \u2694</b></span>' +

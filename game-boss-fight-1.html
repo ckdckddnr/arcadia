@@ -2010,13 +2010,13 @@
     if(guestRun){
       msg.className = 'submit-msg';
       msg.innerHTML = result === 'win'
-        ? '<b style="color:var(--green);">★ Floor 1 cleared as a guest</b> — nothing was saved.<br>'
-          + '<a href="auth.html" class="link-text">Create a free account</a> to claim the purse, keep your '
-          + 'rune drops, and open Floors 2–15. New players start with '
+        ? '<b style="color:var(--green);">★ Floor 1 cleared</b> — practice floor, so there is nothing to pay out.<br>'
+          + '<a href="auth.html" class="link-text">Create a free account</a> to save the clear and open '
+          + '<b>Floors 2–15</b>, where the purse and the rune drops are. New players start with '
           + '<b style="color:var(--amber);">200 Coins</b>.'
-        : 'Guest run — nothing was saved.<br>'
-          + '<a href="auth.html" class="link-text">Create a free account</a> to keep your progress, upgrade '
-          + 'your tanks, and start with <b style="color:var(--amber);">200 Coins</b>.';
+        : 'Practice run — nothing lost.<br>'
+          + '<a href="auth.html" class="link-text">Create a free account</a> to save your progress, buy and '
+          + 'upgrade tanks, and start with <b style="color:var(--amber);">200 Coins</b>.';
       return;
     }
     const { data: sessionData } = await sb.auth.getSession();
@@ -2031,71 +2031,41 @@
 
     if(error || !res || !res.ok){
       msg.className = 'submit-msg error';
-      msg.textContent = 'Could not record your rewards this time.';
-    } else {
-      const drops = Array.isArray(res.runes) ? res.runes : [];
-      const netTokens = res.tokens - ENTRY_FEE_TOKENS;
-      const netTag = (netTokens >= 0 ? '+' : '') + netTokens +
-        ' net tokens (paid ' + ENTRY_FEE_TOKENS + ', earned ' + res.tokens + ')';
-      const runeLine = drops.length
-        ? ' 🔮 Runes found: ' + drops.map(id => (RUNES[id] || {}).name || id).join(' + ') + '!'
-        : '';
-      const clearTag = result === 'win'
-        ? (res.first_clear ? '<b style="color:var(--green);">\u2605 FIRST CLEAR</b> \u2014 full purse. '
-                           : '<b style="color:var(--muted);">Repeat clear</b> \u2014 reduced purse. ')
-        : '';
+      msg.textContent = 'Could not record this run.';
+    } else if(result === 'win'){
+      // arc_boss_rewards returns zeroes for floor 1, so there is no purse to
+      // report. What is worth saying is that the clear was saved, and what the
+      // floor above it costs.
       msg.className = 'submit-msg success';
-      msg.innerHTML = clearTag + '+' + res.xp + ' XP, +' + res.coins + ' coins, ' + netTag +
-        (res.leveled_up ? ' — LEVEL UP to ' + res.new_level + '!' : '') + runeLine;
+      msg.innerHTML = '<b style="color:var(--green);">★ FLOOR 1 CLEARED</b> — free practice run, so no rewards. ' +
+        'Your clear is saved.<br><b>Floor 2</b> pays a real purse and rune drops, and needs ' +
+        '<b>four tanks of your own</b> — <a href="game-boss-battle.html" class="link-text">open the armory</a>.';
+    } else {
+      msg.className = 'submit-msg';
+      msg.innerHTML = 'Floor 1 is free practice — nothing lost, nothing earned. Run it again whenever you like.';
     }
   }
 
 
   // ---------- What this run pays ----------
-  // Read from boss_floor_table(), the same functions game_finish_run pays out
-  // through, so this panel cannot promise something the payout will not honour.
-  async function renderPayNote(alreadyCleared){
+  // Unlike floors 2-15 this panel needs no boss_floor_table() lookup: the row
+  // for floor 1 is all zeroes by definition now, so there is nothing to read.
+  async function renderPayNote(){
     const el = document.getElementById('pay-note');
     if(!el) return;
-    let row = null;
-    try{
-      const { data } = await sb.rpc('boss_floor_table');
-      row = Array.isArray(data) ? data.find(r => r.floor === FLOOR_NUM) : null;
-    } catch(e){}
-    if(!row){ el.style.display = 'none'; return; }
 
-    const money = p => '<b class="tok">+' + p.tokens + ' \u2694</b> and <b class="coin">+' + p.coins +
-                       ' \u{1FA99}</b> <b>+' + p.xp + ' XP</b>';
-    let html;
-    if(alreadyCleared){
-      const net = row.again.tokens - row.fee;
-      el.className = '';
-      html = '<div class="hd">Already cleared \u2014 this is a rune run</div>' +
-        'Repeat clears pay ' + money(row.again) + ', against an entry of <b class="tok">' + row.fee + ' \u2694</b>. ' +
-        'That is <b>' + net + '</b> tokens on the run: you are here for the drops, not the currency.';
-    } else if(guestRun){
-      // Do not dangle a purse in front of someone who cannot be paid.
-      el.className = 'first';
-      html = '<div class="hd">Free guest run \u2014 no account needed</div>' +
-        'Floor 1 is open to everyone. A first clear pays ' + money(row.first) +
-        ', but rewards are only recorded for an account \u2014 <a href="auth.html" class="link-text">sign up free</a> ' +
-        'and new players start with <b class="coin">200 \u{1FA99}</b>.';
-    } else {
-      el.className = 'first';
-      html = '<div class="hd">\u2605 First clear \u2014 full purse</div>' +
-        'Beating this floor for the first time pays ' + money(row.first) + '. ' +
-        'After that it drops to ' + money(row.again) + ' per run.';
-    }
-
-    if(row.runes > 0){
-      const order = ['common','uncommon','epic','legendary','mythic'];
-      const bar = order.map(t => '<i style="width:' + row.odds[t] + '%; background:' + RUNE_TIERS[t].color +
-                                 ';" title="' + RUNE_TIERS[t].label + ' ' + row.odds[t] + '%"></i>').join('');
-      html += '<div class="odds"><span>' + row.runes + (guestRun ? ' runes on a win (account needed to keep them)' : ' runes on a win') + '</span>' +
-              '<div class="odds-bar" title="' + order.map(t => RUNE_TIERS[t].label + ' ' + row.odds[t] + '%').join(' \u00B7 ') +
-              '">' + bar + '</div>' +
-              '<span class="top">Legendary ' + row.odds.legendary + '% \u00B7 Mythic ' + row.odds.mythic + '%</span></div>';
-    }
+    // Floor 1 is the practice floor: arc_boss_fee(1) is 0 and arc_boss_rewards
+    // returns zeroes for it, so there is no purse to describe and no fee to
+    // warn about. Say what it actually is, and point at what costs something.
+    el.className = 'first';
+    let html = '<div class="hd">Free practice floor \u2014 no cost, no rewards</div>' +
+      'Floor 1 is open to everyone and always free: no entry fee, no tanks required, ' +
+      'and nothing is paid out. It is here so you can learn the fight.<br>' +
+      '<b>Floor 2 and up</b> pay real Coins, Battle Tokens and rune drops \u2014 those need ' +
+      '<b>four tanks of your own</b>' +
+      (guestRun
+        ? ' and an account. <a href="auth.html" class="link-text">Sign up free</a> and start with <b class="coin">200 \u{1FA99}</b>.'
+        : ', bought in the armory with Battle Tokens.');
     el.innerHTML = html;
   }
 
@@ -2164,7 +2134,7 @@
       // No profile to read and no tanks to own. getSquad() already falls back
       // to the first four types, so the starter squad needs nothing set up.
       ownedTanks = [];
-      renderPayNote(false);
+      renderPayNote();
       document.getElementById('start-overlay').classList.remove('hidden');
       return;
     }
@@ -2172,14 +2142,10 @@
     const { data: profile, error } = await sb.from('profiles').select('boss_tanks_owned,boss_tower_floor').eq('user_id', user.id).maybeSingle();
     if(error) console.error('boss_tanks_owned fetch error', error);
     ownedTanks = profile ? (profile.boss_tanks_owned || []) : [];
-    // floor 1 has no progress gate, but the pay panel still needs to know
-    // whether this is a first clear or a re-run
-    const clearedFloor = profile ? (profile.boss_tower_floor || 0) : 0;
-    if(ownedTanks.length < SQUAD_SIZE){
-      window.location.href = 'game-boss-battle.html';
-      return;
-    }
-    renderPayNote(clearedFloor >= FLOOR_NUM);
+    // Floor 1 is free practice for everyone, so it no longer turns anyone away
+    // for owning nothing -- a new account with no tanks belongs here. Owning
+    // four tanks is what floor 2 asks for, enforced in game_start_run.
+    renderPayNote();
     document.getElementById('start-overlay').classList.remove('hidden');
   }
 
@@ -2205,9 +2171,9 @@
     '</svg>';
   }
 
-  // Floor 1 is free to enter. The constant still has to exist: awardRewards
-  // reports the net token swing on every floor, and without it the reward
-  // message threw the moment you cleared this one.
+  // Floor 1 is free to enter, and now free of a purse too, so the result
+  // screen no longer reports a net token swing and nothing reads this. Kept at
+  // zero so the shape matches floors 2-15, which do charge.
   const ENTRY_FEE_TOKENS = 0;
 
   async function startGame(){

@@ -528,6 +528,11 @@
   const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let runToken = null;   // issued by game_start_run, spent by game_finish_run
+  // Floor 1 is the tower's shop window. A logged-out visitor fights the real
+  // boss with the four starter tanks at Lv1 and no runes; nothing is charged
+  // and nothing is recorded. Floors 2-15 still want an account, which is what
+  // the win screen asks for.
+  let guestRun = false;
 
   function xpForLevel(level){ return 25 * level * (level - 1); }
   function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
@@ -2000,6 +2005,20 @@
 
   async function awardRewards(result){
     const msg = document.getElementById('submit-msg');
+    // The one moment an account is worth something to a guest: they have just
+    // fought the boss and know whether they want more of it.
+    if(guestRun){
+      msg.className = 'submit-msg';
+      msg.innerHTML = result === 'win'
+        ? '<b style="color:var(--green);">★ Floor 1 cleared as a guest</b> — nothing was saved.<br>'
+          + '<a href="auth.html" class="link-text">Create a free account</a> to claim the purse, keep your '
+          + 'rune drops, and open Floors 2–15. New players start with '
+          + '<b style="color:var(--amber);">200 Coins</b>.'
+        : 'Guest run — nothing was saved.<br>'
+          + '<a href="auth.html" class="link-text">Create a free account</a> to keep your progress, upgrade '
+          + 'your tanks, and start with <b style="color:var(--amber);">200 Coins</b>.';
+      return;
+    }
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
       msg.className = 'submit-msg error';
@@ -2054,6 +2073,13 @@
       html = '<div class="hd">Already cleared \u2014 this is a rune run</div>' +
         'Repeat clears pay ' + money(row.again) + ', against an entry of <b class="tok">' + row.fee + ' \u2694</b>. ' +
         'That is <b>' + net + '</b> tokens on the run: you are here for the drops, not the currency.';
+    } else if(guestRun){
+      // Do not dangle a purse in front of someone who cannot be paid.
+      el.className = 'first';
+      html = '<div class="hd">Free guest run \u2014 no account needed</div>' +
+        'Floor 1 is open to everyone. A first clear pays ' + money(row.first) +
+        ', but rewards are only recorded for an account \u2014 <a href="auth.html" class="link-text">sign up free</a> ' +
+        'and new players start with <b class="coin">200 \u{1FA99}</b>.';
     } else {
       el.className = 'first';
       html = '<div class="hd">\u2605 First clear \u2014 full purse</div>' +
@@ -2065,7 +2091,7 @@
       const order = ['common','uncommon','epic','legendary','mythic'];
       const bar = order.map(t => '<i style="width:' + row.odds[t] + '%; background:' + RUNE_TIERS[t].color +
                                  ';" title="' + RUNE_TIERS[t].label + ' ' + row.odds[t] + '%"></i>').join('');
-      html += '<div class="odds"><span>' + row.runes + ' runes on a win</span>' +
+      html += '<div class="odds"><span>' + row.runes + (guestRun ? ' runes on a win (account needed to keep them)' : ' runes on a win') + '</span>' +
               '<div class="odds-bar" title="' + order.map(t => RUNE_TIERS[t].label + ' ' + row.odds[t] + '%').join(' \u00B7 ') +
               '">' + bar + '</div>' +
               '<span class="top">Legendary ' + row.odds.legendary + '% \u00B7 Mythic ' + row.odds.mythic + '%</span></div>';
@@ -2133,8 +2159,13 @@
     document.getElementById('boss-portrait').src = 'data:image/svg+xml;utf8,' + encodeURIComponent(bossSvg());
 
     const { data: sessionData } = await sb.auth.getSession();
-    if(!sessionData.session){
-      window.location.href = 'game-boss-battle.html';
+    guestRun = !sessionData.session;
+    if(guestRun){
+      // No profile to read and no tanks to own. getSquad() already falls back
+      // to the first four types, so the starter squad needs nothing set up.
+      ownedTanks = [];
+      renderPayNote(false);
+      document.getElementById('start-overlay').classList.remove('hidden');
       return;
     }
     const user = sessionData.session.user;
@@ -2185,6 +2216,23 @@
     const deployBtn = document.getElementById('deploy-btn');
     const entryMsg = document.getElementById('entry-msg');
     if(deployBtn){ deployBtn.disabled = true; deployBtn.textContent = 'Checking squad...'; }
+
+    if(guestRun){
+      // Straight into the fight. No token means awardRewards has nothing to
+      // spend, so the server is never asked to pay for this run. Levels and
+      // runes are cleared rather than read from localStorage, so a guest gets
+      // the honest Lv1 baseline every time.
+      runToken = null;
+      TANK_LEVELS = {};
+      EQUIPPED_RUNES = {};
+      if(deployBtn){ deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad'; }
+      document.getElementById('start-overlay').classList.add('hidden');
+      document.getElementById('over-overlay').classList.add('hidden');
+      resetGame();
+      startBgAmbience();
+      sfxGameStart();
+      return;
+    }
 
     const { data: startRes, error: startErr } = await sb.rpc('game_start_run', { p_game: 'boss-1' });
     if(startErr || !startRes || !startRes.ok){

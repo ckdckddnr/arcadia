@@ -138,6 +138,22 @@
   .form-title{font-size:24px; font-weight:800; margin-bottom:6px;}
   .form-sub{color:var(--muted); font-size:14px; margin-bottom:28px;}
 
+  /* Signup bonus, shown on the form itself so the payoff is visible while
+     someone is deciding whether the fields are worth filling in. */
+  .signup-bonus{
+    display:flex; align-items:center; gap:14px;
+    margin:-14px 0 24px; padding:14px 16px;
+    background:linear-gradient(90deg, rgba(255,182,39,0.16), rgba(255,182,39,0.04));
+    border:1.5px solid rgba(255,182,39,0.45); border-radius:12px;
+  }
+  .signup-bonus b{color:var(--amber); font-size:16px; font-weight:800;}
+  .signup-bonus span{color:var(--muted); font-size:13px; line-height:1.5;}
+  .signup-bonus .coin-badge{
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:20px; letter-spacing:0.04em;
+    color:#0A0D12; background:var(--amber); border-radius:7px; padding:4px 11px;
+    white-space:nowrap; box-shadow:0 0 18px rgba(255,182,39,0.4);
+  }
+
   .field{margin-bottom:18px;}
   .field label{
     display:block; font-size:13px; font-weight:600; color:var(--muted);
@@ -284,7 +300,15 @@
 
       <div class="form-panel" id="form-signup">
         <div class="form-title">Create your account</div>
-        <div class="form-sub">Free to join. You only pay when you enter a game.</div>
+        <div class="form-sub">Free to join — and we drop 200 Coins in your account to start.</div>
+
+        <!-- The reward for finishing this form, stated on the form itself. The
+             old sub-heading here read "you only pay when you enter a game",
+             which sold the cost instead of the bonus. -->
+        <div class="signup-bonus">
+          <span class="coin-badge">🪙 200</span>
+          <div><b>200 Coins free</b><br><span>Enough for 10 arcade runs. Yours the moment you sign up.</span></div>
+        </div>
 
         <div class="form-msg" id="signup-msg"></div>
 

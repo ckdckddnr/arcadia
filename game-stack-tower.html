@@ -103,7 +103,7 @@
         <li><span style="color:var(--amber);">⬛</span><span><b>Perfect drops</b> (near pixel-perfect) don't shrink the block and stack up combo bonus points.</span></li>
         <li><span style="color:var(--amber);">⬛</span><span><b>It speeds up</b> the higher you climb — stay precise.</span></li>
       </ul>
-      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">🪙 Entry costs <b style="color:var(--amber);">20 Coins</b> per run.</div>
+      <div id="entry-cost-note" style="font-size:12px; color:var(--muted); margin-bottom:10px;">🪙 Entry costs <b style="color:var(--amber);">20 Coins</b> per run.</div>
       <div class="submit-msg" id="entry-msg"></div>
       <button class="btn btn-primary start-action-btn" onclick="startGame()">Start Tower</button>
     </div>
@@ -125,7 +125,8 @@
   const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  let runToken = null;   // issued by game_start_run, spent by game_finish_run
+  let runToken = null;
+  let guestRun = false;  // logged-out visitor: free run, nothing saved, nothing credited   // issued by game_start_run, spent by game_finish_run
 
 
   function xpForLevel(level){ return 25 * level * (level - 1); }
@@ -351,6 +352,17 @@
   async function submitScore(){
     const msg = document.getElementById('submit-msg');
     const btn = document.getElementById('submit-btn');
+    // A guest has no token to spend, so there is nothing to submit. Ask for
+    // the account here instead -- they have just played and have a score in
+    // hand, which is the only moment signing up is worth anything to them.
+    if(guestRun){
+    msg.className = 'submit-msg';
+    msg.innerHTML = 'Guest run \u2014 this score was not saved.<br>'
+      + '<a href="auth.html" class="link-text">Create a free account</a> to keep your scores '
+      + 'and start with <b style="color:var(--amber)">200 Coins</b>.';
+    btn.style.display = 'none';
+    return;
+    }
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
       msg.className = 'submit-msg error';
@@ -385,23 +397,25 @@
     actionBtns.forEach(b => b.disabled = true);
 
     const { data: sessionData } = await sb.auth.getSession();
-    if(!sessionData.session){
-      entryMsg.className = 'submit-msg error';
-      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to play — each run costs 20 Coins.';
-      actionBtns.forEach(b => b.disabled = false);
-      return;
+    // Guests play for free. No fee is taken and no run token is issued, so
+    // game_finish_run can never pay out on this path -- the score is real but
+    // nothing reaches the server. Demanding an account before anyone had seen
+    // the game was turning away every visitor the ads sent us.
+    guestRun = !sessionData.session;
+    runToken = null;
+
+    if(!guestRun){
+      const { data: startRes, error: startErr } = await sb.rpc('game_start_run', { p_game: 'stack-tower' });
+      if(startErr || !startRes || !startRes.ok){
+        entryMsg.className = 'submit-msg error';
+        entryMsg.textContent = (startRes && startRes.error === 'not enough coins')
+          ? 'Not enough Coins (you have ' + startRes.coins + ', need ' + ENTRY_FEE_COINS + ').'
+          : 'Could not start the run — please try again.';
+        actionBtns.forEach(b => b.disabled = false);
+        return;
+      }
+      runToken = startRes.token;
     }
-    const user = sessionData.session.user;
-    const { data: startRes, error: startErr } = await sb.rpc('game_start_run', { p_game: 'stack-tower' });
-    if(startErr || !startRes || !startRes.ok){
-      entryMsg.className = 'submit-msg error';
-      entryMsg.textContent = (startRes && startRes.error === 'not enough coins')
-        ? 'Not enough Coins (you have ' + startRes.coins + ', need ' + ENTRY_FEE_COINS + ').'
-        : 'Could not start the run — please try again.';
-      actionBtns.forEach(b => b.disabled = false);
-      return;
-    }
-    runToken = startRes.token;
 
     actionBtns.forEach(b => b.disabled = false);
     document.getElementById('start-overlay').classList.add('hidden');
@@ -413,6 +427,24 @@
   }
 
   resizeCanvas();
+
+  // Tell a logged-out visitor the run is free before they click, because the
+  // old copy here read "each run costs 20 Coins" and that was the first thing
+  // anyone arriving from an ad ever saw.
+  (async function guestHint(){
+    try{
+      const { data } = await sb.auth.getSession();
+      if(data.session) return;
+      const el = document.getElementById('entry-msg');
+      const cost = document.getElementById('entry-cost-note');
+      if(cost) cost.style.display = 'none';   // no fee is charged on a guest run
+      if(!el || el.textContent) return;
+      el.className = 'submit-msg';
+      el.innerHTML = '<b style="color:var(--amber)">Free to play \u2014 no account needed.</b><br>'
+        + '<a href="auth.html" class="link-text">Sign up free</a> to save scores and get '
+        + '<b style="color:var(--amber)">200 Coins</b>.';
+    } catch(e){}
+  })();
 </script>
   <!-- Vercel Web Analytics. Cookieless and per-visit, so it needs no consent
        banner; it also does nothing until the project has it switched on. -->

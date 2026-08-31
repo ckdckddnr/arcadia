@@ -522,6 +522,7 @@
   }
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   let runToken = null;   // issued by game_start_run, spent by game_finish_run
+  let guestRun = false;  // logged-out visitor: free match, nothing saved
 
   const GAME_ID = 'tank-clash';
 
@@ -1565,6 +1566,15 @@
   async function awardMatchRewards(result){
     const msg = document.getElementById('submit-msg');
 
+    // Nothing to submit without a run token. Ask for the account here instead,
+    // while they have a finished match in front of them.
+    if(guestRun){
+      msg.className = 'submit-msg';
+      msg.innerHTML = 'Guest match — no XP or coins were earned.<br>'
+        + '<a href="auth.html" class="link-text">Create a free account</a> to keep your progress '
+        + 'and start with <b style="color:var(--amber)">200 Coins</b>.';
+      return;
+    }
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
       msg.className = 'submit-msg error';
@@ -1607,27 +1617,26 @@
     deployBtn.textContent = 'Checking Battle Tokens...';
 
     const { data: sessionData } = await sb.auth.getSession();
-    if(!sessionData.session){
-      entryMsg.className = 'submit-msg error';
-      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to enter — this difficulty requires ' + entryFee + ' Battle Tokens.';
-      deployBtn.disabled = false;
-      deployBtn.textContent = 'Deploy Squad';
-      return;
-    }
+    // Guests fight for free. No tokens are charged and no run token is issued,
+    // so nothing can be credited back -- the match is real, the rewards are not.
+    guestRun = !sessionData.session;
+    runToken = null;
 
-    const { data: startRes, error: startErr } = await sb.rpc('game_start_run', {
-      p_game: 'tank-clash', p_difficulty: matchDifficulty
-    });
-    if(startErr || !startRes || !startRes.ok){
-      entryMsg.className = 'submit-msg error';
-      entryMsg.textContent = (startRes && startRes.error === 'not enough tokens')
-        ? 'Not enough Battle Tokens (you have ' + startRes.tokens + ', need ' + entryFee + '). Play Asteroid Run or Orbit Snap to earn more, or pick an easier difficulty.'
-        : 'Could not start the match — please try again.';
-      deployBtn.disabled = false;
-      deployBtn.textContent = 'Deploy Squad';
-      return;
+    if(!guestRun){
+      const { data: startRes, error: startErr } = await sb.rpc('game_start_run', {
+        p_game: 'tank-clash', p_difficulty: matchDifficulty
+      });
+      if(startErr || !startRes || !startRes.ok){
+        entryMsg.className = 'submit-msg error';
+        entryMsg.textContent = (startRes && startRes.error === 'not enough tokens')
+          ? 'Not enough Battle Tokens (you have ' + startRes.tokens + ', need ' + entryFee + '). Play Asteroid Run or Orbit Snap to earn more, or pick an easier difficulty.'
+          : 'Could not start the match — please try again.';
+        deployBtn.disabled = false;
+        deployBtn.textContent = 'Deploy Squad';
+        return;
+      }
+      runToken = startRes.token;
     }
-    runToken = startRes.token;
 
     deployBtn.disabled = false;
     deployBtn.textContent = 'Deploy Squad';
@@ -1639,6 +1648,23 @@
     startBgAmbience();
     sfxGameStart();
   }
+
+  // A logged-out visitor used to be told this costs Battle Tokens before they
+  // had ever seen the game. Say it is free instead.
+  (async function guestHint(){
+    try{
+      const { data } = await sb.auth.getSession();
+      if(data.session) return;
+      const el = document.getElementById('entry-msg');
+      const cost = document.getElementById('entry-fee-note');
+      if(cost) cost.style.display = 'none';   // no tokens are charged on a guest match
+      if(!el || el.textContent) return;
+      el.className = 'submit-msg';
+      el.innerHTML = '<b style="color:var(--amber)">Free to play — no account needed.</b><br>'
+        + '<a href="auth.html" class="link-text">Sign up free</a> to earn rewards and get '
+        + '<b style="color:var(--amber)">200 Coins</b>.';
+    } catch(e){}
+  })();
 </script>
   <!-- Vercel Web Analytics. Cookieless and per-visit, so it needs no consent
        banner; it also does nothing until the project has it switched on. -->

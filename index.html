@@ -152,6 +152,23 @@
   .trust-row{display:flex; gap:28px; color:var(--muted); font-size:16px;}
   .trust-row b{color:var(--text); font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:600;}
 
+  /* Signup bonus. Loud on purpose: it is the only thing on this page that
+     answers "why would I make an account", and it sits above the fold. */
+  .bonus-pill{
+    display:inline-flex; align-items:center; gap:12px; flex-wrap:wrap;
+    margin:0 0 22px; padding:12px 18px;
+    background:linear-gradient(90deg, rgba(255,182,39,0.16), rgba(255,182,39,0.04));
+    border:1.5px solid rgba(255,182,39,0.45); border-radius:12px;
+    color:#C7CDDA; font-size:15px; line-height:1.5;
+  }
+  .bonus-pill b{color:var(--amber); font-weight:800;}
+  .bonus-pill .coin-badge{
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:20px; letter-spacing:0.04em;
+    color:var(--bg-void); background:var(--amber); border-radius:7px; padding:3px 11px;
+    white-space:nowrap; box-shadow:0 0 18px rgba(255,182,39,0.4);
+  }
+  @media (max-width:640px){ .bonus-pill{font-size:14px; padding:11px 14px; gap:10px;} }
+
   /* SCOREBOARD SIGNATURE ELEMENT */
   .scoreboard{
     background:var(--surface);
@@ -345,11 +362,18 @@
     <div class="eyebrow" id="coin-eyebrow">🪙 Insert Coin</div>
     <h1>Pick a cabinet.<br>Chase the <span>high score.</span></h1>
     <div class="hero-ctas">
-      <a href="game-asteroid-run.html" class="btn btn-primary btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Play Free Now</a>
-      <a href="rankings.html" class="btn btn-ghost btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">See Rankings</a>
+      <a href="game-asteroid-run.html" class="btn btn-primary btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Play Now — No Sign Up</a>
+      <a href="auth.html" class="btn btn-ghost btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Sign Up &amp; Get 200 Coins</a>
+    </div>
+    <!-- The bonus is the single reason to make an account, so it is stated
+         before the click rather than discovered after it. -->
+    <div class="bonus-pill" id="hero-bonus-pill">
+      <span class="coin-badge">🪙 200</span>
+      <span><b>200 Coins free</b> the moment you sign up — that is 10 arcade runs, on us.</span>
     </div>
     <div class="trust-row">
-      <div><b>100%</b> free to play</div>
+      <div><b>No account</b> needed to play</div>
+      <div><b>No download</b>, runs in your browser</div>
     </div>
   </div>
 
@@ -906,7 +930,7 @@
 
       const { data: profile } = await sb.from('profiles').select('xp,coins,battle_tokens').eq('user_id', user.id).maybeSingle();
       const xp = profile ? profile.xp : 0;
-      const coins = profile ? profile.coins : 100;
+      const coins = profile ? profile.coins : 200;   // matches arc_ensure_profile's grant
       const tokens = profile ? (profile.battle_tokens || 0) : 0;
       const level = levelFromXp(xp);
       const statsHtml = '<span class="mono" style="color:var(--amber); font-size:12px; font-weight:700; background:rgba(255,182,39,0.12); padding:2px 8px; border-radius:10px; white-space:nowrap;">LV ' + level + '</span>' +
@@ -928,6 +952,22 @@
           '<span style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center;">' + statsHtml + '</span>' +
         '</a>' +
         '<button class="btn btn-ghost" onclick="logout()">Log Out</button>';
+
+      const pill = document.getElementById('hero-bonus-pill');
+      if(pill) pill.style.display = 'none';   // already claimed, stop selling it
+    } else {
+      // A signed-out visitor was being shown a price on every card before they
+      // had played anything. The fee is real, but it is charged against the
+      // Coins an account starts with, so it is not what a stranger should read
+      // first. Guests play these for free.
+      document.querySelectorAll('.entry-fee').forEach(el => {
+        if(el.textContent.indexOf('Owned tanks') !== -1){
+          el.textContent = '⚔ Floor 1 free';
+        } else {
+          el.style.color = 'var(--green)';
+          el.textContent = '✓ Free to play';
+        }
+      });
     }
   })();
 

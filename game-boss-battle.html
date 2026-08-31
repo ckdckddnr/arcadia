@@ -474,6 +474,7 @@
   let ownedTanks = [];
   let currentTokens = 0;
   let clearedFloor = 0;
+  let guestMode = false;   // logged out: Floor 1 only, starter squad, nothing recorded
   let selectedSquad = [];
   // fee, both payouts and drop odds for all 15 floors, straight from the
   // functions that do the paying — see boss_floor_table()
@@ -846,14 +847,19 @@
 
   function renderFloors(){
     // Any 4 tanks gets you in, as long as exactly 4 are picked to deploy.
-    const squadReady = ownedTanks.length >= SQUAD_SIZE && selectedSquad.length === SQUAD_SIZE;
+    // A guest owns nothing, so Floor 1 hands them the four starter tanks and
+    // everything above it is the reason to make an account.
+    const squadReady = guestMode || (ownedTanks.length >= SQUAD_SIZE && selectedSquad.length === SQUAD_SIZE);
     document.getElementById('floor-list').innerHTML = FLOORS.map(f => {
       const cleared = f.live && clearedFloor >= f.num;
-      const unlocked = TESTING_UNLOCK_ALL || f.num === 1 || clearedFloor >= f.num - 1;
+      const unlocked = guestMode ? f.num === 1
+        : (TESTING_UNLOCK_ALL || f.num === 1 || clearedFloor >= f.num - 1);
       const enterable = f.live && squadReady && unlocked;
       const cls = enterable ? 'floor-card enterable' : 'floor-card locked';
       const tag = !f.live ? '<span class="floor-tag locked-tag">Coming Soon</span>'
         : cleared ? '<span class="floor-tag cleared">★ Cleared</span>'
+        : (guestMode && f.num === 1) ? '<span class="floor-tag ready">Free — No Account</span>'
+        : (guestMode) ? '<span class="floor-tag locked-tag">Sign Up to Unlock</span>'
         : !unlocked ? '<span class="floor-tag locked-tag">Clear Floor ' + (f.num - 1) + ' First</span>'
         : squadReady ? '<span class="floor-tag ready">Ready</span>'
         : ownedTanks.length < SQUAD_SIZE
@@ -950,14 +956,19 @@
 
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
+      // Floor 1 is open to guests with a fixed starter squad, so the armory
+      // stays browsable and the tower is not a dead end for a first visitor.
+      guestMode = true;
       renderShop();
       renderSquad();
       renderUpgrades();
       renderRunes();
       renderFloors();
       const shopMsg = document.getElementById('shop-msg');
-      shopMsg.className = 'submit-msg error';
-      shopMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to buy boss tanks and track your climb.';
+      shopMsg.className = 'submit-msg';
+      shopMsg.innerHTML = '<b style="color:var(--amber);">Floor 1 is free to try — no account needed.</b><br>'
+        + '<a href="auth.html" class="link-text">Sign up free</a> to buy tanks, keep rune drops and climb past Floor 1. '
+        + 'New players start with <b style="color:var(--amber);">200 Coins</b>.';
       return;
     }
     const user = sessionData.session.user;

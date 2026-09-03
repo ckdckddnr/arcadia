@@ -511,7 +511,13 @@
     .game-meta span:first-child{ flex:1 1 auto; min-width:0; }
     .game-meta .players{ flex:0 0 auto; }
     .game-footer{ gap:5px; }
-    .entry-fee{ font-size:10.5px; white-space:nowrap; }
+    /* The fee is what gives way when it is too long, never the Play button:
+       a 247px label on a 163px card pushed Play outside an overflow:hidden
+       card and it vanished entirely. */
+    .game-footer{ min-width:0; }
+    .entry-fee{ font-size:10.5px; white-space:nowrap; flex:1 1 auto; min-width:0;
+                overflow:hidden; text-overflow:ellipsis; }
+    .play-btn{ flex:0 0 auto; }
     .play-btn{ padding:5px 11px; font-size:11.5px; }
   }
 </style>
@@ -898,7 +904,7 @@
       </div>
       <div class="game-title">Tank Raid <span class="mono" style="color:var(--green); font-size:12px; font-weight:700; margin-left:6px;">● LIVE</span></div>
       <div class="game-meta"><span>Tank Raid</span><span class="players">● PvE</span></div>
-      <div class="game-footer"><span class="entry-fee" style="color:var(--pink);">⚔ Floor 1 free · Floor 2+ needs 4 tanks</span><a href="game-boss-battle.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
+      <div class="game-footer"><span class="entry-fee" style="color:var(--pink);">⚔ Floor 1 free</span><a href="game-boss-battle.html" class="play-btn" style="text-decoration:none; display:inline-flex; align-items:center;">Play</a></div>
     </div>
   </div>
   </div>

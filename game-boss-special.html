@@ -113,7 +113,11 @@
        wrong twice: too small at 42px, overflowing both axes at 54. The board
        now takes the largest 9:7 rectangle the wrapper allows and the tiles
        fall out of that, so it fits whatever height the layout gives it. */
-    aspect-ratio:9 / 7; width:100%; height:auto; max-height:100%; margin:auto;
+    aspect-ratio:9 / 7; width:100%; height:auto; max-height:100%; max-width:640px; margin:auto;
+    /* The fill had no ceiling, so on a tall screen tiles grew past the 64px
+       every tower floor caps at and the arena looked oversized. 640px puts a
+       tile at about 67px: one row and one column more than a floor, at very
+       nearly the same tile size. */
     /* height:100% used to win over aspect-ratio and max-width then clamped the
        width independently, which squashed the tiles into tall rectangles on a
        phone. Letting height derive from the ratio keeps them square. */
@@ -520,6 +524,48 @@
     border:1px dashed rgba(255,182,39,0.45); pointer-events:none;
   }
   .tile.node-reach.corrupt{ box-shadow:inset 0 0 0 1.5px rgba(255,182,39,0.5), inset 0 0 10px rgba(124,255,77,0.35); }
+
+  /* the node's remaining health, as a number -- a ring going 100% to 94% is
+     not something anyone can see */
+  .node s{
+    text-decoration:none; font-family:'IBM Plex Mono','Noto Sans KR',monospace;
+    font-size:10px; font-weight:800; color:#1A0E02; z-index:2;
+    text-shadow:0 1px 0 rgba(255,255,255,0.35);
+  }
+  .node.node-hit{ animation:nodeHit 0.32s ease-out; }
+  @keyframes nodeHit{
+    0%{ transform:translate(-50%,-50%) scale(1);    filter:brightness(2.6); }
+    45%{ transform:translate(-50%,-50%) scale(1.28); filter:brightness(2); }
+    100%{ transform:translate(-50%,-50%) scale(1);   filter:brightness(1); }
+  }
+
+  /* Weak node health, beside the body's. The number inside a node is only
+     legible on a desktop-sized tile; this is readable at any board size. */
+  #node-bars{ margin-top:7px; display:flex; flex-direction:column; gap:3px; }
+  .nb-head{ font-size:10px; color:var(--muted); letter-spacing:0.04em; margin-bottom:1px; }
+  .nb-head b{ color:#FFB627; }
+  .nb-head b.open{ color:#7CFF4D; }
+  .nb-row{ display:flex; align-items:center; gap:6px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:9.5px; }
+  .nb-name{ color:#FFD9A0; white-space:nowrap; }
+  .nb-track{ flex:1; height:5px; min-width:40px; border-radius:3px; background:rgba(255,255,255,0.10);
+             border:1px solid rgba(255,182,39,0.35); overflow:hidden; }
+  .nb-track i{ display:block; height:100%; background:linear-gradient(90deg,#FF9A3C,#FFE55C); transition:width 0.25s ease; }
+  .nb-val{ color:var(--muted); white-space:nowrap; }
+  .nb-row.down .nb-name{ color:#6B5D48; }
+  .nb-row.down .nb-track{ border-color:rgba(120,110,95,0.4); }
+  .nb-row.down .nb-val{ color:#7CFF4D; }
+
+  .nb-val b{ color:#E8D9BC; font-weight:700; }
+  .nb-val em{ font-style:normal; }
+
+  @media (max-width:860px){
+    /* On a 24px tile the number inside a node is wider than the node. The
+       panel readout carries it instead. */
+    .node s{ display:none; }
+    /* and the panel is ~110px wide there, so the max drops off the value */
+    .nb-val em{ display:none; }
+    .nb-track{ min-width:28px; }
+  }
 </style>
 </head>
 <body>
@@ -556,6 +602,9 @@
           <div id="boss-exposed-tag">◎ EXPOSED</div>
         </div>
         <div id="boss-hp-outer"><div id="boss-hp-fill" style="width:100%;"></div><div id="boss-hp-text">7000 / 7000</div></div>
+        <!-- The nodes gate every point of damage the body takes, so their health
+             belongs next to the body's rather than only on a 24px board tile. -->
+        <div id="node-bars"></div>
       </div>
       <div id="boss-turn-count">Turn 1</div>
     </div>
@@ -1057,7 +1106,9 @@
     const node = src ? nearestLiveNode(src.r, src.c) : null;
     if(node){
       node.hp = Math.max(0, node.hp - dmg);
-      fxFlashBossHit();
+      fxFloatText(node.r, node.c, '-' + dmg, '#FFB627');
+      const el = document.querySelector('.tile[data-r="' + node.r + '"][data-c="' + node.c + '"] .node');
+      if(el){ el.classList.remove('node-hit'); void el.offsetWidth; el.classList.add('node-hit'); }
       if(node.hp === 0){
         node.respawn = NODE_RESPAWN_TURNS;
         triggerBoardShake(6);
@@ -1472,6 +1523,33 @@
     layer.appendChild(charge);
     requestAnimationFrame(() => { charge.style.width = '46px'; charge.style.height = '46px'; charge.style.opacity = '1'; });
     setTimeout(() => charge.remove(), duration + 60);
+  }
+
+  // Same flight as the boss shot, but it lands on a board tile. Used when the
+  // target is a weak node rather than the body.
+  function animateProjectileToTile(fromR, fromC, toR, toC, color, onDone){
+    const start = tileCenter(fromR, fromC);
+    const end = tileCenter(toR, toC);
+    const ang = Math.atan2(end.y - start.y, end.x - start.x);
+    fxMuzzle(start.x + Math.cos(ang) * 16, start.y + Math.sin(ang) * 16, ang * 180 / Math.PI, color);
+    fxBurst(start.x, start.y, color + 'cc', 26);
+    const layer = document.getElementById('fx-layer');
+    const p = document.createElement('div');
+    const dur = 260;
+    p.style.cssText = 'position:absolute; left:' + start.x + 'px; top:' + start.y + 'px;'
+      + ' width:10px; height:10px; border-radius:50%; transform:translate(-50%,-50%);'
+      + ' pointer-events:none; z-index:8; background:radial-gradient(circle, #fff 0%, '
+      + color + ' 65%, rgba(0,0,0,0) 85%); box-shadow:0 0 12px ' + color + ';'
+      + ' transition:left ' + dur + 'ms linear, top ' + dur + 'ms linear;';
+    layer.appendChild(p);
+    void p.offsetWidth;                      // commit the start position first
+    p.style.left = end.x + 'px';
+    p.style.top = end.y + 'px';
+    setTimeout(() => {
+      p.remove();
+      fxBurst(end.x, end.y, '#FFB627cc', 30);
+      if(onDone) onDone();
+    }, dur);
   }
 
   // A tank fires a projectile at the boss (player attacks/skills)
@@ -2161,7 +2239,14 @@
     t.firedThisTurn = true;
     sfxAttack(t.type, t.siegeModeTurnsLeft > 0);
     render();
-    animateProjectileToBoss(t.r, t.c, TANK_PROJECTILE_COLOR[t.type], () => {
+    // If this shot is going into a node, it has to look like it: firing at the
+    // body while a node quietly loses health reads as nothing happening, which
+    // is exactly how it was reported.
+    const aimNode = nearestLiveNode(t.r, t.c);
+    const fire = aimNode
+      ? (cb) => animateProjectileToTile(t.r, t.c, aimNode.r, aimNode.c, TANK_PROJECTILE_COLOR[t.type], cb)
+      : (cb) => animateProjectileToBoss(t.r, t.c, TANK_PROJECTILE_COLOR[t.type], cb);
+    fire(() => {
       hitBoss(dmg, t);
       boss.turnsSinceDamage = 0;
       if(t.runes && t.runes.leech > 0 && t.alive){
@@ -2172,8 +2257,13 @@
       fxFlashBossHit();
       triggerBoardShake(0.2);
       const costTag = '<span class="mono" style="font-size:0.55em;color:var(--muted);"> (&minus;' + t.attackCost + ' MP)</span>';
-      showAction('YOUR ' + t.name.toUpperCase() + ' HITS THE BOSS FOR ' + dmg + '!' + costTag, 'a-dmg');
-      log('Your ' + t.name + ' hits the boss for ' + dmg + '.');
+      // Naming the boss while the shot went into a node, and the boss bar did
+      // not move, is what made the mechanic look broken.
+      showAction('YOUR ' + t.name.toUpperCase()
+        + (nearestLiveNode(t.r, t.c) ? ' HITS A WEAK NODE FOR ' : ' HITS THE BOSS FOR ')
+        + dmg + '!' + costTag, 'a-dmg');
+      // hitBoss() already logs which of the two it landed on
+      if(!nearestLiveNode(t.r, t.c)) log('Your ' + t.name + ' hits the boss for ' + dmg + '.');
       checkBossDefeated();
       render();
     });
@@ -2229,7 +2319,7 @@
         hitBoss(rgDmg, t); boss.turnsSinceDamage = 0;
         fxFlashBossHit(); triggerBoardShake(0.35);
         showAction('YOUR ' + t.name.toUpperCase() + ' FIRES THE RAILGUN FOR ' + rgDmg + '!', 'a-dmg');
-        log('Your ' + t.name + ' railgun hits the boss for ' + rgDmg + '.');
+        if(!nearestLiveNode(t.r, t.c)) log('Your ' + t.name + ' railgun hits the boss for ' + rgDmg + '.');
         checkBossDefeated();
         render();
       });
@@ -2359,6 +2449,24 @@
     document.getElementById('boss-hp-fill').style.width = pct + '%';
     document.getElementById('boss-hp-text').textContent = formatHp(Math.max(0,boss.hp)) + ' / ' + formatHp(boss.maxHp);
     document.getElementById('boss-phase-tag').textContent = 'Phase ' + phase;
+    const nb = document.getElementById('node-bars');
+    if(nb){
+      const shield = liveNodes() > 0;
+      nb.innerHTML = '<div class="nb-head">' +
+          (shield ? '<b>Armoured</b> — body takes ' + Math.round(BODY_DR * 100) + '%'
+                  : '<b class="open">Exposed</b> — body takes full damage') +
+        '</div>' +
+        nodes.map((n, i) => {
+          const pct = Math.max(0, n.hp / n.maxHp * 100);
+          return '<div class="nb-row' + (n.hp > 0 ? '' : ' down') + '">' +
+            '<span class="nb-name">Node ' + (i + 1) + '</span>' +
+            '<span class="nb-track"><i style="width:' + pct + '%"></i></span>' +
+            '<span class="nb-val">' + (n.hp > 0
+                ? '<b>' + n.hp + '</b><em> / ' + n.maxHp + '</em>'
+                : 'back in ' + n.respawn) + '</span>' +
+          '</div>';
+        }).join('');
+    }
 
     const exposedTag = document.getElementById('boss-exposed-tag');
     exposedTag.style.display = bossExposedTurns > 0 ? 'inline-block' : 'none';
@@ -2443,7 +2551,7 @@
           const alive = nd.hp > 0;
           const pct = Math.round(nd.hp / nd.maxHp * 100);
           nodeHtml = '<i class="node' + (alive ? '' : ' node-dead') + '" style="--nhp:' + pct + '">'
-            + (alive ? '' : '<u>' + nd.respawn + '</u>')
+            + (alive ? '<s>' + nd.hp + '</s>' : '<u>' + nd.respawn + '</u>')
             + '</i>';
           cls += alive ? ' has-node' : ' has-node-dead';
         }

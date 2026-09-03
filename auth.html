@@ -229,6 +229,9 @@
     .auth-side{padding:36px 24px;}
   }
 </style>
+<!-- Anonymous funnel counters and client-side error reporting. Loaded first
+     so its error handler is installed before anything else can throw. -->
+<script src="telemetry.js"></script>
 </head>
 <body>
 <canvas id="bg-canvas"></canvas>

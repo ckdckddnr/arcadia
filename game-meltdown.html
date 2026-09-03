@@ -97,6 +97,9 @@
     .btn-ghost.start-action-btn{ background:var(--surface); }
   }
 </style>
+<!-- Anonymous funnel counters and client-side error reporting. Loaded first
+     so its error handler is installed before anything else can throw. -->
+<script src="telemetry.js"></script>
 </head>
 <body>
 
@@ -566,6 +569,7 @@
     }
 
     document.getElementById('over-overlay').classList.remove('hidden');
+    if(window.arcTrack) arcTrack('finish');
     document.getElementById('submit-msg').className = 'submit-msg';
     document.getElementById('submit-msg').textContent = '';
     document.getElementById('submit-btn').disabled = true;
@@ -651,6 +655,7 @@
     actionBtns.forEach(b => b.disabled = false);
     document.getElementById('start-overlay').classList.add('hidden');
     document.getElementById('over-overlay').classList.add('hidden');
+    if(window.arcTrack) arcTrack('start');
     document.getElementById('stake-value').textContent = ENTRY_FEE_COINS;
     resetGame();
     sfxGameStart();

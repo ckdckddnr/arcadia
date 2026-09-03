@@ -440,6 +440,9 @@
     #log-toggle-btn{ display:flex; }
   }
 </style>
+<!-- Anonymous funnel counters and client-side error reporting. Loaded first
+     so its error handler is installed before anything else can throw. -->
+<script src="telemetry.js"></script>
 </head>
 <body>
 
@@ -2000,6 +2003,7 @@
 
     document.getElementById('submit-msg').textContent = 'Awarding rewards...';
     document.getElementById('over-overlay').classList.remove('hidden');
+    if(window.arcTrack) arcTrack('finish');
     awardRewards(result);
   }
 
@@ -2221,6 +2225,7 @@
     if(deployBtn){ deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad'; }
     document.getElementById('start-overlay').classList.add('hidden');
     document.getElementById('over-overlay').classList.add('hidden');
+    if(window.arcTrack) arcTrack('start');
     resetGame();
     startBgAmbience();
     sfxGameStart();

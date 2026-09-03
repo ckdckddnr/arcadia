@@ -282,11 +282,12 @@
           </div>
           <button class="btn btn-primary" id="login-btn" onclick="handleLogin()">Log In</button>
 
-          <div class="divider">or continue with</div>
-          <div class="social-row">
-            <button class="btn-social" onclick="socialLogin('google')">Google</button>
-            <button class="btn-social" onclick="socialLogin('apple')">Apple</button>
-          </div>
+          <!-- Google and Apple sign-in are hidden, not deleted. Neither provider
+               is enabled on the Supabase project, so both buttons redirected to
+               a raw JSON error page on supabase.co with no way back -- offered
+               to every visitor for the whole of the ad campaign. socialLogin()
+               below still works; put these back the moment a provider is
+               actually configured. -->
 
           <div class="fine-print">By logging in, you agree to our <a href="terms.html" class="link-text">Terms of Service</a> and <a href="privacy.html" class="link-text">Privacy Policy</a>.</div>
         </div>
@@ -340,12 +341,6 @@
           <label class="checkbox-row"><input type="checkbox" id="signup-agerule"> I'm 18 years or older</label>
         </div>
         <button class="btn btn-primary" id="signup-btn" onclick="handleSignup()">Create Account</button>
-
-        <div class="divider">or continue with</div>
-        <div class="social-row">
-          <button class="btn-social" onclick="socialLogin('google')">Google</button>
-          <button class="btn-social" onclick="socialLogin('apple')">Apple</button>
-        </div>
 
         <div class="fine-print">By signing up, you agree to our <a href="terms.html" class="link-text">Terms of Service</a> and <a href="privacy.html" class="link-text">Privacy Policy</a>.</div>
       </div>
@@ -498,6 +493,11 @@
     }
   }
 
+  // Kept for when a provider is switched on in Supabase. Nothing calls it
+  // today: the buttons are commented out because neither Google nor Apple is
+  // enabled, and signInWithOAuth happily hands back an authorize URL either
+  // way -- the "provider is not enabled" error only appears after the browser
+  // has already been sent to supabase.co, which is far too late to show it.
   async function socialLogin(provider){
     const { error } = await sb.auth.signInWithOAuth({
       provider: provider,

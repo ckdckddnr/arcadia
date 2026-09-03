@@ -418,6 +418,39 @@
     </div>
     <div class="floor-list" id="floor-list"></div>
   </div>
+
+  <!-- Gravemaw is not a floor and deliberately does not live in the floor list:
+       clearing it moves no tower progress, and the tower's rules do not apply
+       to it. -->
+  <div class="card" id="gravemaw-card">
+    <div class="section-title">Special Boss</div>
+    <div class="section-sub">Something the tower grew. It stands on the board instead of behind it, on the widest arena in the game.</div>
+    <a class="floor-card" id="gravemaw-link" href="game-boss-special.html">
+      <div class="floor-num" style="color:#7CFF4D; border-color:rgba(124,255,77,0.5);">&#9760;</div>
+      <div class="floor-art" style="border-color:rgba(124,255,77,0.45);">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle cx="60" cy="60" r="34" fill="#140A12" stroke="#7CFF4D" stroke-width="2.4"/>
+          <circle cx="60" cy="60" r="15" fill="#0B1A06" stroke="#7CFF4D" stroke-width="2"/>
+          <circle cx="60" cy="60" r="7" fill="#7CFF4D">
+            <animate attributeName="r" values="5;10;5" dur="1.8s" repeatCount="indefinite"/>
+          </circle>
+          <path d="M28 30 L44 46 M92 30 L76 46 M28 90 L44 74 M92 90 L76 74"
+                stroke="#7CFF4D" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
+        </svg>
+      </div>
+      <div class="floor-info">
+        <div class="floor-name" style="color:#B6FF9B;">Gravemaw</div>
+        <div class="floor-desc">Three weak nodes shield it, and the floor rots out from under you.</div>
+        <div class="floor-pay">
+          <span>Entry <b class="tok">250 &#9876;</b></span>
+          <span class="on">&#9733; First kill <b class="tok">+700 &#9876;</b> <b class="coin">+1,400 &#129689;</b></span>
+          <span>Repeat <b class="tok">+80 &#9876;</b> <b class="coin">+60 &#129689;</b></span>
+        </div>
+        <div class="floor-runes"><span>Guaranteed Legendary or Mythic on the first kill &#183; tower progress untouched</span></div>
+      </div>
+      <span class="floor-tag" id="gravemaw-tag">Locked</span>
+    </a>
+  </div>
 </main>
 
 <script>
@@ -571,6 +604,7 @@
     saveSquad();
     renderSquad();
     renderFloors();
+    renderGravemaw();
   }
 
   function renderSquad(){
@@ -904,6 +938,25 @@
     renderRunes();
   }
 
+  // Mirrors the two conditions game_start_run enforces for 'boss-special'.
+  function renderGravemaw(){
+    const link = document.getElementById('gravemaw-link');
+    const tag = document.getElementById('gravemaw-tag');
+    if(!link || !tag) return;
+    const haveTanks = ownedTanks.length >= SQUAD_SIZE;
+    const haveFloor = clearedFloor >= 10;
+    const open = !guestMode && haveTanks && haveFloor;
+    link.classList.toggle('enterable', open);
+    link.classList.toggle('locked', !open);
+    if(open){ link.setAttribute('href', 'game-boss-special.html'); }
+    else { link.removeAttribute('href'); }
+    tag.className = 'floor-tag ' + (open ? 'ready' : 'locked-tag');
+    tag.textContent = guestMode ? 'Sign Up to Unlock'
+      : !haveTanks ? 'Need ' + SQUAD_SIZE + ' Tanks'
+      : !haveFloor ? 'Clear Floor 10 First'
+      : 'Ready';
+  }
+
   function renderFloors(){
     // Floor 1 is the free practice floor: open to everyone, guest or not, with
     // no tanks required and no purse. Owning four tanks is the gate for floor 2
@@ -1009,6 +1062,7 @@
     renderUpgrades(); // a freshly bought tank can be levelled straight away
     renderRunes();    // and becomes eligible for rune slots
     renderFloors();
+    renderGravemaw();
   }
 
   async function loadFloorPay(){
@@ -1033,6 +1087,7 @@
       renderUpgrades();
       renderRunes();
       renderFloors();
+    renderGravemaw();
       const shopMsg = document.getElementById('shop-msg');
       shopMsg.className = 'submit-msg';
       shopMsg.innerHTML = '<b style="color:var(--amber);">Floor 1 is free to try — no account needed.</b><br>'
@@ -1064,6 +1119,7 @@
     renderUpgrades();
     renderRunes();
     renderFloors();
+    renderGravemaw();
   }
 
   initPage();

@@ -1,0 +1,2737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ARCADIA — Gravemaw</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg-void:#0A0D12; --surface:#12161F; --surface-2:#181D28; --line:#242B38;
+    --amber:#FFB627; --cyan:#2DE1FC; --green:#34D399; --red:#FF5C5C; --pink:#FF5CB6;
+    --text:#F4F6FA; --muted:#8A93A6;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; user-select:none;}
+  html, body{ background:var(--bg-void); color:var(--text); font-family:'Inter','Noto Sans KR',sans-serif; height:100%; width:100%; overflow:hidden; position:fixed; inset:0; overscroll-behavior:none; }
+  .mono{font-family:'IBM Plex Mono','Noto Sans KR',monospace;}
+  .display{font-family:'Bebas Neue','Noto Sans KR',sans-serif;}
+
+  nav{
+    position:relative; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:12px 4vw; border-bottom:1px solid var(--line);
+    background:rgba(10,13,18,0.95);
+  }
+  .logo{ display:flex; align-items:center; gap:10px; font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:20px; letter-spacing:0.03em; color:var(--text); text-decoration:none; }
+  .logo .dot{width:9px; height:9px; border-radius:2px; background:var(--red); box-shadow:0 0 10px var(--red);}
+  .back-link{color:var(--muted); text-decoration:none; font-size:13px; font-weight:600;}
+  .game-title{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:18px; letter-spacing:0.04em; color:var(--muted);}
+
+  #stage{ position:relative; width:100%; height:calc(100vh - 49px); height:calc(100dvh - 49px); display:flex; flex-direction:column; overflow:hidden; }
+
+  .battle-row{ flex:1; display:flex; flex-direction:row; overflow:hidden; min-height:0; position:relative; }
+
+  /* ---- Backdrop ----
+     A place to fight in rather than a black rectangle. Two silhouette bands pan
+     at different speeds for parallax, particles drift on top, and the whole
+     thing sits under a board that is now slightly translucent — so on the
+     shaped floors you see the scene through the collapsed and void tiles. */
+  #backdrop{ position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; }
+  #backdrop > div{ position:absolute; inset:0; }
+  .bd-band{ background-repeat:repeat-x; will-change:background-position; }
+  .bd-far{ animation:bd-pan var(--far-dur,130s) linear infinite; }
+  .bd-near{ animation:bd-pan var(--near-dur,80s) linear infinite; }
+  @keyframes bd-pan{ from{ background-position-x:0; } to{ background-position-x:-1200px; } }
+
+  .bd-mote{ position:absolute; border-radius:50%; opacity:0; will-change:transform,opacity; }
+  @keyframes bd-rise{
+    0%{ transform:translateY(0); opacity:0; } 14%{ opacity:var(--o); }
+    82%{ opacity:var(--o); } 100%{ transform:translateY(-110vh); opacity:0; } }
+  @keyframes bd-fall{
+    0%{ transform:translateY(0); opacity:0; } 14%{ opacity:var(--o); }
+    82%{ opacity:var(--o); } 100%{ transform:translateY(110vh); opacity:0; } }
+  @keyframes bd-float{
+    0%,100%{ transform:translate(0,0); opacity:calc(var(--o) * 0.45); }
+    50%{ transform:translate(var(--dx,14px), var(--dy,-18px)); opacity:var(--o); } }
+  @keyframes bd-twinkle{
+    0%,100%{ opacity:calc(var(--o) * 0.18); transform:scale(0.85); }
+    50%{ opacity:var(--o); transform:scale(1); } }
+  @keyframes bd-swirl{
+    0%{ transform:rotate(0deg) translateX(var(--r)); opacity:0; }
+    18%{ opacity:var(--o); }
+    100%{ transform:rotate(300deg) translateX(0px); opacity:0; } }
+  .bd-mote.swirl{ left:50%; top:50%; }
+
+  .bd-flash{ opacity:0; mix-blend-mode:screen; }
+  @keyframes bd-strike{
+    0%,88%,100%{ opacity:0; }
+    89%{ opacity:1; } 91%{ opacity:0.12; } 93%{ opacity:0.7; } 96%{ opacity:0; } }
+
+  /* the board floats on the scene instead of hiding it */
+  .board-wrap{ z-index:1; }
+  #boss-banner{ position:relative; z-index:1; }
+
+  @media (prefers-reduced-motion: reduce){
+    .bd-far, .bd-near, .bd-mote, .bd-flash{ animation:none !important; }
+    .bd-mote{ opacity:var(--o); }
+  }
+  /* crownvoid */
+  .bd-sky{ background:radial-gradient(ellipse at 50% 50%, #2A1E06 0%, #140B18 42%, #05030A 100%); }
+  .bd-far{ background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%27300%27%20height%3D%27120%27%20viewBox%3D%270%200%20300%20120%27%3E%3Cpath%20d%3D%27M0%20120%20L0%2082%20L26%2044%20L44%2086%20L70%2030%20L92%2084%20L118%2052%20L142%2088%20L166%2038%20L190%2084%20L216%2048%20L240%2086%20L266%2042%20L288%2080%20L300%2062%20L300%20120%20Z%27%20fill%3D%27%231A1408%27%2F%3E%3C%2Fsvg%3E"); background-size:auto 28%; background-position:0 100%; opacity:0.8; --far-dur:160s; }
+  .bd-near{ display:none; }
+  .bd-flash{ background:radial-gradient(ellipse at 50% 25%, rgba(255,92,182,0.22), transparent 62%); animation:bd-strike 6.4s ease-in-out infinite; }
+
+
+  /* ---- Boss side panel ---- */
+  #boss-banner{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:16px;
+    background:linear-gradient(270deg, rgba(255,92,92,0.15), transparent); border-left:1px solid var(--line);
+    flex:1; min-width:0; overflow-y:auto; text-align:center;
+  }
+  #boss-portrait-wrap{ width:150px; height:150px; flex-shrink:0; animation:boss-idle 2.4s ease-in-out infinite; }
+  #boss-portrait{ width:100%; height:100%; filter:drop-shadow(0 0 22px rgba(140,255,107,0.7)); transition:filter 0.15s; }
+  @keyframes boss-idle{ 0%,100%{ transform:translateY(0) scale(1); } 50%{ transform:translateY(-4px) scale(1.03); } }
+  #boss-info{ width:90%; max-width:280px; }
+  #boss-name-row{ display:flex; flex-direction:column; align-items:center; gap:6px; margin-bottom:10px; }
+  #boss-name{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:26px; letter-spacing:0.03em; color:#FFA94D; text-shadow:0 0 16px rgba(255,169,77,0.6);}
+  #boss-phase-tag{ font-size:13px; font-weight:800; padding:3px 11px; border-radius:11px; background:rgba(255,182,39,0.18); color:var(--amber); border:2px solid rgba(255,182,39,0.6); letter-spacing:0.04em; }
+  #boss-enrage-tag{ font-size:13px; font-weight:800; padding:3px 11px; border-radius:11px; background:rgba(255,92,92,0.22); color:var(--red); border:2px solid rgba(255,92,92,0.7); letter-spacing:0.04em; display:none; }
+  #boss-hp-outer{ height:26px; background:var(--surface-2); border:2px solid #8CFF6B; border-radius:8px; overflow:hidden; position:relative; box-shadow:0 0 18px rgba(140,255,107,0.3); }
+  #boss-hp-fill{ height:100%; background:linear-gradient(90deg, #1A3A14, #8CFF6B); transition:width 0.5s ease; }
+  #boss-hp-text{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:14px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,0.9); }
+  #boss-turn-count{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:15px; font-weight:800; color:var(--amber); background:rgba(255,182,39,0.1); border:1px solid rgba(255,182,39,0.3); border-radius:8px; padding:6px 14px; flex-shrink:0; margin-top:6px; }
+
+  .board-wrap{
+    flex:1; display:flex; align-items:center; justify-content:center; padding:6px; overflow:auto; position:relative;
+    background:radial-gradient(ellipse at center, rgba(255,92,92,0.05) 0%, transparent 65%);
+  }
+  #board{
+    display:grid; grid-template-columns:repeat(8, minmax(32px,64px)); grid-template-rows:repeat(6, minmax(32px,64px));
+    gap:3px; background:linear-gradient(160deg, rgba(26,31,44,0.80), rgba(18,22,31,0.86)); padding:8px; border-radius:12px; backdrop-filter:blur(1px);
+    border:1px solid var(--line); box-shadow:0 0 0 1px rgba(255,92,92,0.08), 0 20px 50px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  #board.shake{ animation:board-shake 0.35s ease; }
+  @keyframes board-shake{
+    0%,100%{ transform:translate(0,0); }
+    20%{ transform:translate(-4px,3px); } 40%{ transform:translate(4px,-3px); }
+    60%{ transform:translate(-3px,-2px); } 80%{ transform:translate(3px,2px); }
+  }
+  .tile{
+    position:relative; border-radius:5px; background:#1c2230;
+    display:flex; align-items:center; justify-content:center; font-size:18px; transition:background 0.15s;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -2px 0 rgba(0,0,0,0.2);
+  }
+  .tile:nth-child(odd){ background:#1e2434; }
+
+  /* ---- Terrain ---- */
+  /* Outside the arena. Fully invisible so the board reads as its own shape. */
+  .tile.terrain-void{ background:transparent !important; box-shadow:none !important; pointer-events:none; }
+  .tile.terrain-conveyor{ background:rgba(255,182,39,0.08); }
+  .tile.terrain-conveyor::after{
+    content:''; position:absolute; inset:0; z-index:0; pointer-events:none; border-radius:5px; opacity:0.55;
+    background:repeating-linear-gradient(90deg, rgba(255,182,39,0.55) 0 5px, transparent 5px 13px);
+  }
+  .tile.conv-right::after{ animation:conv-scroll 0.85s linear infinite; }
+  .tile.conv-left::after{ animation:conv-scroll 0.85s linear infinite reverse; }
+  @keyframes conv-scroll{ from{ background-position:0 0; } to{ background-position:13px 0; } }
+  .tile.terrain-rubble{ background:#241f18 !important; box-shadow:inset 0 0 0 2px rgba(140,116,88,0.45); }
+  .tile.terrain-rubble::after{
+    content:'▨'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:rgba(160,136,104,0.55); font-size:16px; pointer-events:none;
+  }
+  .tile.terrain-hazard{ background:rgba(255,92,92,0.18) !important; }
+  .tile.terrain-cover{ background:rgba(45,225,252,0.12) !important; box-shadow:inset 0 0 0 2px rgba(45,225,252,0.4); }
+  .tile.terrain-repair{ background:rgba(52,211,153,0.14) !important; }
+  .tile.move-target{ cursor:pointer; box-shadow:inset 0 0 0 3px var(--cyan), 0 0 8px rgba(45,225,252,0.6); background:rgba(45,225,252,0.14) !important; }
+  .tile.telegraph{ animation:telegraph-pulse 1s ease-in-out infinite; }
+  #board.full-incoming{ animation:full-map-warning 0.7s ease-in-out infinite; }
+  @keyframes full-map-warning{
+    0%,100%{ box-shadow:0 0 0 1px rgba(255,182,39,0.08), 0 20px 50px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03), 0 0 0 3px rgba(255,182,39,0.15); }
+    50%{ box-shadow:0 0 0 1px rgba(255,182,39,0.08), 0 20px 50px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03), 0 0 24px 5px rgba(255,182,39,0.55); }
+  }
+
+
+  @keyframes telegraph-pulse{ 0%,100%{ opacity:0.75; } 50%{ opacity:1; } }
+  .tile .hp-mini{ position:absolute; bottom:1px; left:1px; right:1px; height:3px; background:rgba(0,0,0,0.5); border-radius:2px; overflow:hidden; z-index:1; }
+  .tile .hp-mini-fill{ height:100%; background:var(--green); }
+  .tile .hp-num{
+    position:absolute; bottom:3px; left:2px; z-index:2;
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; font-size:13px;
+    color:#fff; background:rgba(10,13,18,0.85); padding:1px 4px; border-radius:4px; text-shadow:0 1px 3px rgba(0,0,0,0.95);
+  }
+  .tile .shield-badge{ position:absolute; top:1px; left:1px; z-index:3; font-size:16px; filter:drop-shadow(0 0 4px rgba(45,225,252,0.9)); }
+  .tank-sprite-wrap{ width:100%; height:100%; }
+  .tank-sprite-wrap.size-light{ width:53%; height:53%; }
+  .tank-sprite-wrap.size-medium{ width:71%; height:71%; }
+  .tank-sprite-wrap.size-heavy{ width:82%; height:82%; }
+  .tank-sprite-wrap.size-guardian{ width:67%; height:67%; }
+  .tank-sprite-wrap.size-medic{ width:73%; height:73%; }
+  .tank-sprite-wrap.size-raider{ width:60%; height:60%; }
+  .tank-sprite-wrap.size-sniper{ width:64%; height:64%; }
+  .tank-sprite-wrap.size-warden{ width:78%; height:78%; }
+  .tank-sprite-wrap.size-marshal{ width:76%; height:76%; }
+  /* Facing is the `rotate` property on its own, which leaves `translate` and
+     `scale` free for the idle and the recoil to animate without fighting it. */
+  .tank-sprite-wrap img{ rotate:90deg; transform-origin:50% 50%; }
+  .tank-sprite-wrap.idle img{ animation:tank-idle 2.8s ease-in-out infinite; }
+  @keyframes tank-idle{
+    0%,100%{ translate:0 0;     scale:1; }
+    50%    { translate:0 1.8%;  scale:0.985; }
+  }
+  /* translate resolves before rotate, so the kick travels down the barrel */
+  .tank-sprite-wrap.recoil img{ animation:tank-recoil 0.28s cubic-bezier(.2,.85,.3,1); }
+  @keyframes tank-recoil{
+    0%  { translate:0 0;    scale:1; }
+    16% { translate:0 24%;  scale:1.07; }
+    100%{ translate:0 0;    scale:1; }
+  }
+  /* Flash sits on the wrapper's filter, which the image's own animations do
+     not touch, so a tank can be lit up while it is mid-recoil. */
+  .tank-sprite-wrap.hurt{ animation:tank-hurt 0.34s ease-out; }
+  @keyframes tank-hurt{
+    0%  { filter:brightness(3.4) saturate(0.15); }
+    55% { filter:brightness(1); }
+    100%{ filter:brightness(1); }
+  }
+  .tank-sprite-wrap img{ width:100%; height:100%; object-fit:contain; image-rendering:pixelated; }
+  .tank-sprite-wrap.siege-active img, .roster-tank img.siege-active{
+    filter:saturate(2.1) brightness(1.18) contrast(1.25) drop-shadow(0 0 6px rgba(255,92,182,0.6));
+  }
+  .cost-badge{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    display:flex; align-items:center; gap:3px; padding:4px 9px 4px 7px; border-radius:9px; z-index:5;
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:20px; font-weight:400; line-height:1; color:#04222A;
+    box-shadow:0 0 14px rgba(45,225,252,0.7), 0 2px 0 rgba(0,0,0,0.4); border:2px solid #FFFFFF; background:var(--cyan);
+    animation:cost-pulse 1s ease-in-out infinite;
+  }
+  @keyframes cost-pulse{ 0%,100%{ transform:translate(-50%,-50%) scale(1); } 50%{ transform:translate(-50%,-50%) scale(1.12); } }
+
+  #action-banner{
+    position:absolute; top:9%; left:50%; transform:translate(-50%,-10px); z-index:26; pointer-events:none;
+    opacity:0; transition:opacity 0.25s, transform 0.25s; text-align:center; width:92%; max-width:560px;
+  }
+  #action-banner.show{ opacity:1; transform:translate(-50%,0); }
+  #action-banner .a-line{
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:clamp(18px,4.5vw,28px); letter-spacing:0.02em;
+    padding:9px 20px; border-radius:10px; background:rgba(18,22,31,0.9); border:1px solid var(--line); display:inline-block;
+  }
+  .a-dmg{ color:var(--red); } .a-move{ color:var(--cyan); } .a-heal{ color:var(--green); } .a-warn{ color:var(--amber); }
+
+  #fx-layer{ position:absolute; inset:0; pointer-events:none; z-index:24; }
+  #turn-banner{
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:34px; letter-spacing:0.05em;
+    color:var(--red); text-shadow:0 0 20px rgba(255,92,92,0.6); z-index:25; pointer-events:none; opacity:0; transition:opacity 0.3s;
+  }
+  #turn-banner.show{ opacity:1; }
+
+  #combat-log{ position:absolute; top:52px; left:10px; max-width:230px; z-index:15; display:flex; flex-direction:column; gap:4px; pointer-events:none; }
+  #combat-log .log-line{ font-size:12px; font-weight:700; border-radius:6px; padding:5px 10px; background:rgba(18,22,31,0.88); border-left:3px solid var(--line); box-shadow:0 3px 10px rgba(0,0,0,0.35); }
+  #combat-log .log-line.log-you{ color:var(--cyan); border-left-color:var(--cyan); }
+  #combat-log .log-line.log-boss{ color:var(--red); border-left-color:var(--red); }
+  #combat-log .log-line.log-neutral{ color:var(--muted); border-left-color:var(--muted); }
+  #log-toggle-btn{
+    display:none; position:absolute; top:6px; left:8px; z-index:19;
+    width:34px; height:34px; border-radius:9px; border:1px solid var(--line); background:rgba(18,22,31,0.9);
+    color:var(--text); font-size:16px; cursor:pointer; align-items:center; justify-content:center;
+  }
+  #mobile-log-panel{
+    display:none; position:absolute; top:44px; left:8px; z-index:19; width:min(74vw,280px); max-height:55vh; overflow-y:auto;
+    background:rgba(10,13,18,0.97); border:1px solid var(--line); border-radius:10px; padding:8px; flex-direction:column; gap:5px;
+  }
+  #mobile-log-panel.open{ display:flex; }
+  #mobile-log-panel .log-line{
+    font-size:12px; font-weight:700; border-radius:6px; padding:5px 10px;
+    background:rgba(255,255,255,0.04); border-left:3px solid var(--line);
+  }
+  #mobile-log-panel .log-line.log-you{ color:var(--cyan); border-left-color:var(--cyan); }
+  #mobile-log-panel .log-line.log-boss{ color:var(--red); border-left-color:var(--red); }
+  #mobile-log-panel .log-line.log-neutral{ color:var(--muted); border-left-color:var(--muted); }
+
+  #action-hint{ text-align:center; font-size:14px; font-weight:600; color:var(--text); padding-bottom:4px; min-height:18px; }
+
+  /* squad-wide effects, always on screen while they last */
+  #squad-buffs{ display:flex; justify-content:center; flex-wrap:wrap; gap:5px; min-height:0; padding-bottom:3px; }
+  #squad-buffs:empty{ display:none; }
+  .buff-chip{
+    display:inline-flex; align-items:center; gap:5px; font-size:14px; font-weight:800;
+    padding:5px 13px; border-radius:11px; letter-spacing:0.04em; text-transform:uppercase;
+    border:2px solid currentColor; box-shadow:0 0 12px rgba(0,0,0,0.45);
+  }
+  .buff-chip.warcry{ background:rgba(167,139,250,0.18); color:#A78BFA; }
+  .buff-chip.expose{ background:rgba(199,217,107,0.18); color:#C7D96B; }
+  .buff-chip.decoy{  background:rgba(107,168,255,0.18); color:#6BA8FF; }
+
+  /* per-tank state, stacked in the tile corner */
+  .tile .status-badges{ position:absolute; top:1px; right:1px; z-index:3; display:flex; flex-direction:column; align-items:flex-end; gap:1px; pointer-events:none; }
+  .tile .sb{
+    font-size:13px; font-weight:800; line-height:1.1; padding:2px 5px; border-radius:6px;
+    background:rgba(6,9,14,0.92); border:1.5px solid currentColor; text-shadow:0 0 6px currentColor;
+  }
+  .tile .sb.root{ color:#C7D96B; }
+  .tile .sb.ward{ color:var(--green); }
+  .tile .sb.siege{ color:var(--pink); }
+  .roster-tank .root-tag{ font-size:12px; color:#C7D96B; font-weight:800; margin-top:2px; letter-spacing:0.03em; }
+  #boss-exposed-tag{ font-size:13px; font-weight:800; padding:3px 11px; border-radius:11px; background:rgba(199,217,107,0.2); color:#C7D96B; border:2px solid #C7D96B; letter-spacing:0.04em; display:none; }
+  .roster{ display:flex; gap:10px; padding:7px 16px; overflow-x:auto; justify-content:center; }
+  .roster-tank{
+    flex-shrink:0; width:108px; padding:8px; border-radius:10px; background:var(--surface-2); border:2px solid var(--line);
+    text-align:center; cursor:pointer; transition:border-color 0.12s, transform 0.12s;
+  }
+  .roster-tank:hover{ border-color:var(--muted); }
+  .roster-tank.dead{ opacity:0.3; cursor:not-allowed; }
+  .roster-tank.selected{ border-color:var(--amber); transform:translateY(-3px); }
+  .roster-tank img{ width:100%; height:40px; object-fit:contain; image-rendering:pixelated; }
+  .roster-tank img.size-light{ height:26px; }
+  .roster-tank img.size-medium{ height:34px; }
+  .roster-tank img.size-heavy{ height:40px; }
+  .roster-tank img.size-guardian{ height:33px; }
+  .roster-tank img.size-medic{ height:36px; }
+  .roster-tank img.size-raider{ height:29px; }
+  .roster-tank img.size-sniper{ height:38px; }
+  .roster-tank img.size-warden{ height:34px; }
+  .roster-tank img.size-marshal{ height:34px; }
+  .roster-tank .lv-tag{ position:absolute; top:3px; left:3px; font-size:9px; font-weight:900;
+    color:#1A1C24; background:linear-gradient(180deg,#FFD770,#E8A93B); border-radius:4px; padding:1px 4px; letter-spacing:0.3px; }
+  .roster-tank .qa-passive{ display:flex; align-items:center; justify-content:center; gap:3px;
+    color:#FFD770; background:rgba(232,184,75,0.14); border:1px solid rgba(232,184,75,0.45); cursor:default; }
+  .roster-tank .name{ font-size:12px; font-weight:800; margin-top:3px; }
+  .roster-tank .hpbar{ height:5px; border-radius:3px; background:var(--surface); margin-top:4px; overflow:hidden; }
+  .roster-tank .hpbar-fill{ height:100%; background:var(--green); }
+  .roster-tank .costs{ font-size:12px; color:var(--text); margin-top:3px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:700; }
+  .roster-tank .shield-tag{ font-size:12px; color:var(--cyan); font-weight:800; margin-top:2px; }
+  .roster-tank .siege-tag{ font-size:12px; color:var(--pink); font-weight:800; margin-top:2px; }
+  /* What this tank is actually carrying — levels and runes rolled together,
+     since that is the number that decides the fight. */
+  .roster-tank .rune-stats{
+    display:grid; grid-template-columns:1fr 1fr; gap:2px 4px; margin-top:5px;
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:11px; font-weight:800; line-height:1.25;
+  }
+  .roster-tank .rune-stats span{ white-space:nowrap; }
+  .rs-hp{ color:var(--green); }  .rs-atk{ color:var(--amber); }
+  .rs-dr{ color:var(--cyan); }   .rs-sk{ color:#C4B5FD; }
+  .rs-ls{ color:#FF8FB1; }       .rs-rg{ color:#E8ECF4; }
+  .tank-quick-actions{ display:flex; gap:4px; margin-top:6px; }
+  .qa-btn{
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;
+    height:36px; border-radius:7px; cursor:pointer; font-weight:800; font-size:13px;
+    border:1.5px solid var(--red); background:rgba(255,92,92,0.12); color:var(--red);
+  }
+  .qa-btn span{ font-size:11px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; opacity:0.95; }
+  .qa-btn.qa-skill{ border-color:var(--pink); background:rgba(255,92,182,0.12); color:var(--pink); }
+  .qa-btn[disabled]{ opacity:0.3; cursor:not-allowed; }
+
+  .action-row{ display:flex; gap:14px; padding:0 16px 8px; }
+  .action-btn{
+    width:92px; height:92px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    font-family:'Inter','Noto Sans KR',sans-serif; font-weight:800; font-size:13px;
+    border-radius:14px; cursor:pointer; border:2px solid var(--red); background:rgba(255,92,92,0.12); color:var(--red);
+    box-shadow:0 4px 14px rgba(255,92,92,0.15);
+  }
+  .action-btn .icon{ font-size:28px; line-height:1; }
+  .action-btn .label{ font-size:12px; }
+  .action-btn .cost{ font-size:10px; opacity:0.8; font-family:'IBM Plex Mono','Noto Sans KR',monospace; }
+  .action-btn.skill{ border-color:var(--pink); background:rgba(255,92,182,0.12); color:var(--pink); box-shadow:0 4px 14px rgba(255,92,182,0.15); }
+  .action-btn.skill.active{ background:var(--pink); color:#2A0A1F; }
+  .action-btn[disabled]{ opacity:0.35; cursor:not-allowed; box-shadow:none; }
+
+  #end-turn-wrap{ display:flex; justify-content:center; padding-bottom:14px; }
+  #end-turn-btn{
+    width:92px; height:92px; display:flex; align-items:center; justify-content:center; text-align:center;
+    font-family:'Inter','Noto Sans KR',sans-serif; font-weight:800; font-size:15px; line-height:1.2;
+    border-radius:14px; border:none; cursor:pointer; background:var(--amber); color:#1A1200;
+    box-shadow:0 4px 14px rgba(255,182,39,0.25);
+  }
+  #end-turn-btn[disabled]{ opacity:0.35; cursor:not-allowed; box-shadow:none; }
+
+  .mana-row{ display:flex; gap:4px; align-items:center; justify-content:center; padding:6px 16px 2px; flex-wrap:wrap; }
+  .mana-crystal{ width:15px; height:15px; border-radius:4px; transform:rotate(45deg); background:var(--surface-2); border:2px solid var(--line); }
+  .mana-crystal.filled{ background:var(--cyan); border-color:var(--cyan); box-shadow:0 0 8px rgba(45,225,252,0.8); }
+  .mana-label{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:16px; font-weight:800; color:var(--text); margin-left:6px; }
+
+  /* ---- Overlays ---- */
+  .overlay{ position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center; background:rgba(10,13,18,0.92); backdrop-filter:blur(4px); }
+  .overlay.hidden{ display:none; }
+  .panel{ background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:28px; max-width:520px; width:92%; text-align:center; box-shadow:0 40px 100px -20px rgba(0,0,0,0.7); max-height:88vh; overflow-y:auto; }
+  .panel .eyebrow{ display:inline-flex; align-items:center; gap:8px; font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--red); margin-bottom:10px; }
+  .panel h1{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:32px; margin-bottom:8px; }
+  .panel h1 span{ color:var(--red); }
+  .panel p{ color:var(--muted); font-size:13px; line-height:1.6; margin-bottom:14px; }
+  .btn{ font-family:'Inter','Noto Sans KR',sans-serif; font-weight:700; font-size:14px; padding:12px 20px; border-radius:8px; border:none; cursor:pointer; width:100%; margin-bottom:9px; }
+  .btn-primary{ background:var(--red); color:#2A0000; }
+  .btn-ghost{ background:transparent; color:var(--text); border:1px solid var(--line); }
+  .btn[disabled]{ opacity:0.5; cursor:not-allowed; }
+  #pay-note{
+    margin-bottom:12px; padding:11px 13px; border-radius:10px; text-align:left;
+    background:var(--surface); border:1px solid var(--line); font-size:12px; line-height:1.6; color:var(--muted); }
+  #pay-note.first{ border-color:rgba(52,211,153,0.45); background:rgba(52,211,153,0.08); }
+  #pay-note .hd{ font-weight:800; font-size:12.5px; margin-bottom:2px; color:var(--amber); }
+  #pay-note.first .hd{ color:var(--green); }
+  #pay-note b{ color:var(--text); font-family:'IBM Plex Mono','Noto Sans KR',monospace; }
+  #pay-note .tok{ color:var(--pink); }
+  #pay-note .coin{ color:var(--amber); }
+  #pay-note .odds{ margin-top:7px; display:flex; align-items:center; gap:8px; font-size:10.5px; }
+  #pay-note .odds-bar{
+    display:flex; height:8px; border-radius:4px; overflow:hidden; flex:1;
+    background:var(--surface-2); border:1px solid var(--line); }
+  #pay-note .odds-bar i{ display:block; height:100%; }
+  #pay-note .odds .top{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; color:#FFD9A0; white-space:nowrap; }
+  .submit-msg{ font-size:11px; font-weight:600; margin-bottom:10px; min-height:14px; }
+  .submit-msg.error{ color:#FF8A8A; }
+  .submit-msg.success{ color:var(--green); }
+  .submit-msg .link-text{ color:var(--cyan); font-weight:700; text-decoration:underline; }
+
+  /* ---- Shop ---- */
+  .shop-token-bar{ display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:16px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:18px; font-weight:800; color:var(--pink); }
+  .shop-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+  .shop-card{ background:var(--surface-2); border:1.5px solid var(--line); border-radius:12px; padding:12px; text-align:center; }
+  .shop-card.owned{ border-color:var(--green); }
+  .shop-card .tank-img-box{ height:70px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:6px; }
+  .shop-card .tank-img-box img{ width:auto; object-fit:contain; image-rendering:pixelated; }
+  .shop-card img.size-light{ height:45px; }
+  .shop-card img.size-medium{ height:60px; }
+  .shop-card img.size-heavy{ height:70px; }
+  .shop-card img.size-guardian{ height:57px; }
+  .shop-card img.size-medic{ height:63px; }
+  .shop-card img.size-raider{ height:51px; }
+  .shop-card img.size-sniper{ height:68px; }
+  .shop-card img.size-warden{ height:60px; }
+  .shop-card img.size-marshal{ height:60px; }
+  .shop-card .name{ font-weight:800; font-size:13px; margin-bottom:2px; }
+  .shop-card .role{ font-size:10px; color:var(--muted); margin-bottom:8px; min-height:26px; }
+  .shop-card .price{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; color:var(--pink); font-size:13px; margin-bottom:8px; }
+  .shop-card button{ width:100%; padding:8px; border-radius:7px; border:none; font-weight:800; font-size:12px; cursor:pointer; background:var(--pink); color:#2A0A1F; }
+  .shop-card button[disabled]{ background:var(--green); color:#04150E; opacity:1; cursor:default; }
+  .shop-card button.cant-afford{ background:var(--surface); color:var(--muted); border:1px solid var(--line); }
+
+  @media (max-width:480px){
+    #board{ grid-template-columns:repeat(9, minmax(26px,40px)); grid-template-rows:repeat(7, minmax(26px,40px)); gap:2px; }
+    /* Four cards, three gaps and the rail padding have to live inside 375px,
+       so the card is sized to fit rather than left to scroll off-frame. */
+    .roster{ gap:5px; padding:6px 8px; justify-content:center; }
+    .roster-tank{ width:82px; padding:6px 4px; }
+    .roster-tank img{ height:26px; }
+    .roster-tank .name{ font-size:10.5px; }
+    .roster-tank .costs{ font-size:10.5px; }
+    .roster-tank .rune-stats{ font-size:9.5px; gap:1px 3px; }
+    .roster-tank .lv-tag{ font-size:8.5px; padding:1px 3px; }
+    .roster-tank .shield-tag, .roster-tank .siege-tag{ font-size:10px; }
+    .tank-quick-actions{ gap:3px; margin-top:5px; }
+    .qa-btn{ height:32px; font-size:12px; }
+    .shop-grid{ grid-template-columns:1fr; }
+    .board-wrap{ flex:2.2; }
+    #boss-banner{ flex:1; padding:6px 4px; gap:6px; }
+    #boss-portrait-wrap{ width:38px; height:38px; }
+    #boss-name{ font-size:14px; }
+    #boss-phase-tag,#boss-enrage-tag,#boss-exposed-tag{ font-size:11px; padding:2px 8px; border-width:1.5px; }
+    .buff-chip{ font-size:12px; padding:4px 10px; }
+    .tile .sb{ font-size:10px; padding:1px 3px; border-width:1px; }
+    .tile .hp-num{ font-size:11px; }
+    .tile .shield-badge{ font-size:13px; }
+    .cost-badge{ font-size:16px; padding:3px 7px 3px 5px; }
+    #action-hint{ font-size:13px; }
+    .roster-tank .name{ font-size:11px; }
+    .roster-tank .costs, .roster-tank .shield-tag, .roster-tank .siege-tag, .roster-tank .root-tag{ font-size:11px; }
+    #boss-info{ width:100%; }
+    #boss-hp-outer{ height:16px; }
+    #boss-hp-text{ font-size:9px; }
+    #boss-turn-count{ font-size:9px; padding:3px 8px; margin-top:2px; }
+    #combat-log{ display:none; }
+    #log-toggle-btn{ display:flex; }
+  }
+
+  /* ---------- GRAVEMAW ----------
+     The creature is nine board tiles rather than a portrait, so it needs to
+     read as one slab of meat with a seam around it instead of nine squares. */
+  .tile.maw{
+    background:
+      radial-gradient(circle at 50% 40%, rgba(124,255,77,0.16), transparent 70%),
+      linear-gradient(160deg, #1B0F18, #2A1220 60%, #140A12);
+    border:none; border-radius:0; position:relative; overflow:visible;
+    box-shadow:inset 0 0 18px rgba(0,0,0,0.85);
+  }
+  .tile.maw-top{ border-top:2px solid rgba(124,255,77,0.55); border-radius:12px 12px 0 0; }
+  .tile.maw-bottom{ border-bottom:2px solid rgba(124,255,77,0.55); border-radius:0 0 12px 12px; }
+  .tile.maw-left{ border-left:2px solid rgba(124,255,77,0.55); }
+  .tile.maw-right{ border-right:2px solid rgba(124,255,77,0.55); }
+  .maw-eye{
+    position:absolute; inset:14% 14%; border-radius:50%;
+    background:radial-gradient(circle, #EBFFD6 0 14%, #7CFF4D 22%, #2C6B18 55%, #0B1A06 78%);
+    box-shadow:0 0 26px rgba(124,255,77,0.85), inset 0 0 12px rgba(0,0,0,0.8);
+    animation:mawPulse 2.6s ease-in-out infinite;
+  }
+  @keyframes mawPulse{
+    0%,100%{ transform:scale(1);    box-shadow:0 0 22px rgba(124,255,77,0.75), inset 0 0 12px rgba(0,0,0,0.8); }
+    50%    { transform:scale(1.14); box-shadow:0 0 40px rgba(124,255,77,1),    inset 0 0 12px rgba(0,0,0,0.8); }
+  }
+
+  /* rot: never recedes, so it is painted under everything else on the tile */
+  .tile.corrupt{
+    background-image:
+      radial-gradient(circle at 30% 30%, rgba(124,255,77,0.30), transparent 55%),
+      radial-gradient(circle at 72% 68%, rgba(90,220,60,0.24), transparent 58%);
+    box-shadow:inset 0 0 10px rgba(124,255,77,0.35);
+    animation:rotBreathe 3.4s ease-in-out infinite;
+  }
+  @keyframes rotBreathe{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.35); } }
+
+  /* a weak node and the sliver of health it has left */
+  .node{
+    position:absolute; left:50%; top:50%; width:76%; height:76%;
+    transform:translate(-50%,-50%); border-radius:50%;
+    border:2px solid #FFD9A0; background:rgba(20,12,6,0.75);
+    box-shadow:0 0 16px rgba(255,217,160,0.8); overflow:hidden;
+    display:flex; align-items:flex-end; justify-content:center; z-index:3;
+  }
+  .node b{ display:block; width:100%; background:linear-gradient(180deg,#FFE9C4,#FF9A3C); }
+  .node.node-dead{
+    border-style:dashed; border-color:#5A4A38; box-shadow:none; background:rgba(12,10,8,0.7);
+    align-items:center;
+  }
+  .node u{ text-decoration:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8A93A6; }
+  .tile.has-node{ outline:1px solid rgba(255,217,160,0.35); outline-offset:-1px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="logo"><div class="dot"></div>ARCADIA</a>
+  <div class="game-title">SPECIAL BOSS · GRAVEMAW</div>
+  <a href="game-boss-battle.html" class="back-link">&larr; Tower</a>
+</nav>
+
+<div id="stage">
+  <div id="combat-log"></div>
+  <button id="log-toggle-btn" onclick="toggleMobileLog()">📜</button>
+  <div id="mobile-log-panel"></div>
+  <div id="turn-banner"></div>
+
+  <div class="battle-row">
+    <div id="backdrop" aria-hidden="true">
+      <div class="bd-sky"></div>
+      <div class="bd-band bd-far"></div>
+      <div class="bd-band bd-near"></div>
+      <div id="bd-motes"></div>
+      <div class="bd-flash"></div>
+    </div>
+    <div class="board-wrap"><div id="board"></div></div>
+
+    <div id="boss-banner">
+      <div id="boss-portrait-wrap"><img id="boss-portrait" src="" alt="Boss"></div>
+      <div id="boss-info">
+        <div id="boss-name-row">
+          <div id="boss-name">Gravemaw</div>
+          <div id="boss-phase-tag">Phase 1</div>
+          <div id="boss-enrage-tag">⚡ ENRAGED</div>
+          <div id="boss-exposed-tag">◎ EXPOSED</div>
+        </div>
+        <div id="boss-hp-outer"><div id="boss-hp-fill" style="width:100%;"></div><div id="boss-hp-text">7000 / 7000</div></div>
+      </div>
+      <div id="boss-turn-count">Turn 1</div>
+    </div>
+    <div id="fx-layer"></div>
+  </div>
+
+  <div id="action-banner"></div>
+  <div id="action-hint">Select one of your tanks to move or act.</div>
+  <div id="squad-buffs"></div>
+
+  <div class="roster" id="player-roster"></div>
+
+  <div class="mana-row" id="mana-row"></div>
+
+
+  <div id="end-turn-wrap"><button id="end-turn-btn" onclick="endPlayerTurn()">End<br>Turn</button></div>
+
+  <!-- Start overlay -->
+  <div class="overlay hidden" id="start-overlay">
+    <div class="panel">
+      <div class="eyebrow">Special Boss</div>
+      <h1>CROWN <span>ZERO</span></h1>
+      <p>Not a floor &mdash; something the tower grew. Nine tiles of it sit in the middle of the widest arena in the game, and it is still spreading.</p>
+      <ul style="text-align:left; list-style:none; margin-bottom:16px;">
+        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Telegraphed attacks:</b> the boss shows upcoming strike zones as red tiles. Move your tanks off them before its turn.</span></li>
+        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--green);">Weak nodes:</b> three sit on the board. While any lives the body takes only a quarter of your damage &mdash; and a tank within 2 tiles of a node hits <i>the node</i> instead. Walk to it, or plink the hide.</span></li>
+        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--green);">Corruption:</b> the floor rots outward from the maw every turn and never recedes. Standing in it costs health and seals your skill. The ground you can fight on keeps shrinking.</span></li>
+        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 30.</span></li>
+      </ul>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);" id="entry-fee-label">250 Battle Tokens</b> — requires 4 tanks and <b>Floor 10 cleared</b>.</div>
+      <div id="pay-note"></div>
+      <div class="submit-msg" id="entry-msg"></div>
+      <button class="btn btn-primary" id="deploy-btn" onclick="startGame()">Deploy Squad</button>
+      <button class="btn btn-ghost" onclick="window.location.href='game-boss-battle.html'">Back to Tower</button>
+    </div>
+  </div>
+
+  <div class="overlay hidden" id="over-overlay">
+    <div class="panel">
+      <div class="eyebrow" id="over-eyebrow">Defeat</div>
+      <div id="battle-summary" style="font-size:14px; color:var(--muted); margin-bottom:18px;"></div>
+      <div class="submit-msg" id="submit-msg"></div>
+      <button class="btn btn-ghost" onclick="location.reload()">Try Again</button>
+      <button class="btn btn-ghost" onclick="window.location.href='game-boss-battle.html'">Back to Tower</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- Supabase ----------
+  const SUPABASE_URL = 'https://ndntseichzbdzehksxxk.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  let runToken = null;   // issued by game_start_run, spent by game_finish_run
+
+  function xpForLevel(level){ return 25 * level * (level - 1); }
+  function levelFromXp(xp){ let l = 1; while(xpForLevel(l + 1) <= xp) l++; return l; }
+
+  // ---------- Sound (reuses the audio files already deployed for Tank Clash) ----------
+  let audioCtx = null;
+  function getAudioCtx(){ if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return audioCtx; }
+  function playTone(freq, duration, type, startGain, endFreq){
+    try{
+      const ctx2 = getAudioCtx();
+      const osc = ctx2.createOscillator(); const gain = ctx2.createGain();
+      osc.type = type || 'sine'; osc.frequency.setValueAtTime(freq, ctx2.currentTime);
+      if(endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, ctx2.currentTime + duration);
+      gain.gain.setValueAtTime(startGain || 0.14, ctx2.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx2.currentTime + duration);
+      osc.connect(gain); gain.connect(ctx2.destination); osc.start(); osc.stop(ctx2.currentTime + duration);
+    } catch(e){}
+  }
+  function playNoise(duration, startGain, filterFreq){
+    try{
+      const ctx2 = getAudioCtx();
+      const bufferSize = Math.floor(ctx2.sampleRate * duration);
+      const buffer = ctx2.createBuffer(1, bufferSize, ctx2.sampleRate);
+      const data = buffer.getChannelData(0);
+      for(let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufferSize);
+      const noise = ctx2.createBufferSource(); noise.buffer = buffer;
+      const filter = ctx2.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = filterFreq || 1200;
+      const gain = ctx2.createGain(); gain.gain.setValueAtTime(startGain || 0.2, ctx2.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx2.currentTime + duration);
+      noise.connect(filter); filter.connect(gain); gain.connect(ctx2.destination); noise.start();
+    } catch(e){}
+  }
+  const audioClipCache = {};
+  function playClip(url, volume){
+    try{
+      if(!audioClipCache[url]){ const a = new Audio(url); a.preload = 'auto'; audioClipCache[url] = a; }
+      const clip = audioClipCache[url].cloneNode();
+      clip.volume = volume !== undefined ? volume : 0.7;
+      clip.play().catch(() => {});
+    } catch(e){}
+  }
+  function playClipTimed(url, volume, maxMs){
+    try{
+      if(!audioClipCache[url]){ const a = new Audio(url); a.preload = 'auto'; audioClipCache[url] = a; }
+      const clip = audioClipCache[url].cloneNode();
+      clip.volume = volume !== undefined ? volume : 0.7;
+      clip.play().catch(() => {});
+      setTimeout(() => { try{ clip.pause(); } catch(e){} }, maxMs);
+    } catch(e){}
+  }
+
+  const TANK_CLICK_SOUND = { light:'gui_041.wav', medium:'weapon_outofammo_008.wav', heavy:'weapon_outofammo_005.wav', guardian:'gui_036.wav',
+    medic:'gui_006.wav', raider:'gui_009.wav', sniper:'gui_014.wav', warden:'gui_021.wav',
+    marshal:'gui_028.wav' };
+  const TANK_FIRE_SOUND = { light:'weapon_mortar_003.wav', medium:'explosion_med_015.wav', heavy:'explosion_large_005.wav', guardian:'explosion_small_014.wav',
+    medic:'weapon_laser_003.wav', raider:'weapon_blaster_002.wav',
+    sniper:'weapon_railgun_002.wav', warden:'weapon_blaster_004.wav',
+    marshal:'weapon_mortar_004.wav' };
+
+  function sfxTankClick(type){ playClip(TANK_CLICK_SOUND[type], 0.6); }
+  function sfxMove(){ playTone(150, 0.13, 'square', 0.06, 90); playNoise(0.08, 0.05, 400); }
+  function sfxAttack(type, siegeActive){
+    if(type === 'heavy' && siegeActive){ playClip('explosion_large_008.wav', 0.9); return; }
+    playClip(TANK_FIRE_SOUND[type], 0.65);
+  }
+  function sfxCollapse(){ playClip('explosion_large_mix_003.wav', 0.6); }
+  function sfxPoison(){ playClipTimed('ambience_damaged_burning_metal_scratching_001.wav', 0.55, 2000); }
+  function sfxRailgun(){ playClip('weapon_railgun_001.wav', 0.8); }
+  function sfxShield(){ playClip('shield_up_002.wav', 0.7); }
+  function sfxRepair(){ playClip('shield_recharge.wav', 0.75); }
+  function sfxWarcry(){ playClip('bonus_powerup.wav', 0.7); }
+  function sfxExpose(){ playClip('bonus_alarm_002.wav', 0.6); }
+  function sfxDecoy(){ playClip('shield_boost.wav', 0.75); }
+  function sfxBossHit(){ playNoise(0.15, 0.18, 1500); playTone(220, 0.1, 'square', 0.1, 110); }
+  const PATTERN_SOUND = {
+    cross: 'explosion_large_008.wav',
+    column: 'explosion_large_001.wav',
+    row: 'explosion_large_001.wav',
+    diagonal: 'explosion_large_002.wav',
+    quadrant: 'explosion_large_mix_001.wav',
+    eclipse: 'explosion_large_mix_002.wav',
+    spiral: 'explosion_large_005.wav',
+    twincol: 'explosion_large_mix_003.wav',
+    chase: 'explosion_large_004.wav',
+    half: 'explosion_large_mix_004.wav',
+    scattered: 'explosion_large_006.wav'
+  };
+  function sfxBossAttack(type){
+    playClipTimed(PATTERN_SOUND[type] || 'explosion_large_001.wav', 0.85, 4000);
+  }
+  function sfxBossFullMap(){ playClipTimed('explosion_large_fade_mix_002.wav', 0.9, 4000); }
+  function sfxSiege(){ playClip('mechanical_004.wav', 0.75); }
+  function sfxVictory(){ playTone(523,0.15,'sine',0.15,660); setTimeout(()=>playTone(659,0.15,'sine',0.15,784),140); setTimeout(()=>playTone(784,0.3,'sine',0.15,1046),280); }
+  function sfxDefeat(){ playTone(220,0.4,'sawtooth',0.15,90); }
+  function sfxInsufficientMana(){ playClip('gui_028.wav', 0.6); }
+  function sfxGameStart(){ playClip('engine_start_003.wav', 0.7); }
+
+  let bgAudioEl = null;
+  function startBgAmbience(){
+    stopBgAmbience();
+    try{
+      bgAudioEl = new Audio('hum_pulsating.wav');
+      bgAudioEl.loop = true;
+      bgAudioEl.volume = 0.35;
+      bgAudioEl.play().catch(() => {});
+    } catch(e){}
+  }
+  function stopBgAmbience(){
+    if(bgAudioEl){
+      try{ bgAudioEl.pause(); bgAudioEl.currentTime = 0; } catch(e){}
+      bgAudioEl = null;
+    }
+  }
+
+  const FLOOR_NUM = 15;          // only still here so the shared pay/rune helpers keep working
+  const GAME_ID = 'boss-special';
+
+  // ---------- Runes ----------
+  // Tier weights are drop chances out of 100 and must sum to 100.
+  const RUNE_TIERS = {
+    common:    { label:'Common',    weight:54, color:'#8A93A6' },
+    uncommon:  { label:'Uncommon',  weight:30, color:'#2DE1FC' },
+    epic:      { label:'Epic',      weight:10, color:'#A78BFA' },
+    legendary: { label:'Legendary', weight:5,  color:'#FFD9A0' },
+    mythic:    { label:'Mythic',    weight:1,  color:'#FF5CB6' }
+  };
+  const RUNES = {
+    r_green:  { name:'Green Rune',   tier:'common', color:'#34D399', desc:'Max HP +200',                   fx:{ hp:200 } },
+    r_red:    { name:'Red Rune',     tier:'common', color:'#FF5C5C', desc:'Damage +5%',                    fx:{ atk:0.05 } },
+    r_yellow: { name:'Yellow Rune',  tier:'common', color:'#FFB627', desc:'Skill power +20%',              fx:{ skill:0.20 } },
+    r_grey:   { name:'Grey Rune',    tier:'common', color:'#8A93A6', desc:'Damage taken -3%',              fx:{ dr:0.03 } },
+    r_brown:  { name:'Brown Rune',   tier:'common', color:'#B08968', desc:'Max HP +150, damage taken -2%', fx:{ hp:150, dr:0.02 } },
+    r_white:  { name:'White Rune',   tier:'common', color:'#E8ECF4', desc:'Heals 40 HP each turn',         fx:{ regen:40 } },
+    r_sky:    { name:'Sky Rune',     tier:'common', color:'#7CC7FF', desc:'Damage +3%, Max HP +100',       fx:{ atk:0.03, hp:100 } },
+    r_moss:   { name:'Moss Rune',    tier:'common', color:'#7CF9C0', desc:'Heals 5% of damage dealt',      fx:{ leech:0.05 } },
+    r_blue:   { name:'Blue Rune',    tier:'uncommon', color:'#2DE1FC', desc:'Max HP +400',                 fx:{ hp:400 } },
+    r_teal:   { name:'Teal Rune',    tier:'uncommon', color:'#22D3C5', desc:'Damage +10%',                 fx:{ atk:0.10 } },
+    r_lime:   { name:'Lime Rune',    tier:'uncommon', color:'#A3E635', desc:'Skill power +35%',            fx:{ skill:0.35 } },
+    r_steel:  { name:'Steel Rune',   tier:'uncommon', color:'#9FB3C8', desc:'Damage taken -7%',            fx:{ dr:0.07 } },
+    r_amber:  { name:'Amber Rune',   tier:'uncommon', color:'#FFC978', desc:'Heals 90 HP each turn',       fx:{ regen:90 } },
+    r_rose:   { name:'Rose Rune',    tier:'uncommon', color:'#FF8FB1', desc:'Heals 8% of damage dealt',    fx:{ leech:0.08 } },
+    r_violet: { name:'Violet Rune',  tier:'epic', color:'#A78BFA', desc:'Damage +18%, Max HP +300',        fx:{ atk:0.18, hp:300 } },
+    r_indigo: { name:'Indigo Rune',  tier:'epic', color:'#818CF8', desc:'Damage taken -12%, Max HP +250',  fx:{ dr:0.12, hp:250 } },
+    r_magenta:{ name:'Magenta Rune', tier:'epic', color:'#E879F9', desc:'Skill power +60%',                fx:{ skill:0.60 } },
+    r_pearl:  { name:'Pearl Rune',   tier:'legendary', color:'#FFF3D0', desc:'Max HP +700, damage taken -15%',      fx:{ hp:700, dr:0.15 } },
+    r_gold:   { name:'Gold Rune',    tier:'legendary', color:'#FFD700', desc:'Damage +30%, heals 12% of damage dealt', fx:{ atk:0.30, leech:0.12 } },
+    r_rainbow:{ name:'Rainbow Rune', tier:'mythic', color:'#FF5CB6', desc:'Damage +25%, Max HP +600, damage taken -15%, skill power +50%', fx:{ atk:0.25, hp:600, dr:0.15, skill:0.50 } }
+  };
+  const RUNE_IDS = Object.keys(RUNES);
+  const MAX_RUNES_PER_TANK = 3;
+  const TANK_RUNES_KEY = 'arcadia-tank-runes';
+
+  function rollRune(){
+    let roll = Math.random() * 100;
+    let tier = 'common';
+    for(const key in RUNE_TIERS){
+      if(roll < RUNE_TIERS[key].weight){ tier = key; break; }
+      roll -= RUNE_TIERS[key].weight;
+    }
+    const pool = RUNE_IDS.filter(id => RUNES[id].tier === tier);
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function runeBonuses(ids){
+    const b = { hp:0, atk:0, skill:0, dr:0, regen:0, leech:0 };
+    (ids || []).forEach(id => {
+      const r = RUNES[id];
+      if(!r) return;
+      for(const k in r.fx) b[k] += r.fx[k];
+    });
+    b.dr = Math.min(0.6, b.dr);       // stacking must never reach immunity
+    b.leech = Math.min(0.25, b.leech); // nor may four Gold runes make a tank unkillable
+    return b;
+  }
+
+  function sanitiseRunes(raw){
+    const out = {};
+    for(const k in (raw || {})) out[k] = (raw[k] || []).filter(id => RUNES[id]).slice(0, MAX_RUNES_PER_TANK + 1);
+    return out;
+  }
+
+  function loadTankRunes(){
+    try{ return sanitiseRunes(JSON.parse(localStorage.getItem(TANK_RUNES_KEY) || '{}')); }
+    catch(e){ return {}; }
+  }
+  let EQUIPPED_RUNES = loadTankRunes();
+
+  // ---------- Tank levels ----------
+  // Levels ride in on the entry response from game_start_run, so the fight
+  // never has to trust localStorage for a number that changes the outcome.
+  let TANK_LEVELS = {};
+  // Skill power climbs far faster than the stat line on purpose: five of the
+  // nine tanks are built entirely around their skill, and a flat +30% at Lv4
+  // would have made upgrading them feel pointless.
+  const LEVEL_STATS = [null,
+    { hp:1.00, atk:1.00, skill:0.00 },
+    { hp:1.05, atk:1.05, skill:0.15 },
+    { hp:1.15, atk:1.15, skill:0.50 },
+    { hp:1.30, atk:1.30, skill:1.00 },
+    { hp:1.30, atk:1.30, skill:1.00 }   // Lv5 pays out as a fourth rune socket
+  ];
+  function tankLevel(key){ const n = parseInt(TANK_LEVELS[key], 10); return (n >= 2 && n <= 5) ? n : 1; }
+  function runeSlots(key){ return tankLevel(key) >= 5 ? 4 : 3; }
+
+  // Runes and levels feed one number, so every skill scales the same way
+  // whether it deals flat damage or a percentage.
+  function skillPower(t){ return 1 + (t && t.runes ? t.runes.skill : 0); }
+
+  // The Marshal has no active skill at all — this aura is its entire
+  // contribution, which is why skill power drives it too. Orders stand once
+  // given, so losing the Marshal costs the squad a gun but not its discipline.
+  const MARSHAL_AURA = 0.10;
+  function marshalAura(){
+    const m = playerTanks.find(t => t.type === 'marshal');
+    return m ? MARSHAL_AURA * skillPower(m) : 0;
+  }
+
+  // ---------- Boss Tank roster ----------
+  const BOSS_TANK_TYPES = {
+    light: { key:'light', name:'Light Tank', img:'boss_light_tank.png', hp:1200, atk:120, moveCost:1, attackCost:1, price:75,
+      skill:{ key:'poison', name:'Acid Poison', cost:3, desc:"Applies a stacking poison — each stack deals 0.5% of the boss's max HP every boss turn." } },
+    medium: { key:'medium', name:'Medium Tank', img:'boss_medium_tank.png', hp:1600, atk:180, moveCost:1, attackCost:2, price:100,
+      skill:{ key:'railgun', name:'Railgun', cost:5, desc:'A devastating 500-damage shot at the boss.' } },
+    heavy: { key:'heavy', name:'Heavy Tank', img:'boss_heavy_tank.png', hp:2800, atk:300, moveCost:2, attackCost:3, price:125,
+      skill:{ key:'siegemode', name:'Siege Mode', cost:3, desc:"+50% damage for 3 turns — can't move while active." } },
+    guardian: { key:'guardian', name:'Guardian Tank', img:'boss_guardian_tank.png', hp:2000, atk:100, moveCost:1, attackCost:2, price:100,
+      skill:{ key:'shieldall', name:'Shield All', cost:4, desc:'Shields every ally tank for 200 damage, lasting 1 boss turn.' } },
+    medic: { key:'medic', name:'Medic Tank', img:'medic_tank.png', hp:1800, atk:90, moveCost:1, attackCost:2, price:110,
+      skill:{ key:'repair', name:'Repair Pulse', cost:4, desc:'Heals the most wounded ally for 500 and cuts the damage it takes by 15% for 2 turns.' } },
+    raider: { key:'raider', name:'Raider Tank', img:'raider_tank.png', hp:1000, atk:200, moveCost:1, attackCost:2, moveRange:2, price:120,
+      skill:{ key:'warcry', name:'Warcry', cost:4, desc:'Rallies the squad — every ally deals +20% damage for 3 turns.' } },
+    sniper: { key:'sniper', name:'Sniper Tank', img:'sniper_tank.png', hp:900, atk:380, moveCost:1, attackCost:3, price:150,
+      skill:{ key:'expose', name:'Expose', cost:4, desc:'Marks the boss — it takes +25% damage from every tank for 2 turns.' } },
+    warden: { key:'warden', name:'Warden Tank', img:'warden_tank.png', hp:2200, atk:110, moveCost:1, attackCost:2, price:140,
+      skill:{ key:'decoy', name:'Decoy', cost:5, desc:'Deploys a decoy that absorbs the next boss attack completely.' } },
+    marshal: { key:'marshal', name:'Marshal Tank', img:'marshal_tank.png', hp:1900, atk:240, moveCost:1, attackCost:2, price:160,
+      skill:null,
+      passive:{ name:'Chain of Command', desc:'No active skill. Every tank in the squad deals +10% damage for the whole fight, even after the Marshal falls.' } }
+  };
+  const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider','sniper','warden','marshal'];
+  const ROLE_TEXT = {
+    light:'Sustained poison damage', medium:'Single devastating burst', heavy:'Brace for +50% damage', guardian:'Shields the whole squad',
+    medic:'Heals and wards an ally', raider:'Moves 2 tiles, rallies the squad',
+    sniper:'Huge damage, rooted after firing', warden:'Decoy eats one boss attack',
+    marshal:'No skill — the whole squad hits harder'
+  };
+
+  // ---------- Board config ----------
+  const COLS = 9, ROWS = 7;   // one wider and one deeper than any tower floor
+
+  // ---------- Arena shape ----------
+  // Floors 12 and up are not plain rectangles. ARENA_SHAPE decides which grid
+  // squares are part of the arena at all; the rest are void — nothing stands
+  // there, nothing is drawn, and no attack targets them. Deploy slots
+  // ([1,1] [1,6] [4,1] [4,6]) must stay inside whatever shape a floor picks.
+  //
+  // Gravemaw: a cross. The smallest arena in the tower, and the only one that
+  // deploys the squad into four separate arms.
+  // Gravemaw's arena is the full rectangle minus the nine tiles the creature
+  // itself is sitting on. Excluding them here is what stops tanks walking into
+  // its mouth: movement, patterns and terrain all read the arena, not a
+  // separate collision list.
+  const MAW_R0 = 2, MAW_R1 = 4, MAW_C0 = 3, MAW_C1 = 5;
+  function isMaw(r, c){ return r >= MAW_R0 && r <= MAW_R1 && c >= MAW_C0 && c <= MAW_C1; }
+  function inArena(r, c){ return !isMaw(r, c); }
+
+  const ARENA_VOID = (() => {
+    const s = new Set();
+    for(let r = 0; r < ROWS; r++) for(let c = 0; c < COLS; c++) if(!inArena(r, c)) s.add(r + ',' + c);
+    return s;
+  })();
+  const ARENA_TILES = ROWS * COLS - ARENA_VOID.size;
+  function isVoid(r, c){ return ARENA_VOID.has(r + ',' + c); }
+
+  // ---------- Terrain ----------
+  // Gravemaw lays out no terrain in advance beyond the arena wall — the rest is
+  // carved by the boss as the fight goes on, one collapse at a time.
+  const TERRAIN = {};
+
+  function buildArena(){
+    for(const k in TERRAIN) delete TERRAIN[k];
+    ARENA_VOID.forEach(k => { TERRAIN[k] = { type:'void' }; });
+  }
+  buildArena();
+
+  // Four tanks need somewhere to stand. Below this the rift stops biting, so a
+  // long fight can never wall the squad into a corner it cannot leave. Scaled
+  // off the arena so a smaller shape keeps the same breathing room.
+  const MIN_OPEN_TILES = Math.max(16, Math.round(ARENA_TILES * 0.55));
+  // A Fissure crosses a whole column pair. Letting it take all of them shrank
+  // the arena to its floor inside four casts, which is over before the fight
+  // has started — biting four at a time spreads it across the whole run.
+  const MAX_COLLAPSE_PER_HIT = 4;
+
+  function openTileCount(){
+    let n = 0;
+    for(let r = 0; r < ROWS; r++) for(let c = 0; c < COLS; c++) if(!blocksMove(r, c)) n++;
+    return n;
+  }
+
+  // Void was never floor, so it does not count as something you lost.
+  function collapsedCount(){ return ARENA_TILES - openTileCount(); }
+
+  // A tank that cannot step anywhere is a tank that can only sit and be shot,
+  // so no single collapse is allowed to take an ally's last exit.
+  function tanksCanStillMove(){
+    return playerTanks.every(t => {
+      if(!t.alive) return true;
+      return [[1,0],[-1,0],[0,1],[0,-1]].some(([dr, dc]) => {
+        const r = t.r + dr, c = t.c + dc;
+        return inBounds(r, c) && !blocksMove(r, c);
+      });
+    });
+  }
+
+  // Called once a Fissure has finished dealing its damage. Occupied tiles are
+  // spared so nothing is entombed mid-turn; a tank destroyed by that same hit
+  // has already been cleared off the board, so its tile is fair game.
+  function collapseTiles(tiles){
+    let open = openTileCount();
+    const fell = [];
+    const order = tiles.slice().sort(() => Math.random() - 0.5);
+    for(const [r, c] of order){
+      if(fell.length >= MAX_COLLAPSE_PER_HIT) break;
+      if(open <= MIN_OPEN_TILES) break;
+      if(blocksMove(r, c)) continue;
+      if(board[r][c].occupant) continue;
+
+      const key = r + ',' + c;
+      TERRAIN[key] = { type:'rubble' };
+      if(!tanksCanStillMove()){ delete TERRAIN[key]; continue; }   // that one was somebody's way out
+
+      fell.push([r, c]);
+      open--;
+    }
+    if(fell.length){
+      sfxCollapse();
+      triggerBoardShake(0.4);
+      fell.forEach(([r, c]) => fxFloatText(r, c, '✖', '#C89B5A'));
+      log('The floor gives way — ' + fell.length + ' tile' + (fell.length > 1 ? 's' : '') + ' collapsed for good.');
+    }
+  }
+
+  function terrainAt(r, c){ return TERRAIN[r + ',' + c] || null; }
+  // Rubble is floor that fell in; void was never floor. Both are impassable.
+  function blocksMove(r, c){ const t = terrainAt(r, c); return !!t && (t.type === 'rubble' || t.type === 'void'); }
+
+  // Resolved when the player commits their turn, so a tile that looked safe
+  // can still hand you to the boss before it fires.
+  function applyTerrainEffects(){
+    const shoved = [];
+    for(const t of playerTanks){
+      if(!t.alive) continue;
+      const ter = terrainAt(t.r, t.c);
+      if(!ter) continue;
+
+      if(ter.type === 'conveyor'){
+        const nc = t.c + ter.dx;
+        if(nc < 0 || nc >= COLS) continue;
+        if(board[t.r][nc].occupant || blocksMove(t.r, nc)) continue;
+        t.slideFrom = [t.r, t.c];
+        board[t.r][t.c].occupant = null;
+        t.c = nc;
+        board[t.r][nc].occupant = t;
+        shoved.push(t);
+      } else if(ter.type === 'hazard'){
+        const dmg = ter.dmg || 120;
+        t.hp -= dmg;
+        fxFloatText(t.r, t.c, '-' + dmg, '#FF5C5C');
+        if(t.hp <= 0){ t.alive = false; board[t.r][t.c].occupant = null; log('Your ' + t.name + ' burned down on the hazard.'); }
+      } else if(ter.type === 'repair'){
+        const heal = Math.min(ter.heal || 120, t.maxHp - t.hp);
+        if(heal > 0){ t.hp += heal; fxFloatText(t.r, t.c, '+' + heal, '#34D399'); }
+      }
+    }
+    if(shoved.length){
+      sfxMove();
+      shoved.forEach(t => fxFloatText(t.r, t.c, '⇢', '#FFB627'));
+      log(shoved.length + ' tank(s) dragged along the conveyor.');
+    }
+  }
+  // Positions belong to deploy slots rather than tank types, so any four of the
+  // six tanks can take the field in any combination.
+  const SQUAD_SLOTS = [[0,0],[0,8],[6,0],[6,8]];   // four corners, as far from the maw as the board allows
+  const SQUAD_SIZE = SQUAD_SLOTS.length;
+
+  function getSquad(){
+    try{
+      const saved = JSON.parse(localStorage.getItem('arcadia-raid-squad') || '[]');
+      const valid = saved.filter(k => BOSS_TANK_TYPES[k]);
+      if(valid.length === SQUAD_SIZE) return valid;
+    } catch(e){}
+    return TYPE_ORDER.slice(0, SQUAD_SIZE);
+  }
+
+  const BOSS_MAX_HP = 34000;
+
+  // ---------- GRAVEMAW MECHANICS ----------
+  // 1. Weak nodes. Three of them sit on the board with their own health. While
+  //    any is alive the body only takes a quarter of what you deal it, and a
+  //    tank standing within reach of a node puts its shot into the node
+  //    instead. Position is the targeting system: there is no target picker,
+  //    which is what the extra row and column are for.
+  // Tuned against a measured ~800 damage a turn from a Lv1 starter squad.
+  // The first pass (6000 HP nodes, 5-turn respawn, 90k body) cost 18,000 damage
+  // to open a window worth only 6,000 -- arithmetically unwinnable inside the
+  // 60-turn limit. Now a full break costs 6,000 and buys ten turns, and the
+  // body is small enough that three or four such cycles finish it.
+  const NODE_MAX_HP = 2000;
+  const NODE_REACH = 2;            // chebyshev distance
+  const NODE_RESPAWN_TURNS = 10;
+  const BODY_DR = 0.25;            // body damage taken while any node lives
+  let nodes = [];
+
+  function resetNodes(){
+    nodes = [{ r:0, c:4 }, { r:6, c:4 }, { r:3, c:8 }].map((p, i) => ({
+      id: i, r: p.r, c: p.c, hp: NODE_MAX_HP, maxHp: NODE_MAX_HP, respawn: 0
+    }));
+  }
+  function liveNodes(){ return nodes.filter(n => n.hp > 0).length; }
+  function isNode(r, c){ return nodes.some(n => n.r === r && n.c === c); }
+  function nodeAt(r, c){ return nodes.find(n => n.r === r && n.c === c) || null; }
+  function nearestLiveNode(r, c){
+    let best = null, bestD = Infinity;
+    for(const n of nodes){
+      if(n.hp <= 0) continue;
+      const d = Math.max(Math.abs(n.r - r), Math.abs(n.c - c));
+      if(d <= NODE_REACH && d < bestD){ best = n; bestD = d; }
+    }
+    return best;
+  }
+
+  // Every point of damage the boss takes comes through here, so the node gate
+  // cannot be bypassed by poison, a railgun or anything added later.
+  function hitBoss(dmg, src){
+    boss.turnsSinceDamage = 0;
+    const node = src ? nearestLiveNode(src.r, src.c) : null;
+    if(node){
+      node.hp = Math.max(0, node.hp - dmg);
+      fxFlashBossHit();
+      if(node.hp === 0){
+        node.respawn = NODE_RESPAWN_TURNS;
+        triggerBoardShake(6);
+        sfxCollapse();
+        log('A weak node shatters! Gravemaw reels — ' + (liveNodes() === 0
+          ? 'the body is fully exposed.'
+          : liveNodes() + ' node(s) still shielding it.'));
+      } else {
+        log('Node hit for ' + dmg + '. (' + node.hp + ' / ' + NODE_MAX_HP + ')');
+      }
+      return;
+    }
+    const gated = liveNodes() > 0 ? Math.round(dmg * BODY_DR) : dmg;
+    boss.hp -= gated;
+    if(liveNodes() > 0 && gated < dmg){
+      log('Armoured hide absorbs most of it — ' + gated + ' through, ' + (dmg - gated) + ' turned aside.');
+    }
+  }
+
+  function tickNodes(){
+    nodes.forEach(n => {
+      if(n.hp > 0) return;
+      n.respawn--;
+      if(n.respawn <= 0){ n.hp = n.maxHp; log('A shattered node knits itself back together.'); }
+    });
+  }
+
+  // 2. Corruption. It creeps out from the maw one ring at a time and never
+  //    recedes. Standing in it costs health every turn and seals your skill,
+  //    so the board you have to fight on keeps shrinking.
+  const CORRUPT_DMG = 90;
+  const CORRUPT_START_TURN = 3;
+  const CORRUPT_PER_TURN = 2;
+  const CORRUPT_MAX_SHARE = 0.60;   // of the open arena; the rest stays fightable
+  let corrupt = new Set();
+  const ck = (r, c) => r + ',' + c;
+  function isCorrupt(r, c){ return corrupt.has(ck(r, c)); }
+
+  function seedCorruption(){
+    corrupt = new Set();
+    for(let r = MAW_R0 - 1; r <= MAW_R1 + 1; r++){
+      for(let c = MAW_C0 - 1; c <= MAW_C1 + 1; c++){
+        if(r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
+        if(isMaw(r, c) || !inArena(r, c)) continue;
+        if(r === MAW_R0 - 1 || r === MAW_R1 + 1 || c === MAW_C0 - 1 || c === MAW_C1 + 1) corrupt.add(ck(r, c));
+      }
+    }
+  }
+
+  function spreadCorruption(){
+    if(turnCount < CORRUPT_START_TURN) return;
+    const next = [];
+    for(const key of corrupt){
+      const [r, c] = key.split(',').map(Number);
+      [[r-1,c],[r+1,c],[r,c-1],[r,c+1]].forEach(([nr, nc]) => {
+        if(nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) return;
+        if(isMaw(nr, nc) || !inArena(nr, nc) || corrupt.has(ck(nr, nc))) return;
+        next.push(ck(nr, nc));
+      });
+    }
+    // Measured at the first build: unchecked, this reached every open tile by
+    // turn 13, and 47 turns of unavoidable 90-a-turn afterwards made the fight
+    // arithmetically unwinnable. It now creeps two tiles a turn and stops at
+    // 60% of the arena, so the floor closes in but never fully shuts.
+    const openTiles = ROWS * COLS - (MAW_R1 - MAW_R0 + 1) * (MAW_C1 - MAW_C0 + 1);
+    const ceiling = Math.floor(openTiles * CORRUPT_MAX_SHARE);
+    const take = Math.min(CORRUPT_PER_TURN, Math.max(0, ceiling - corrupt.size));
+    for(let i = 0; i < take && next.length; i++){
+      corrupt.add(next.splice(Math.floor(Math.random() * next.length), 1)[0]);
+    }
+  }
+
+  function corruptionBite(){
+    playerTanks.forEach(t => {
+      if(!t.alive || !isCorrupt(t.r, t.c)) return;
+      t.hp -= CORRUPT_DMG;
+      fxFloatText(t.r, t.c, '-' + CORRUPT_DMG, '#7CFF4D');
+      if(t.hp <= 0){ t.hp = 0; t.alive = false; board[t.r][t.c].occupant = null;
+        log(t.name + ' dissolves in the corruption.'); }
+    });
+  }
+
+  const PHASE_THRESHOLDS = { p2: 0.6, p3: 0.3 };
+  const ENRAGE_TURN = 30;
+  const DEFEAT_TURN_LIMIT = 60;
+  // Leech reads off damage, and damage carries siege, warcry, expose and the
+  // Marshal's aura — so the more the squad buffed, the more one tank healed.
+  // Measuring the cap against the tank's own health breaks that loop: a Lv5
+  // Sniper stacked with Gold was healing 112% of its own bar every shot.
+  const LEECH_MAX_PER_HIT = 0.10;   // of the attacker's max HP
+  const POISON_TICK_RATE = 0.005; // 0.5% of max HP per stack per boss turn, before skill power
+  const POISON_MAX_RATE  = 0.04;  // hard ceiling — a stacked Lv4 Light would otherwise melt a boss unattended
+  const REGEN_TURNS = 3;
+  const REGEN_PCT = 0.02;
+
+  const PATTERNS = {
+    cross:     { label:'Cross',     dmg:960, phase:1, color:'#FF5C5C' },
+    column:    { label:'Column',    dmg:830, phase:1, color:'#2DE1FC' },
+    row:       { label:'Row',       dmg:830, phase:1, color:'#FF5CB6' },
+    diagonal:  { label:'Diagonal',  dmg:880, phase:1, color:'#7CF9C0' },
+    quadrant:  { label:'Quadrant',  dmg:760, phase:1, color:'#FF8A3D' },
+    eclipse:   { label:'Eclipse',   dmg:730, phase:1, color:'#B084F0' },
+    spiral:    { label:'Coil Lash', dmg:610, phase:1, color:'#8CFF6B' },
+    twincol:   { label:'Twin Columns', dmg:830, phase:2, color:'#A0A8FF' },
+    chase:     { label:'Hunter Lock', dmg:730, phase:2, color:'#FF3D7A' },
+    half:      { label:'Half-Map',  dmg:700, phase:2, color:'#FF9227' },
+    scattered: { label:'Scattered', dmg:540, phase:2, color:'#B84DFF' },
+    pincer:    { label:'Gravemaw Pincer', dmg:660, phase:2, color:'#FFA94D' },
+    nova:      { label:'Sovereign Nova', dmg:690, phase:2, color:'#9FD8FF' },
+    checkmate: { label:'Checkmate', dmg:620, phase:3, color:'#FFD700' },
+    fissure:   { label:'Fissure',    dmg:820, phase:1, color:'#C89B5A' },
+    full:      { label:'Full-Map',  dmg:300, phase:3, color:'#FFB627' }
+  };
+
+  function patternTiles(type){
+    const tiles = [];
+    if(type === 'cross'){
+      const cr = Math.floor(Math.random()*ROWS), cc = Math.floor(Math.random()*COLS);
+      tiles.push([cr,cc]);
+      for(let d=1; d<=2; d++){
+        [[cr-d,cc],[cr+d,cc],[cr,cc-d],[cr,cc+d]].forEach(([r,c]) => { if(r>=0&&r<ROWS&&c>=0&&c<COLS) tiles.push([r,c]); });
+      }
+    } else if(type === 'diagonal'){
+      const flip = Math.random() < 0.5;
+      const span = Math.min(ROWS, COLS);
+      const offset = Math.floor(Math.random() * (COLS - span + 1));
+      for(let i=0;i<span;i++){
+        const r = i;
+        const c = flip ? (COLS - 1 - i - offset) : (i + offset);
+        if(r>=0&&r<ROWS&&c>=0&&c<COLS) tiles.push([r,c]);
+        // thicken the diagonal by one tile so it reads clearly on a wide board
+        const c2 = c + (flip ? -1 : 1);
+        if(r>=0&&r<ROWS&&c2>=0&&c2<COLS) tiles.push([r,c2]);
+      }
+    } else if(type === 'spiral'){
+      let r = Math.floor(ROWS/2), c = Math.floor(COLS/2);
+      let dr = 0, dc = 1, steps = 1, stepCount = 0, turns = 0;
+      const maxTiles = 12;
+      while(tiles.length < maxTiles && turns < 8){
+        for(let s=0; s<steps && tiles.length<maxTiles; s++){
+          if(r>=0&&r<ROWS&&c>=0&&c<COLS) tiles.push([r,c]);
+          r += dr; c += dc;
+        }
+        const tmp = dr; dr = dc; dc = -tmp;
+        stepCount++;
+        if(stepCount % 2 === 0) steps++;
+        turns++;
+      }
+    } else if(type === 'eclipse'){
+      const cr = Math.floor(Math.random()*ROWS), cc = Math.floor(Math.random()*COLS);
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+        if(Math.abs(r-cr) + Math.abs(c-cc) <= 2) tiles.push([r,c]);
+      }
+    } else if(type === 'quadrant'){
+      const cornerR = Math.random() < 0.5 ? 0 : ROWS - 3;
+      const cornerC = Math.random() < 0.5 ? 0 : COLS - 4;
+      for(let r=cornerR; r<cornerR+3; r++) for(let c=cornerC; c<cornerC+4; c++) tiles.push([r,c]);
+    } else if(type === 'twincol'){
+      const c1 = Math.floor(Math.random() * (COLS/2));
+      const c2 = c1 + Math.floor(COLS/2) + Math.floor(Math.random() * (COLS/2 - 1));
+      for(let r=0;r<ROWS;r++){ tiles.push([r,c1]); tiles.push([r, Math.min(c2, COLS-1)]); }
+    } else if(type === 'chase'){
+      playerTanks.filter(t => t.alive).forEach(t => tiles.push([t.r, t.c]));
+      if(tiles.length === 0){ tiles.push([Math.floor(Math.random()*ROWS), Math.floor(Math.random()*COLS)]); }
+    } else if(type === 'column'){
+      const cc = Math.floor(Math.random()*(COLS-1));
+      for(let r=0;r<ROWS;r++){ tiles.push([r,cc]); tiles.push([r,cc+1]); }
+    } else if(type === 'row'){
+      const cr = Math.floor(Math.random()*(ROWS-1));
+      for(let c=0;c<COLS;c++){ tiles.push([cr,c]); tiles.push([cr+1,c]); }
+    } else if(type === 'half'){
+      const left = Math.random() < 0.5;
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){ if((left && c<COLS/2) || (!left && c>=COLS/2)) tiles.push([r,c]); }
+    } else if(type === 'scattered'){
+      const all = [];
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) all.push([r,c]);
+      for(let i=all.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [all[i],all[j]]=[all[j],all[i]]; }
+      for(let i=0;i<7;i++) tiles.push(all[i]);
+    } else if(type === 'pincer'){
+      // jaws closing from the top and bottom edges — the middle rows are safe
+      for(let c=0;c<COLS;c++){ tiles.push([0,c]); tiles.push([ROWS-1,c]); }
+    } else if(type === 'nova'){
+      // an expanding ring; the eye of the blast is the safe spot
+      const cr = 1 + Math.floor(Math.random()*(ROWS-2)), cc = 1 + Math.floor(Math.random()*(COLS-2));
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+        const d = Math.abs(r-cr) + Math.abs(c-cc);
+        if(d === 2 || d === 3) tiles.push([r,c]);
+      }
+    } else if(type === 'fissure'){
+      // two full columns tear open; whatever they touch stops being floor
+      const c1 = Math.floor(Math.random() * COLS);
+      let c2 = Math.floor(Math.random() * COLS);
+      if(c2 === c1) c2 = (c1 + 1 + Math.floor(Math.random() * (COLS - 1))) % COLS;
+      for(let r = 0; r < ROWS; r++){ tiles.push([r, c1]); tiles.push([r, c2]); }
+    } else if(type === 'checkmate'){
+      // every other tile — half the board, so spacing your squad matters
+      const parity = Math.random() < 0.5 ? 0 : 1;
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if((r+c) % 2 === parity) tiles.push([r,c]);
+    } else if(type === 'full'){
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) tiles.push([r,c]);
+    }
+    return tiles;
+  }
+
+  // ---------- State ----------
+  let board, playerTanks, telegraphQueue;
+  let boss, turn, turnCount, gameOver, phase, enraged;
+  let selectedTankId = null, skillMode = null, uidCounter = 0;
+  let playerMana = 0, playerMaxMana = 0, teamDmgBuffTurns = 0;
+  // A buff outlives the turn it was cast on and is read by other tanks, so its
+  // strength is banked at cast time rather than recomputed from the caster.
+  let teamDmgBuffMult = 1.2;
+  let bossExposedTurns = 0, bossExposedMult = 1.25;   // Sniper's Expose
+  let squadDecoyCharges = 0;  // Warden's Decoy — Lv5 deploys two
+
+  function inBounds(r,c){ return r>=0 && r<ROWS && c>=0 && c<COLS; }
+
+  function makeTank(typeKey, slot){
+    uidCounter++;
+    const def = BOSS_TANK_TYPES[typeKey];
+    const [r,c] = SQUAD_SLOTS[slot % SQUAD_SIZE];
+    const lvl = tankLevel(typeKey);
+    const ls = LEVEL_STATS[lvl];
+    const rb = runeBonuses((EQUIPPED_RUNES[typeKey] || []).slice(0, runeSlots(typeKey)));
+    rb.skill += ls.skill;   // a level and a rune are the same currency here
+    const maxHp = Math.round(def.hp * ls.hp) + rb.hp;
+    return { uid:'t'+uidCounter, type:typeKey, name:def.name, img:def.img, hp:maxHp, maxHp:maxHp,
+      atk:Math.round(def.atk * ls.atk * (1 + rb.atk)), moveCost:def.moveCost, attackCost:def.attackCost,
+      moveRange:def.moveRange || 1, skill:def.skill, passive:def.passive || null, runes:rb, level:lvl,
+      skillUsed:false, siegeModeTurnsLeft:0, siegeMult:1.5, shield:0, wardTurnsLeft:0, wardMult:0.85,
+      firedThisTurn:false, r, c, alive:true };
+  }
+
+  function formatHp(hp){
+    const v = Math.max(0, Math.round(hp));
+    if(v >= 1000) return (v/1000).toFixed(v%1000===0?0:1) + 'k';
+    return String(v);
+  }
+
+  let logHistory = [];
+  function log(msg){
+    const el = document.getElementById('combat-log');
+    const line = document.createElement('div');
+    let kind = 'log-neutral';
+    if(/^your /i.test(msg)) kind = 'log-you';
+    else if(/^(the boss|core-eater)/i.test(msg)) kind = 'log-boss';
+    line.className = 'log-line ' + kind;
+    line.textContent = msg;
+    el.appendChild(line);
+    while(el.children.length > 4) el.removeChild(el.firstChild);
+
+    logHistory.push({ msg, kind });
+    if(logHistory.length > 30) logHistory.shift();
+    renderMobileLog();
+  }
+
+  function renderMobileLog(){
+    const panel = document.getElementById('mobile-log-panel');
+    panel.innerHTML = logHistory.slice(-15).reverse().map(l =>
+      '<div class="log-line ' + l.kind + '">' + l.msg + '</div>'
+    ).join('');
+  }
+
+  function toggleMobileLog(){
+    document.getElementById('mobile-log-panel').classList.toggle('open');
+  }
+
+  function showTurnBanner(text){
+    const el = document.getElementById('turn-banner');
+    el.textContent = text; el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 800);
+  }
+
+  let bannerTimer = null;
+  function showAction(html, cls){
+    const el = document.getElementById('action-banner');
+    clearTimeout(bannerTimer);
+    el.innerHTML = '<span class="a-line ' + (cls||'') + '">' + html + '</span>';
+    el.classList.add('show');
+    bannerTimer = setTimeout(() => el.classList.remove('show'), 1400);
+  }
+
+  function triggerBoardShake(dur){
+    const b = document.getElementById('board');
+    b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+    setTimeout(() => b.classList.remove('shake'), (dur||0.35)*1000);
+  }
+
+  // A short flare where the shell leaves the barrel. Lives in the fx layer so a
+  // board rebuild cannot wipe it mid-flight.
+  function fxMuzzle(x, y, angleDeg, colour){
+    const layer = document.getElementById('fx-layer');
+    if(!layer) return;
+    const f = document.createElement('div');
+    const base = 'position:absolute; left:' + x + 'px; top:' + y + 'px; width:38px; height:15px;' +
+      'pointer-events:none; z-index:8; transform-origin:0 50%; opacity:1;' +
+      'background:radial-gradient(ellipse at 0% 50%, #fff 0%, ' + colour + ' 42%, rgba(0,0,0,0) 74%);' +
+      'transition:transform 0.1s ease-out, opacity 0.14s ease 0.05s;';
+    f.style.cssText = base + 'transform:translate(0,-50%) rotate(' + angleDeg + 'deg) scaleX(0.15);';
+    layer.appendChild(f);
+    void f.offsetWidth;
+    f.style.transform = 'translate(0,-50%) rotate(' + angleDeg + 'deg) scaleX(1)';
+    f.style.opacity = '0';
+    setTimeout(() => f.remove(), 240);
+  }
+
+  // The boss sits in a side panel, so every tank has its own line to it. Aiming
+  // each barrel down that line is most of what stops the board looking parked.
+  function applyTankMotion(){
+    const boardEl = document.getElementById('board');
+    const layer = document.getElementById('fx-layer');
+    if(!boardEl || !layer || !layer.getBoundingClientRect().width) return;
+    const boss = bossCenter();
+    if(!boss.x && !boss.y) return;                 // panel not laid out yet
+    const now = performance.now();
+
+    boardEl.querySelectorAll('.tank-sprite-wrap').forEach(wrap => {
+      const tile = wrap.parentElement;
+      const r = +tile.dataset.r, c = +tile.dataset.c;
+      const occ = board[r] && board[r][c] && board[r][c].occupant;
+      if(!occ) return;
+
+      const p = tileCenter(r, c);
+      const ang = Math.atan2(boss.y - p.y, boss.x - p.x) * 180 / Math.PI;
+      occ.facing = ang;
+      const img = wrap.querySelector('img');
+      if(!img) return;
+      img.style.rotate = (ang + 90) + 'deg';
+
+      const firing = occ.firedAt && (now - occ.firedAt) < 280;
+      wrap.classList.toggle('recoil', !!firing);
+      wrap.classList.toggle('idle', !firing);
+      // resume the motion where it already was rather than restarting it
+      img.style.animationDelay = '-' + (firing ? (now - occ.firedAt) : (now % 2800)) + 'ms';
+
+      wrap.classList.toggle('hurt', !!(occ.hitAt && now - occ.hitAt < 340));
+
+      // Slide in from the tile it left. The board has already been rebuilt with
+      // the tank in its new home, so the sprite is offset back to where it was
+      // and then released.
+      if(occ.slideFrom){
+        const from = tileCenter(occ.slideFrom[0], occ.slideFrom[1]);
+        occ.slideFrom = null;
+        wrap.style.transition = 'none';
+        wrap.style.transform = 'translate(' + (from.x - p.x) + 'px,' + (from.y - p.y) + 'px)';
+        void wrap.offsetWidth;        // commit the offset without waiting for a frame
+        wrap.style.transition = 'transform 0.24s cubic-bezier(.32,.72,.3,1)';
+        wrap.style.transform = 'translate(0,0)';
+      }
+    });
+  }
+
+  function tileCenter(r, c){
+    const boardEl = document.getElementById('board');
+    const wrapEl = document.getElementById('fx-layer');
+    const tileEl = boardEl.querySelector('[data-r="'+r+'"][data-c="'+c+'"]');
+    if(!tileEl) return {x:0,y:0};
+    const tRect = tileEl.getBoundingClientRect(); const wRect = wrapEl.getBoundingClientRect();
+    return { x: tRect.left - wRect.left + tRect.width/2, y: tRect.top - wRect.top + tRect.height/2 };
+  }
+
+  function bossCenter(){
+    const wrapEl = document.getElementById('fx-layer');
+    const bossEl = document.getElementById('boss-portrait-wrap');
+    const bRect = bossEl.getBoundingClientRect(); const wRect = wrapEl.getBoundingClientRect();
+    return { x: bRect.left - wRect.left + bRect.width/2, y: bRect.top - wRect.top + bRect.height/2 };
+  }
+
+  function fxBurst(x, y, color, size){
+    const layer = document.getElementById('fx-layer');
+    const s = size || 50;
+    // outer soft glow
+    const glow = document.createElement('div');
+    glow.style.cssText = 'position:absolute; left:'+x+'px; top:'+y+'px; width:'+s+'px; height:'+s+'px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, '+color+' 0%, rgba(0,0,0,0) 70%); opacity:0.9; transition:opacity 0.45s cubic-bezier(.2,.8,.3,1), width 0.45s cubic-bezier(.2,.8,.3,1), height 0.45s cubic-bezier(.2,.8,.3,1); z-index:6;';
+    layer.appendChild(glow);
+    // bright hot core
+    const core = document.createElement('div');
+    const cs = s * 0.35;
+    core.style.cssText = 'position:absolute; left:'+x+'px; top:'+y+'px; width:'+cs+'px; height:'+cs+'px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, #FFFFFF 0%, '+color+' 55%, rgba(0,0,0,0) 80%); opacity:1; transition:opacity 0.25s ease, width 0.3s ease, height 0.3s ease; z-index:7;';
+    layer.appendChild(core);
+    requestAnimationFrame(() => {
+      glow.style.opacity = '0'; glow.style.width = (s*1.9)+'px'; glow.style.height = (s*1.9)+'px';
+      core.style.opacity = '0'; core.style.width = (cs*2.2)+'px'; core.style.height = (cs*2.2)+'px';
+    });
+    setTimeout(() => { glow.remove(); core.remove(); }, 460);
+    fxSparks(x, y, color, 5);
+  }
+
+  function fxSparks(x, y, color, count){
+    const layer = document.getElementById('fx-layer');
+    for(let i = 0; i < (count||5); i++){
+      const angle = (Math.PI * 2 * i / count) + (Math.random()*0.6 - 0.3);
+      const dist = 18 + Math.random() * 26;
+      const spark = document.createElement('div');
+      const size = 3 + Math.random() * 2.5;
+      spark.style.cssText = 'position:absolute; left:'+x+'px; top:'+y+'px; width:'+size+'px; height:'+size+'px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:'+color+'; box-shadow:0 0 6px '+color+'; z-index:8; opacity:1; transition:left 0.36s cubic-bezier(.1,.7,.3,1), top 0.36s cubic-bezier(.1,.7,.3,1), opacity 0.36s ease-out, width 0.36s ease, height 0.36s ease;';
+      layer.appendChild(spark);
+      requestAnimationFrame(() => {
+        spark.style.left = (x + Math.cos(angle)*dist) + 'px';
+        spark.style.top = (y + Math.sin(angle)*dist) + 'px';
+        spark.style.opacity = '0';
+        spark.style.width = '1px'; spark.style.height = '1px';
+      });
+      setTimeout(() => spark.remove(), 380);
+    }
+  }
+
+  function fxChargeUp(x, y, color, duration){
+    const layer = document.getElementById('fx-layer');
+    const charge = document.createElement('div');
+    charge.style.cssText = 'position:absolute; left:'+x+'px; top:'+y+'px; width:6px; height:6px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, #FFFFFF 0%, '+color+' 60%, rgba(0,0,0,0) 85%); z-index:7; opacity:0.4; transition:width '+duration+'ms cubic-bezier(.5,0,.9,.6), height '+duration+'ms cubic-bezier(.5,0,.9,.6), opacity '+duration+'ms ease-in;';
+    layer.appendChild(charge);
+    requestAnimationFrame(() => { charge.style.width = '46px'; charge.style.height = '46px'; charge.style.opacity = '1'; });
+    setTimeout(() => charge.remove(), duration + 60);
+  }
+
+  // A tank fires a projectile at the boss (player attacks/skills)
+  function animateProjectileToBoss(fromR, fromC, color, onDone){
+    const start = tileCenter(fromR, fromC);
+    const end = bossCenter();
+    const muzzleAng = Math.atan2(end.y - start.y, end.x - start.x);
+    const reach = 16;
+    fxMuzzle(start.x + Math.cos(muzzleAng) * reach, start.y + Math.sin(muzzleAng) * reach,
+             muzzleAng * 180 / Math.PI, color);
+    fxBurst(start.x, start.y, color + 'cc', 34);
+    const layer = document.getElementById('fx-layer');
+    const trail = document.createElement('div');
+    const dx0 = end.x - start.x, dy0 = end.y - start.y;
+    const angle0 = Math.atan2(dy0, dx0) * 180 / Math.PI;
+    trail.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:0px; height:3px; border-radius:2px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle0+'deg); pointer-events:none; background:linear-gradient(90deg, rgba(255,255,255,0), '+color+'); opacity:0.7; z-index:6; transition:width 0.3s ease-out, opacity 0.2s ease 0.15s;';
+    layer.appendChild(trail);
+    const proj = document.createElement('div');
+    proj.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:14px; height:14px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, #fff 0%, '+color+' 60%, rgba(0,0,0,0) 85%); box-shadow:0 0 12px '+color+'; z-index:7; transition:left 0.32s cubic-bezier(.3,.6,.2,1), top 0.32s cubic-bezier(.3,.6,.2,1);';
+    layer.appendChild(proj);
+    requestAnimationFrame(() => {
+      proj.style.left = end.x+'px'; proj.style.top = end.y+'px';
+      trail.style.width = Math.sqrt(dx0*dx0+dy0*dy0) + 'px';
+    });
+    setTimeout(() => {
+      proj.remove(); trail.remove();
+      fxBurst(end.x, end.y, color + 'ee', 64);
+      if(onDone) onDone();
+    }, 340);
+  }
+
+  // The boss unleashes a flashy attack toward the affected tiles
+  function animateBossAttackFX(type, tiles, onDone){
+    if(type === 'cross'){
+      animateBossBeamSingle(tiles, onDone);
+    } else if(type === 'diagonal'){
+      animateBossDiagonal(tiles, onDone);
+    } else if(type === 'twincol'){
+      animateBossTwinCol(tiles, onDone);
+    } else if(type === 'chase'){
+      animateBossChase(tiles, onDone);
+    } else if(type === 'column' || type === 'row'){
+      animateBossSweep(tiles, onDone);
+    } else if(type === 'half' || type === 'quadrant' || type === 'eclipse'){
+      animateBossWave(tiles, onDone);
+    } else if(type === 'scattered' || type === 'spiral'){
+      animateBossScatterShots(tiles, onDone);
+    } else {
+      animateBossBeamSingle(tiles, onDone);
+    }
+  }
+
+  function animateBossChase(tiles, onDone){
+    const start = bossCenter();
+    const layer = document.getElementById('fx-layer');
+    fxChargeUp(start.x, start.y, '#FF3D7A', 160);
+    setTimeout(() => {
+      tiles.forEach(([r,c], i) => {
+        setTimeout(() => {
+          const p = tileCenter(r,c);
+          const reticle = document.createElement('div');
+          reticle.style.cssText = 'position:absolute; left:'+p.x+'px; top:'+p.y+'px; width:52px; height:52px; border-radius:50%; transform:translate(-50%,-50%) scale(1.6); pointer-events:none; border:3px solid #FF3D7A; box-shadow:0 0 14px rgba(255,61,122,0.7); z-index:6; opacity:0; transition:transform 0.2s cubic-bezier(.3,.6,.2,1), opacity 0.2s ease;';
+          layer.appendChild(reticle);
+          requestAnimationFrame(() => { reticle.style.transform = 'translate(-50%,-50%) scale(1)'; reticle.style.opacity = '1'; });
+          setTimeout(() => {
+            reticle.style.opacity = '0';
+            fxBurst(p.x, p.y, '#FF3D7Aee', 80);
+          }, 220);
+          setTimeout(() => reticle.remove(), 420);
+        }, i * 70);
+      });
+      triggerBoardShake(0.3);
+      setTimeout(() => { if(onDone) onDone(); }, tiles.length * 70 + 300);
+    }, 160);
+  }
+
+  function animateBossTwinCol(tiles, onDone){
+    const start = bossCenter();
+    const uniqueCols = [...new Set(tiles.map(([r,c]) => c))];
+    const layer = document.getElementById('fx-layer');
+    fxChargeUp(start.x, start.y, '#A0A8FF', 170);
+    setTimeout(() => {
+      uniqueCols.forEach(col => {
+        const colTiles = tiles.filter(([r,c]) => c === col);
+        const box = tilesBoundingBox(colTiles);
+        const glow = document.createElement('div');
+        glow.style.cssText = 'position:absolute; left:'+box.x+'px; top:'+(box.y - box.h/2 - 14)+'px; width:14px; height:0px; border-radius:8px; transform:translate(-50%,0); pointer-events:none; background:rgba(160,168,255,0.35); filter:blur(3px); z-index:6; transition:height 0.24s cubic-bezier(.2,.8,.3,1), opacity 0.2s ease 0.22s;';
+        layer.appendChild(glow);
+        const core = document.createElement('div');
+        core.style.cssText = 'position:absolute; left:'+box.x+'px; top:'+(box.y - box.h/2 - 12)+'px; width:5px; height:0px; border-radius:4px; transform:translate(-50%,0); pointer-events:none; background:linear-gradient(180deg, #F0F1FF, #A0A8FF); box-shadow:0 0 16px rgba(160,168,255,0.9); z-index:7; transition:height 0.24s cubic-bezier(.2,.8,.3,1), opacity 0.2s ease 0.22s;';
+        layer.appendChild(core);
+        requestAnimationFrame(() => { glow.style.height = (box.h+24)+'px'; core.style.height = (box.h+24)+'px'; });
+        setTimeout(() => { glow.style.opacity='0'; core.style.opacity='0'; }, 240);
+        setTimeout(() => { glow.remove(); core.remove(); }, 380);
+      });
+      triggerBoardShake(0.3);
+      setTimeout(() => { if(onDone) onDone(); }, 400);
+    }, 170);
+  }
+
+  function animateBossDiagonal(tiles, onDone){
+    const start = bossCenter();
+    const p1 = tileCenter(tiles[0][0], tiles[0][1]);
+    const p2 = tileCenter(tiles[tiles.length-1][0], tiles[tiles.length-1][1]);
+    const layer = document.getElementById('fx-layer');
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    const len = Math.sqrt(dx*dx+dy*dy);
+    const angle = Math.atan2(dy,dx) * 180/Math.PI;
+
+    fxChargeUp(start.x, start.y, '#7CF9C0', 170);
+    setTimeout(() => {
+      const glow = document.createElement('div');
+      glow.style.cssText = 'position:absolute; left:'+p1.x+'px; top:'+p1.y+'px; width:0px; height:26px; border-radius:12px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle+'deg); pointer-events:none; background:rgba(124,249,192,0.35); filter:blur(3px); z-index:6; transition:width 0.24s cubic-bezier(.2,.8,.3,1), opacity 0.2s ease 0.22s;';
+      layer.appendChild(glow);
+      const core = document.createElement('div');
+      core.style.cssText = 'position:absolute; left:'+p1.x+'px; top:'+p1.y+'px; width:0px; height:7px; border-radius:4px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle+'deg); pointer-events:none; background:linear-gradient(90deg, #EAFFFE, #7CF9C0); box-shadow:0 0 18px rgba(124,249,192,0.9); z-index:7; transition:width 0.24s cubic-bezier(.2,.8,.3,1), opacity 0.2s ease 0.22s;';
+      layer.appendChild(core);
+      requestAnimationFrame(() => { glow.style.width = len+'px'; core.style.width = len+'px'; });
+      setTimeout(() => { glow.style.opacity='0'; core.style.opacity='0'; }, 240);
+      setTimeout(() => {
+        glow.remove(); core.remove();
+        fxBurst((p1.x+p2.x)/2, (p1.y+p2.y)/2, '#7CF9C0ee', 85);
+        triggerBoardShake(0.25);
+        if(onDone) onDone();
+      }, 380);
+    }, 170);
+  }
+
+  function animateBossBeamSingle(tiles, onDone){
+    const start = bossCenter();
+    const center = tiles[0]; // patternTiles('cross') always puts the center tile first
+    const centerPos = tileCenter(center[0], center[1]);
+    const layer = document.getElementById('fx-layer');
+
+    // horizontal arm = tiles sharing the center's row; vertical arm = tiles sharing the center's column
+    const horizTiles = tiles.filter(([r,c]) => r === center[0]);
+    const vertTiles = tiles.filter(([r,c]) => c === center[1]);
+    let hMinX = Infinity, hMaxX = -Infinity;
+    horizTiles.forEach(([r,c]) => { const p = tileCenter(r,c); hMinX = Math.min(hMinX,p.x); hMaxX = Math.max(hMaxX,p.x); });
+    let vMinY = Infinity, vMaxY = -Infinity;
+    vertTiles.forEach(([r,c]) => { const p = tileCenter(r,c); vMinY = Math.min(vMinY,p.y); vMaxY = Math.max(vMaxY,p.y); });
+    const hLen = (hMaxX - hMinX) + 46;
+    const vLen = (vMaxY - vMinY) + 46;
+
+    // a quick connecting streak from the boss to the strike point
+    const dx0 = centerPos.x - start.x, dy0 = centerPos.y - start.y;
+    const angle0 = Math.atan2(dy0, dx0) * 180 / Math.PI;
+    const len0 = Math.sqrt(dx0*dx0 + dy0*dy0);
+    fxChargeUp(start.x, start.y, '#FF5C5C', 170);
+    setTimeout(() => {
+      const streak = document.createElement('div');
+      streak.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:0px; height:4px; border-radius:3px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle0+'deg); pointer-events:none; background:linear-gradient(90deg, rgba(255,92,92,0.1), rgba(255,92,92,0.8)); box-shadow:0 0 10px rgba(255,92,92,0.7); z-index:6; transition:width 0.16s ease-out, opacity 0.15s ease 0.12s;';
+      layer.appendChild(streak);
+      requestAnimationFrame(() => { streak.style.width = len0 + 'px'; });
+      setTimeout(() => { streak.style.opacity = '0'; }, 140);
+      setTimeout(() => streak.remove(), 300);
+
+      // the cross-shaped laser snaps onto the actual tiles it hits
+      setTimeout(() => {
+        [ { axis:'h', len:hLen, x:(hMinX+hMaxX)/2, y:centerPos.y },
+          { axis:'v', len:vLen, x:centerPos.x, y:(vMinY+vMaxY)/2 } ].forEach(bar => {
+          const isH = bar.axis === 'h';
+          const glow = document.createElement('div');
+          glow.style.cssText = 'position:absolute; left:'+bar.x+'px; top:'+bar.y+'px; width:'+(isH?'0px':'20px')+'; height:'+(isH?'20px':'0px')+'; border-radius:10px; transform:translate(-50%,-50%); pointer-events:none; background:rgba(255,92,92,0.4); filter:blur(3px); z-index:6; transition:'+(isH?'width':'height')+' 0.16s cubic-bezier(.2,.8,.3,1), opacity 0.2s ease 0.22s;';
+          layer.appendChild(glow);
+          const core = document.createElement('div');
+          core.style.cssText = 'position:absolute; left:'+bar.x+'px; top:'+bar.y+'px; width:'+(isH?'0px':'7px')+'; height:'+(isH?'7px':'0px')+'; border-radius:4px; transform:translate(-50%,-50%); pointer-events:none; background:linear-gradient('+(isH?'90deg':'180deg')+', rgba(255,243,208,0.9), #FF5C5C); box-shadow:0 0 18px rgba(255,92,92,0.9); z-index:7; transition:'+(isH?'width':'height')+' 0.16s cubic-bezier(.2,.8,.3,1), opacity 0.2s ease 0.22s;';
+          layer.appendChild(core);
+          requestAnimationFrame(() => {
+            if(isH){ glow.style.width = bar.len+'px'; core.style.width = bar.len+'px'; }
+            else { glow.style.height = bar.len+'px'; core.style.height = bar.len+'px'; }
+          });
+          setTimeout(() => { glow.style.opacity = '0'; core.style.opacity = '0'; }, 230);
+          setTimeout(() => { glow.remove(); core.remove(); }, 380);
+        });
+        fxBurst(centerPos.x, centerPos.y, '#FF5C5Cee', 90);
+        triggerBoardShake(0.25);
+        setTimeout(() => { if(onDone) onDone(); }, 300);
+      }, 130);
+    }, 170);
+  }
+
+  function tilesBoundingBox(tiles){
+    let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+    tiles.forEach(([r,c]) => {
+      const p = tileCenter(r,c);
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+    });
+    return { x: minX, y: minY, w: Math.max(30, maxX-minX), h: Math.max(30, maxY-minY) };
+  }
+
+  // Column/Row: a bright sweeping bar races across the whole line
+  function animateBossSweep(tiles, onDone){
+    const start = bossCenter();
+    const box = tilesBoundingBox(tiles);
+    const layer = document.getElementById('fx-layer');
+    fxChargeUp(start.x, start.y, '#FF9227', 160);
+    setTimeout(() => {
+      const isHoriz = box.w >= box.h;
+      const glowBar = document.createElement('div');
+      glowBar.style.cssText = 'position:absolute; left:'+(box.x - box.w/2 - 14)+'px; top:'+(box.y - box.h/2 - 14)+'px; width:'+(isHoriz?10:box.w+28)+'px; height:'+(isHoriz?box.h+28:10)+'px; filter:blur(3px); pointer-events:none; background:linear-gradient(180deg, rgba(255,146,39,0.3), rgba(255,92,92,0.3)); z-index:6; transition:'+(isHoriz?'width':'height')+' 0.26s cubic-bezier(.2,.8,.3,1), opacity 0.25s ease 0.24s;';
+      layer.appendChild(glowBar);
+      const bar = document.createElement('div');
+      bar.style.cssText = 'position:absolute; left:'+(box.x - box.w/2 - 12)+'px; top:'+(box.y - box.h/2 - 12)+'px; width:'+(isHoriz?4:box.w+24)+'px; height:'+(isHoriz?box.h+24:4)+'px; pointer-events:none; background:linear-gradient(180deg, #FFF3D0, rgba(255,146,39,0.95), rgba(255,92,92,0.7)); box-shadow:0 0 20px rgba(255,146,39,0.9); z-index:7; transition:'+(isHoriz?'width':'height')+' 0.26s cubic-bezier(.2,.8,.3,1), opacity 0.25s ease 0.24s;';
+      layer.appendChild(bar);
+      requestAnimationFrame(() => {
+        if(isHoriz){ bar.style.width = (box.w+24)+'px'; glowBar.style.width = (box.w+28)+'px'; }
+        else { bar.style.height = (box.h+24)+'px'; glowBar.style.height = (box.h+28)+'px'; }
+      });
+      setTimeout(() => { bar.style.opacity = '0'; glowBar.style.opacity = '0'; }, 280);
+      setTimeout(() => { bar.remove(); glowBar.remove(); triggerBoardShake(0.25); if(onDone) onDone(); }, 400);
+    }, 170);
+  }
+
+  // Half-map: cascading shockwave rings expand from the boss over the whole zone
+  function animateBossWave(tiles, onDone){
+    const start = bossCenter();
+    const box = tilesBoundingBox(tiles);
+    const layer = document.getElementById('fx-layer');
+    const cx = box.x, cy = box.y;
+    const targetSize = Math.max(box.w, box.h) * 1.5;
+
+    fxChargeUp(start.x, start.y, '#FF5C5C', 200);
+    setTimeout(() => {
+      [0, 90, 180].forEach((delay, idx) => {
+        setTimeout(() => {
+          const ring = document.createElement('div');
+          const thickness = 5 - idx;
+          const op = 0.9 - idx * 0.25;
+          ring.style.cssText = 'position:absolute; left:'+cx+'px; top:'+cy+'px; width:10px; height:10px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; border:'+thickness+'px solid rgba(255,92,92,'+op+'); box-shadow:0 0 20px rgba(255,92,92,0.7); z-index:7; transition:width 0.5s cubic-bezier(.15,.7,.3,1), height 0.5s cubic-bezier(.15,.7,.3,1), opacity 0.5s ease-out;';
+          layer.appendChild(ring);
+          requestAnimationFrame(() => { ring.style.width = targetSize+'px'; ring.style.height = targetSize+'px'; ring.style.opacity = '0'; });
+          setTimeout(() => ring.remove(), 550);
+        }, delay);
+      });
+      triggerBoardShake(0.3);
+      setTimeout(() => { if(onDone) onDone(); }, 460);
+    }, 210);
+  }
+
+  // Scattered: several quick shots streak out to each scattered tile
+  function animateBossScatterShots(tiles, onDone){
+    const start = bossCenter();
+    const layer = document.getElementById('fx-layer');
+    fxChargeUp(start.x, start.y, '#FFB627', 140);
+    setTimeout(() => {
+      tiles.forEach(([r,c], i) => {
+        setTimeout(() => {
+          const end = tileCenter(r,c);
+          const dx = end.x-start.x, dy = end.y-start.y;
+          const angle = Math.atan2(dy,dx) * 180/Math.PI;
+          const trail = document.createElement('div');
+          trail.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:0px; height:3px; border-radius:2px; transform-origin:0 50%; transform:translate(0,-50%) rotate('+angle+'deg); pointer-events:none; background:linear-gradient(90deg, rgba(255,182,39,0), #FFB627); z-index:6; transition:width 0.2s ease-out;';
+          layer.appendChild(trail);
+          const shot = document.createElement('div');
+          shot.style.cssText = 'position:absolute; left:'+start.x+'px; top:'+start.y+'px; width:10px; height:10px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, #fff 0%, #FFB627 60%, rgba(0,0,0,0) 85%); box-shadow:0 0 10px #FFB627; z-index:7; transition:left 0.2s cubic-bezier(.3,.6,.2,1), top 0.2s cubic-bezier(.3,.6,.2,1);';
+          layer.appendChild(shot);
+          requestAnimationFrame(() => { shot.style.left = end.x+'px'; shot.style.top = end.y+'px'; trail.style.width = Math.sqrt(dx*dx+dy*dy)+'px'; });
+          setTimeout(() => { shot.remove(); trail.remove(); fxBurst(end.x, end.y, '#FFB627cc', 44); }, 210);
+        }, i * 55);
+      });
+      setTimeout(() => { triggerBoardShake(0.25); if(onDone) onDone(); }, tiles.length * 55 + 240);
+    }, 150);
+  }
+
+  // Full-map: the boss's eyes flash brilliantly instead of any beam
+  function animateBossEyeFlash(onDone){
+    const portrait = document.getElementById('boss-portrait-wrap');
+    const pRect = portrait.getBoundingClientRect();
+    const layer = document.getElementById('fx-layer');
+    const wRect = layer.getBoundingClientRect();
+    const cx = pRect.left - wRect.left + pRect.width/2;
+    const cy = pRect.top - wRect.top + pRect.height/2;
+
+    portrait.style.filter = 'brightness(1.3) drop-shadow(0 0 10px rgba(255,220,140,0.6))';
+    setTimeout(() => {
+      portrait.style.transition = 'filter 0.12s ease';
+      portrait.style.filter = 'brightness(3.2) drop-shadow(0 0 46px rgba(255,220,140,1))';
+      const flash = document.createElement('div');
+      flash.style.cssText = 'position:absolute; left:'+cx+'px; top:'+cy+'px; width:20px; height:20px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; background:radial-gradient(circle, #FFFFFF 0%, #FFF3D0 25%, rgba(255,182,39,0.6) 45%, rgba(255,92,92,0) 75%); z-index:8; transition:width 0.5s cubic-bezier(.1,.8,.2,1), height 0.5s cubic-bezier(.1,.8,.2,1), opacity 0.6s ease-out;';
+      layer.appendChild(flash);
+      const ring = document.createElement('div');
+      ring.style.cssText = 'position:absolute; left:'+cx+'px; top:'+cy+'px; width:10px; height:10px; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; border:3px solid rgba(255,220,140,0.9); z-index:8; transition:width 0.55s ease-out, height 0.55s ease-out, opacity 0.55s ease-out;';
+      layer.appendChild(ring);
+      requestAnimationFrame(() => {
+        flash.style.width = '1000px'; flash.style.height = '1000px'; flash.style.opacity = '0';
+        ring.style.width = '600px'; ring.style.height = '600px'; ring.style.opacity = '0';
+      });
+      triggerBoardShake(0.45);
+      setTimeout(() => { portrait.style.filter = ''; }, 350);
+      setTimeout(() => { flash.remove(); ring.remove(); if(onDone) onDone(); }, 600);
+    }, 220);
+  }
+
+  function fxFloatText(r, c, text, color){
+    const pos = tileCenter(r,c);
+    const layer = document.getElementById('fx-layer');
+    const el = document.createElement('div');
+    el.textContent = text;
+    el.style.cssText = 'position:absolute; left:'+pos.x+'px; top:'+pos.y+'px; transform:translate(-50%,-50%); font-family:\'IBM Plex Mono\',monospace; font-weight:800; font-size:16px; color:'+color+'; text-shadow:0 2px 4px rgba(0,0,0,0.8); z-index:6; transition:transform 0.9s ease-out, opacity 0.9s ease-out; opacity:1;';
+    layer.appendChild(el);
+    requestAnimationFrame(() => { el.style.transform = 'translate(-50%,-140%)'; el.style.opacity = '0'; });
+    setTimeout(() => el.remove(), 950);
+  }
+
+  // A fully blocked attack should land as loudly as a hit, so the barrier
+  // flashes over the whole board rather than just printing a log line.
+  function fxDecoyBlock(){
+    const boardEl = document.getElementById('board');
+    const layer = document.getElementById('fx-layer');
+    const b = boardEl.getBoundingClientRect(), l = layer.getBoundingClientRect();
+    const ox = b.left - l.left, oy = b.top - l.top;
+    const cx = ox + b.width / 2, cy = oy + b.height / 2;
+
+    const dome = document.createElement('div');
+    dome.style.cssText = 'position:absolute; left:' + ox + 'px; top:' + oy + 'px; width:' + b.width + 'px; height:' + b.height + 'px;'
+      + 'border-radius:12px; z-index:7; pointer-events:none; opacity:0; border:3px solid #6BA8FF;'
+      + 'background:repeating-linear-gradient(60deg, rgba(107,168,255,0.30) 0 6px, rgba(107,168,255,0.05) 6px 15px);'
+      + 'box-shadow:inset 0 0 46px rgba(107,168,255,0.85), 0 0 34px rgba(107,168,255,0.55);'
+      + 'transition:opacity 0.12s ease-out;';
+    layer.appendChild(dome);
+    requestAnimationFrame(() => { dome.style.opacity = '1'; });
+    setTimeout(() => { dome.style.transition = 'opacity 0.5s ease-out'; dome.style.opacity = '0'; }, 260);
+    setTimeout(() => dome.remove(), 820);
+
+    const ring = document.createElement('div');
+    ring.style.cssText = 'position:absolute; left:' + cx + 'px; top:' + cy + 'px; width:44px; height:44px; margin:-22px 0 0 -22px;'
+      + 'border:4px solid #9FD8FF; border-radius:50%; z-index:8; pointer-events:none; opacity:0.95;'
+      + 'transition:transform 0.55s cubic-bezier(.2,.8,.3,1), opacity 0.55s ease-out;';
+    layer.appendChild(ring);
+    requestAnimationFrame(() => { ring.style.transform = 'scale(9)'; ring.style.opacity = '0'; });
+    setTimeout(() => ring.remove(), 640);
+
+    const txt = document.createElement('div');
+    txt.textContent = 'BLOCKED';
+    txt.style.cssText = 'position:absolute; left:' + cx + 'px; top:' + cy + 'px; transform:translate(-50%,-50%) scale(0.6);'
+      + "font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:clamp(38px,9vw,64px); letter-spacing:0.07em;"
+      + 'color:#EAF6FF; z-index:9; pointer-events:none; opacity:0;'
+      + 'text-shadow:0 0 20px rgba(107,168,255,1), 0 4px 0 #14345C, 0 0 46px rgba(107,168,255,0.85);'
+      + 'transition:transform 0.3s cubic-bezier(.2,1.5,.4,1), opacity 0.35s ease-out;';
+    layer.appendChild(txt);
+    requestAnimationFrame(() => { txt.style.transform = 'translate(-50%,-50%) scale(1)'; txt.style.opacity = '1'; });
+    setTimeout(() => { txt.style.opacity = '0'; txt.style.transform = 'translate(-50%,-92%) scale(1)'; }, 640);
+    setTimeout(() => txt.remove(), 1150);
+  }
+
+  function fxFlashBossHit(){
+    const portrait = document.getElementById('boss-portrait');
+    portrait.style.filter = 'brightness(2.4) drop-shadow(0 0 14px rgba(255,92,92,0.9))';
+    setTimeout(() => { portrait.style.filter = 'drop-shadow(0 0 10px rgba(255,92,92,0.5))'; }, 150);
+  }
+
+  // ---------- Game setup ----------
+  function resetGame(){
+    board = Array.from({length:ROWS}, () => Array.from({length:COLS}, () => ({ occupant:null })));
+    resetNodes();
+    seedCorruption();
+    playerTanks = [];
+    uidCounter = 0;
+    gameOver = false;
+    selectedTankId = null; skillMode = null;
+    turnCount = 1; phase = 1; enraged = false;
+    document.getElementById('combat-log').innerHTML = '';
+    document.getElementById('boss-enrage-tag').style.display = 'none';
+    document.getElementById('boss-exposed-tag').style.display = 'none';
+    document.getElementById('squad-buffs').innerHTML = '';
+
+    buildArena();   // last run's collapses go, the arena wall stays
+
+    teamDmgBuffTurns = 0; teamDmgBuffMult = 1.2;
+    bossExposedTurns = 0; bossExposedMult = 1.25;
+    squadDecoyCharges = 0;
+    getSquad().forEach((key, i) => {
+      const t = makeTank(key, i);
+      playerTanks.push(t);
+      board[t.r][t.c].occupant = t;
+    });
+
+    boss = { hp: BOSS_MAX_HP, maxHp: BOSS_MAX_HP, poisonStacks: 0, poisonRate: 0, turnsSinceDamage: 0 };
+    telegraphQueue = [];
+    initTelegraphQueue();
+
+    playerMana = 0; playerMaxMana = 0;
+    startPlayerTurn(true);
+  }
+
+  const QUEUE_DEPTH = 1;
+
+  function poolForPhase(){
+    const pool = ['cross','column','row','diagonal','quadrant','eclipse','spiral'];
+    if(phase >= 2) pool.push('half','scattered','twincol','chase','pincer','nova');
+    if(phase >= 3) pool.push('full','checkmate');
+    pool.push('fissure'); // the rift runs in every phase — it is the whole fight
+    return pool;
+  }
+
+  function generateBatch(){
+    const pool = poolForPhase();
+    const count = Math.min(3, phase + 1); // Gravemaw starts at 2 simultaneous patterns, caps at 3
+    const batch = [];
+    for(let i=0;i<count;i++){
+      const type = pool[Math.floor(Math.random()*pool.length)];
+      // patterns are written against the full grid, so trim anything that
+      // falls outside this floor's shape before it is ever telegraphed
+      batch.push({ type, tiles: patternTiles(type).filter(([r, c]) => !isVoid(r, c)) });
+    }
+    return batch;
+  }
+
+  function initTelegraphQueue(){
+    telegraphQueue = [];
+    for(let i=0;i<QUEUE_DEPTH;i++) telegraphQueue.push(generateBatch());
+  }
+
+  function buildTileWarningMap(){
+    const map = new Map(); // tileKey -> array of pattern types affecting it
+    const batch = telegraphQueue[0] || [];
+    batch.forEach(p => {
+      p.tiles.forEach(([r,c]) => {
+        const key = r+'_'+c;
+        if(!map.has(key)) map.set(key, []);
+        map.get(key).push(p.type);
+      });
+    });
+    return map;
+  }
+
+  function updatePhase(){
+    const pct = boss.hp / boss.maxHp;
+    let newPhase = 1;
+    if(pct <= PHASE_THRESHOLDS.p3) newPhase = 3;
+    else if(pct <= PHASE_THRESHOLDS.p2) newPhase = 2;
+    if(newPhase !== phase){
+      phase = newPhase;
+      log('The boss enters Phase ' + phase + '!');
+      showAction('GRAVEMAW ENTERS PHASE ' + phase + '!', 'a-warn');
+    }
+  }
+
+  // ---------- Turn flow ----------
+  function startPlayerTurn(first){
+    if(gameOver) return;
+    turn = 'player';
+    if(!first) turnCount++;
+    playerMaxMana = Math.min(playerMaxMana + 1, 10);
+    playerMana = playerMaxMana;
+    if(teamDmgBuffTurns > 0) teamDmgBuffTurns--;
+    if(bossExposedTurns > 0) bossExposedTurns--;
+    for(const t of playerTanks){
+      t.firedThisTurn = false;
+      if(t.alive && t.runes && t.runes.regen > 0 && t.hp < t.maxHp){
+        t.hp = Math.min(t.maxHp, t.hp + t.runes.regen);
+      }
+      if(t.siegeModeTurnsLeft > 0) t.siegeModeTurnsLeft--;
+      if(t.wardTurnsLeft > 0) t.wardTurnsLeft--;
+      t.skillUsed = false;
+    }
+    selectedTankId = null; skillMode = null;
+    showTurnBanner('YOUR TURN');
+    document.getElementById('action-hint').textContent = 'Select one of your tanks to move or act.';
+    render();
+    checkDefeatByTurnLimit();
+  }
+
+  function checkDefeatByTurnLimit(){
+    if(turnCount > DEFEAT_TURN_LIMIT && !gameOver) finishGame('loss');
+  }
+
+  function endPlayerTurn(){
+    if(turn !== 'player' || gameOver) return;
+    selectedTankId = null; skillMode = null;
+    applyTerrainEffects();
+    turn = 'boss';
+    render();
+    setTimeout(runBossTurn, 500);
+  }
+
+  function runBossTurn(){
+    if(gameOver) return;
+    showTurnBanner('BOSS TURN');
+
+    const imminentBatch = telegraphQueue[0];
+    let idx = 0;
+    function resolveNext(){
+      if(idx >= imminentBatch.length){ finishBossTurn(); return; }
+      const tg = imminentBatch[idx];
+      idx++;
+      let dmg = PATTERNS[tg.type].dmg;
+      if(enraged) dmg = Math.round(dmg * 1.5);
+
+      showAction('GRAVEMAW UNLEASHES ' + PATTERNS[tg.type].label.toUpperCase() + '!', 'a-warn');
+      log('The boss strikes with a ' + PATTERNS[tg.type].label + ' attack!');
+
+      const resolveHit = (hitDmg) => {
+        if(squadDecoyCharges > 0){
+          squadDecoyCharges--;
+          sfxDecoy();
+          fxDecoyBlock();
+          showAction('THE WARDEN DECOY SOAKS THE ATTACK', 'a-heal');
+          log('The Warden decoy absorbs the attack completely.');
+          render();
+          return;
+        }
+        triggerBoardShake(0.3);
+        tg.tiles.forEach(([r,c]) => {
+          const occ = board[r][c].occupant;
+          if(occ && occ.alive){
+            let actualDmg = hitDmg;
+            if(occ.wardTurnsLeft > 0) actualDmg = Math.round(actualDmg * (occ.wardMult || 0.85)); // Medic's ward
+            if(occ.runes && occ.runes.dr > 0) actualDmg = Math.round(actualDmg * (1 - occ.runes.dr));
+            if(occ.shield > 0){
+              const absorbed = Math.min(occ.shield, actualDmg);
+              actualDmg -= absorbed;
+              occ.shield = 0;
+            }
+            occ.hp -= actualDmg;
+            occ.hitAt = performance.now();
+            fxFloatText(r, c, '-' + actualDmg, '#FF5C5C');
+            if(occ.hp <= 0){
+              occ.alive = false;
+              board[r][c].occupant = null;
+              log('Your ' + occ.name + ' was destroyed!');
+            }
+          }
+        });
+        if(tg.type === 'fissure') collapseTiles(tg.tiles);
+        render();
+      };
+
+      const MULTI_HIT_PATTERNS = ['quadrant','half','twincol'];
+      const applyDamage = () => {
+        if(MULTI_HIT_PATTERNS.includes(tg.type)){
+          const hit1 = Math.round(dmg * 0.55);
+          const hit2 = dmg - hit1;
+          resolveHit(hit1);
+          checkSquadWipe();
+          if(gameOver) return;
+          setTimeout(() => {
+            resolveHit(hit2);
+            checkSquadWipe();
+            if(gameOver) return;
+            setTimeout(resolveNext, 500);
+          }, 260);
+        } else {
+          resolveHit(dmg);
+          checkSquadWipe();
+          if(gameOver) return;
+          setTimeout(resolveNext, 550);
+        }
+      };
+
+      if(tg.type === 'full'){
+        sfxBossFullMap();
+        animateBossEyeFlash(() => {});
+        setTimeout(applyDamage, 1200);
+      } else {
+        sfxBossAttack(tg.type);
+        animateBossAttackFX(tg.type, tg.tiles, applyDamage);
+      }
+    }
+    resolveNext();
+  }
+
+  function finishBossTurn(){
+    // clear all shields (1-turn duration elapsed)
+    playerTanks.forEach(t => { t.shield = 0; });
+    // Gravemaw's own upkeep: the floor rots outward, anything standing in it
+    // pays for that, and shattered nodes count down towards coming back.
+    spreadCorruption();
+    corruptionBite();
+    tickNodes();
+
+    // poison tick
+    if(boss.poisonStacks > 0 && boss.hp > 0){
+      const rawRate = boss.poisonRate * (1 + marshalAura());
+      const rate = Math.min(POISON_MAX_RATE, rawRate);
+      const poisonDmg = Math.round(boss.maxHp * rate);
+      hitBoss(poisonDmg, null);
+      boss.turnsSinceDamage = 0;
+      fxFlashBossHit();
+      log('Acid poison burns the boss for ' + poisonDmg + ' (' + boss.poisonStacks + ' stack' +
+          (boss.poisonStacks > 1 ? 's' : '') + (rawRate > POISON_MAX_RATE ? ', capped at 4%' : '') + ').');
+      showAction('ACID POISON TICKS FOR ' + poisonDmg + '!', 'a-dmg');
+    } else {
+      boss.turnsSinceDamage++;
+    }
+
+    // regen check
+    if(boss.turnsSinceDamage >= REGEN_TURNS && boss.hp > 0 && boss.hp < boss.maxHp){
+      const heal = Math.round(boss.maxHp * REGEN_PCT);
+      boss.hp = Math.min(boss.maxHp, boss.hp + heal);
+      boss.turnsSinceDamage = 0;
+      log('The boss regenerates ' + heal + ' HP — you need to keep the pressure on!');
+      showAction('GRAVEMAW REGENERATES!', 'a-heal');
+    }
+
+    checkBossDefeated();
+    if(gameOver) return;
+
+    updatePhase();
+    if(turnCount >= ENRAGE_TURN && !enraged){
+      enraged = true;
+      document.getElementById('boss-enrage-tag').style.display = 'inline-block';
+      log('The boss enrages — its attacks now hit far harder!');
+      showAction('GRAVEMAW IS ENRAGED!', 'a-warn');
+    }
+    telegraphQueue.shift();
+    telegraphQueue.push(generateBatch());
+    render();
+    setTimeout(() => startPlayerTurn(false), 700);
+  }
+
+  function checkSquadWipe(){
+    if(gameOver) return;
+    if(!playerTanks.some(t => t.alive)) finishGame('loss');
+  }
+  function checkBossDefeated(){
+    if(gameOver) return;
+    if(boss.hp <= 0) finishGame('win');
+  }
+
+  // ---------- Player actions ----------
+  function selectTank(uid){
+    if(turn !== 'player' || gameOver) return;
+    const t = playerTanks.find(x => x.uid === uid && x.alive);
+    if(!t) return;
+    selectedTankId = (selectedTankId === uid) ? null : uid;
+    skillMode = null;
+    if(selectedTankId) sfxTankClick(t.type);
+    render();
+  }
+
+  function tileClick(r, c){
+    if(turn !== 'player' || gameOver) return;
+
+    const clicked = board[r][c].occupant;
+
+    if(skillMode && skillMode.key === 'repair'){
+      const healer = playerTanks.find(x => x.uid === skillMode.uid && x.alive);
+      if(!healer){ skillMode = null; render(); return; }
+      if(clicked && clicked.alive){ castRepair(healer, clicked); return; }
+      skillMode = null; render(); return;   // tapping empty ground cancels
+    }
+
+    if(clicked && clicked.alive){ selectTank(clicked.uid); return; }
+
+    if(!selectedTankId) return;
+    const attacker = playerTanks.find(x => x.uid === selectedTankId);
+    if(!attacker) return;
+
+    const dist = Math.abs(attacker.r-r) + Math.abs(attacker.c-c);
+    if(dist < 1 || dist > (attacker.moveRange || 1)) return;
+    if(attacker.type === 'sniper' && attacker.firedThisTurn) return; // rooted by its own recoil
+    if(blocksMove(r, c)) return;
+    if(board[r][c].occupant) return;
+    if(playerMana < attacker.moveCost) return;
+    if(attacker.siegeModeTurnsLeft > 0) return;
+
+    playerMana -= attacker.moveCost;
+    attacker.slideFrom = [attacker.r, attacker.c];   // applyTankMotion slides it in from here
+    board[attacker.r][attacker.c].occupant = null;
+    attacker.r = r; attacker.c = c;
+    board[r][c].occupant = attacker;
+    selectedTankId = null;
+    sfxMove();
+    showAction('YOUR ' + attacker.name.toUpperCase() + ' MOVES <span class="mono" style="font-size:0.6em;color:var(--muted);">(&minus;' + (attacker.moveCost) + ' MP)</span>', 'a-move');
+    log('Your ' + attacker.name + ' repositioned.');
+    render();
+  }
+
+  const TANK_PROJECTILE_COLOR = { light:'#2DE1FC', medium:'#FFB627', heavy:'#FF5C5C', guardian:'#FF5CB6', medic:'#34D399', raider:'#A78BFA', sniper:'#C7D96B', warden:'#6BA8FF', marshal:'#E8B84B' };
+
+  function quickAttack(uid){
+    if(turn !== 'player' || gameOver) return;
+    const t = playerTanks.find(x => x.uid === uid && x.alive);
+    if(!t) return;
+    if(playerMana < t.attackCost){ sfxInsufficientMana(); return; }
+    playerMana -= t.attackCost;
+    t.firedAt = performance.now();   // drives the recoil in applyTankMotion
+    let dmg = t.atk;
+    if(t.siegeModeTurnsLeft > 0) dmg = Math.round(dmg * (t.siegeMult || 1.5));
+    if(teamDmgBuffTurns > 0) dmg = Math.round(dmg * teamDmgBuffMult); // Raider's Warcry
+    if(bossExposedTurns > 0) dmg = Math.round(dmg * bossExposedMult); // Sniper's Expose
+    const atkAura = marshalAura();
+    if(atkAura > 0) dmg = Math.round(dmg * (1 + atkAura)); // Marshal's Chain of Command
+    t.firedThisTurn = true;
+    sfxAttack(t.type, t.siegeModeTurnsLeft > 0);
+    render();
+    animateProjectileToBoss(t.r, t.c, TANK_PROJECTILE_COLOR[t.type], () => {
+      hitBoss(dmg, t);
+      boss.turnsSinceDamage = 0;
+      if(t.runes && t.runes.leech > 0 && t.alive){
+        const ceiling = Math.round(t.maxHp * LEECH_MAX_PER_HIT);
+        const drained = Math.min(Math.round(dmg * t.runes.leech), ceiling, t.maxHp - t.hp);
+        if(drained > 0){ t.hp += drained; fxFloatText(t.r, t.c, '+' + drained, '#7CF9C0'); }
+      }
+      fxFlashBossHit();
+      triggerBoardShake(0.2);
+      const costTag = '<span class="mono" style="font-size:0.55em;color:var(--muted);"> (&minus;' + t.attackCost + ' MP)</span>';
+      showAction('YOUR ' + t.name.toUpperCase() + ' HITS THE BOSS FOR ' + dmg + '!' + costTag, 'a-dmg');
+      log('Your ' + t.name + ' hits the boss for ' + dmg + '.');
+      checkBossDefeated();
+      render();
+    });
+  }
+
+  function castRepair(healer, target){
+    const sk = healer.skill;
+    skillMode = null;
+    if(healer.skillUsed || playerMana < sk.cost){ render(); return; }
+    playerMana -= sk.cost;
+    healer.skillUsed = true;
+    const healed = Math.min(Math.round(500 * skillPower(healer)), target.maxHp - target.hp);
+    target.hp += healed;
+    target.wardTurnsLeft = 2;
+    target.wardMult = Math.max(0.4, 1 - 0.15 * skillPower(healer));
+    sfxRepair();
+    fxFloatText(target.r, target.c, '+' + healed, '#34D399');
+    showAction('YOUR ' + healer.name.toUpperCase() + ' REPAIRS ' + target.name.toUpperCase() + ' (+' + healed + ')', 'a-heal');
+    log('Your ' + healer.name + ' repairs ' + target.name + ' for ' + healed + ' and cuts its incoming damage by ' +
+        Math.round((1 - target.wardMult) * 100) + '% for 2 turns.');
+    render();
+  }
+
+  function quickSkill(uid){
+    if(turn !== 'player' || gameOver) return;
+    const t = playerTanks.find(x => x.uid === uid && x.alive);
+    if(!t) return;
+    const sk = t.skill;
+    if(!sk) return;          // the Marshal fights with its aura, not a button
+    if(t.skillUsed) return;
+    if(playerMana < sk.cost){ sfxInsufficientMana(); return; }
+
+    if(sk.key === 'poison'){
+      playerMana -= sk.cost; t.skillUsed = true; t.firedAt = performance.now();
+      boss.poisonStacks++;
+      boss.poisonRate += POISON_TICK_RATE * skillPower(t);
+      sfxPoison();
+      render();
+      animateProjectileToBoss(t.r, t.c, '#34D399', () => {
+        showAction('YOUR ' + t.name.toUpperCase() + ' APPLIES ACID POISON (x' + boss.poisonStacks + ')', 'a-dmg');
+        log('Your ' + t.name + ' applies acid poison — ' + boss.poisonStacks + ' stack(s) now.');
+        render();
+      });
+    } else if(sk.key === 'railgun'){
+      playerMana -= sk.cost; t.skillUsed = true; t.firedAt = performance.now();
+      sfxRailgun();
+      render();
+      animateProjectileToBoss(t.r, t.c, '#FFB627', () => {
+        let rgDmg = Math.round(500 * skillPower(t));
+        if(bossExposedTurns > 0) rgDmg = Math.round(rgDmg * bossExposedMult);
+        const rgAura = marshalAura();
+        if(rgAura > 0) rgDmg = Math.round(rgDmg * (1 + rgAura));
+        hitBoss(rgDmg, t); boss.turnsSinceDamage = 0;
+        fxFlashBossHit(); triggerBoardShake(0.35);
+        showAction('YOUR ' + t.name.toUpperCase() + ' FIRES THE RAILGUN FOR ' + rgDmg + '!', 'a-dmg');
+        log('Your ' + t.name + ' railgun hits the boss for ' + rgDmg + '.');
+        checkBossDefeated();
+        render();
+      });
+    } else if(sk.key === 'siegemode'){
+      playerMana -= sk.cost; t.skillUsed = true;
+      t.siegeModeTurnsLeft = 3;
+      t.siegeMult = 1 + 0.5 * skillPower(t);
+      sfxSiege();
+      const siegePct = Math.round((t.siegeMult - 1) * 100);
+      showAction('YOUR ' + t.name.toUpperCase() + ' ENTERS SIEGE MODE (+' + siegePct + '%)', 'a-warn');
+      log('Your ' + t.name + ' braces into siege mode (+' + siegePct + '% damage, 3 turns).');
+      render();
+    } else if(sk.key === 'shieldall'){
+      playerMana -= sk.cost; t.skillUsed = true;
+      sfxShield();
+      const shieldAmt = Math.round(200 * skillPower(t));
+      playerTanks.forEach(a => { if(a.alive) a.shield = shieldAmt; });
+      showAction('YOUR ' + t.name.toUpperCase() + ' SHIELDS THE SQUAD (' + shieldAmt + ')', 'a-heal');
+      log('Your ' + t.name + ' shields every ally for ' + shieldAmt + ' damage.');
+      render();
+    } else if(sk.key === 'repair'){
+      // Arm targeting instead of firing — the player taps the ally to heal.
+      skillMode = (skillMode && skillMode.uid === t.uid) ? null : { uid:t.uid, key:'repair' };
+      selectedTankId = t.uid;
+      document.getElementById('action-hint').textContent = skillMode
+        ? 'Repair Pulse — tap any ally tank to heal it (tap the skill again to cancel).'
+        : 'Select one of your tanks to move or act.';
+      render();
+    } else if(sk.key === 'expose'){
+      playerMana -= sk.cost; t.skillUsed = true;
+      bossExposedTurns = 2;
+      bossExposedMult = 1 + 0.25 * skillPower(t);
+      sfxExpose();
+      const expPct = Math.round((bossExposedMult - 1) * 100);
+      showAction('YOUR ' + t.name.toUpperCase() + ' EXPOSES THE BOSS (+' + expPct + '% DAMAGE TAKEN)', 'a-warn');
+      log('Your ' + t.name + ' marks the boss — it takes +' + expPct + '% damage for 2 turns.');
+      render();
+    } else if(sk.key === 'decoy'){
+      playerMana -= sk.cost; t.skillUsed = true;
+      const decoys = tankLevel(t.type) >= 5 ? 2 : 1;   // the Lv5 perk for a tank with no numbers to scale
+      squadDecoyCharges += decoys;
+      sfxDecoy();
+      showAction('YOUR ' + t.name.toUpperCase() + ' DEPLOYS A DECOY' + (decoys > 1 ? ' ×2' : ''), 'a-heal');
+      log('Your ' + t.name + ' deploys ' + (decoys > 1 ? 'two decoys' : 'a decoy') + ' — the next ' +
+          (decoys > 1 ? 'two boss attacks are' : 'boss attack is') + ' absorbed.');
+      render();
+    } else if(sk.key === 'warcry'){
+      playerMana -= sk.cost; t.skillUsed = true;
+      teamDmgBuffTurns = 3;
+      teamDmgBuffMult = 1 + 0.2 * skillPower(t);
+      sfxWarcry();
+      const cryPct = Math.round((teamDmgBuffMult - 1) * 100);
+      showAction('YOUR ' + t.name.toUpperCase() + ' SOUNDS THE WARCRY (+' + cryPct + '% SQUAD DAMAGE)', 'a-warn');
+      log('Your ' + t.name + ' rallies the squad — +' + cryPct + '% damage for 3 turns.');
+      render();
+    }
+  }
+
+  // ---------- Rendering ----------
+  // Small stacked chips so a tank's restrictions read at a glance on the board.
+  function statusBadges(t){
+    const b = [];
+    if(t.siegeModeTurnsLeft > 0) b.push('<div class="sb siege">⚡' + t.siegeModeTurnsLeft + '</div>');
+    if(t.wardTurnsLeft > 0)      b.push('<div class="sb ward">✚' + t.wardTurnsLeft + '</div>');
+    if(t.type === 'sniper' && t.firedThisTurn) b.push('<div class="sb root">🔒</div>');
+    return b.length ? '<div class="status-badges">' + b.join('') + '</div>' : '';
+  }
+
+  function manaCrystals(mana, max){
+    let html = '';
+    for(let i=0;i<max;i++) html += '<div class="mana-crystal' + (i<mana?' filled':'') + '"></div>';
+    html += '<span class="mana-label">' + mana + '/' + max + '</span>';
+    return html;
+  }
+
+  function render(){
+    // boss banner
+    const pct = Math.max(0, boss.hp / boss.maxHp * 100);
+    document.getElementById('boss-hp-fill').style.width = pct + '%';
+    document.getElementById('boss-hp-text').textContent = formatHp(Math.max(0,boss.hp)) + ' / ' + formatHp(boss.maxHp);
+    document.getElementById('boss-phase-tag').textContent = 'Phase ' + phase;
+
+    const exposedTag = document.getElementById('boss-exposed-tag');
+    exposedTag.style.display = bossExposedTurns > 0 ? 'inline-block' : 'none';
+    exposedTag.textContent = '◎ EXPOSED +' + Math.round((bossExposedMult - 1) * 100) + '% (' + bossExposedTurns + ')';
+
+    const chips = [];
+    if(teamDmgBuffTurns > 0) chips.push('<span class="buff-chip warcry">⚔ Warcry +' + Math.round((teamDmgBuffMult - 1) * 100) + '% · ' + teamDmgBuffTurns + ' turn' + (teamDmgBuffTurns > 1 ? 's' : '') + '</span>');
+    if(bossExposedTurns > 0) chips.push('<span class="buff-chip expose">◎ Exposed +' + Math.round((bossExposedMult - 1) * 100) + '% · ' + bossExposedTurns + ' turn' + (bossExposedTurns > 1 ? 's' : '') + '</span>');
+    if(squadDecoyCharges > 0) chips.push('<span class="buff-chip decoy">◆ Decoy ready' + (squadDecoyCharges > 1 ? ' ×' + squadDecoyCharges : '') + '</span>');
+    const gone = collapsedCount();
+    if(gone > 0) chips.push('<span class="buff-chip decoy">✖ ' + gone + ' tile' + (gone > 1 ? 's' : '') + ' collapsed</span>');
+    const auraPct = Math.round(marshalAura() * 100);
+    if(auraPct > 0)          chips.push('<span class="buff-chip warcry">★ Chain of Command +' + auraPct + '% damage</span>');
+    document.getElementById('squad-buffs').innerHTML = chips.join('');
+    document.getElementById('boss-turn-count').textContent = 'Turn ' + Math.min(turnCount, DEFEAT_TURN_LIMIT);
+
+    // "next attacks" preview list — shows the queued batches in order
+
+    const warningMap = buildTileWarningMap();
+    const imminentBatch = telegraphQueue[0] || [];
+    const hasFullMap = imminentBatch.some(p => p.type === 'full');
+    document.getElementById('board').classList.toggle('full-incoming', hasFullMap);
+    const selected = selectedTankId ? playerTanks.find(t => t.uid === selectedTankId) : null;
+
+    // board
+    const boardEl = document.getElementById('board');
+    let html = '';
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        // Outside the arena: draw nothing at all, so the shape reads as a
+        // silhouette rather than as a grid with some dead squares in it.
+        if(isMaw(r, c)){
+          // the creature itself, nine tiles of it, drawn as one slab
+          const edge = (r === MAW_R0 ? ' maw-top' : '') + (r === MAW_R1 ? ' maw-bottom' : '')
+                     + (c === MAW_C0 ? ' maw-left' : '') + (c === MAW_C1 ? ' maw-right' : '');
+          const eye = (r === MAW_R0 + 1 && c === MAW_C0 + 1) ? '<i class="maw-eye"></i>' : '';
+          html += '<div class="tile maw' + edge + '">' + eye + '</div>';
+          continue;
+        }
+        if(isVoid(r, c)){ html += '<div class="tile terrain-void"></div>'; continue; }
+
+        let cls = 'tile';
+        const ter = terrainAt(r, c);
+        if(ter) cls += ' terrain-' + ter.type + (ter.dx > 0 ? ' conv-right' : ter.dx < 0 ? ' conv-left' : '');
+        const occ = board[r][c].occupant;
+        let tileStyle = '';
+        const patternsHere = (warningMap.get(r+'_'+c) || []).filter(t => t !== 'full');
+        if(patternsHere.length > 0){
+          cls += ' telegraph';
+          const colors = patternsHere.map(t => PATTERNS[t].color);
+          if(colors.length === 1){
+            tileStyle = 'box-shadow:inset 0 0 0 3px ' + colors[0] + ', 0 0 10px ' + colors[0] + 'aa; background:' + colors[0] + '33 !important;';
+          } else {
+            const stops = colors.map((col, i) => col + ' ' + (i*100/colors.length) + '% ' + ((i+1)*100/colors.length) + '%').join(', ');
+            tileStyle = 'background:linear-gradient(135deg, ' + stops + ') !important; box-shadow:inset 0 0 0 3px rgba(255,255,255,0.6);';
+          }
+        }
+        let content = '';
+        if(occ){
+          const siegeCls = occ.siegeModeTurnsLeft > 0 ? ' siege-active' : '';
+          content = '<div class="tank-sprite-wrap size-' + occ.type + siegeCls + '"><img src="' + occ.img + '" alt=""></div>' +
+            '<div class="hp-num">' + formatHp(occ.hp) + '</div>' +
+            (occ.shield > 0 ? '<div class="shield-badge">🛡</div>' : '') +
+            statusBadges(occ) +
+            '<div class="hp-mini"><div class="hp-mini-fill" style="width:' + Math.max(0,(occ.hp/occ.maxHp*100)) + '%;"></div></div>';
+          if(occ.uid === selectedTankId) cls += ' selected-tank';
+          if(skillMode && skillMode.key === 'repair' && occ.alive) cls += ' skill-target';
+        }
+        // while a skill is picking a target, movement tiles would only confuse the board
+        if(selected && !occ && !skillMode && !(selected.type === 'sniper' && selected.firedThisTurn)){
+          const dist = Math.abs(selected.r-r) + Math.abs(selected.c-c);
+          if(dist >= 1 && dist <= (selected.moveRange || 1) && playerMana >= selected.moveCost && selected.siegeModeTurnsLeft === 0 && !blocksMove(r, c)){
+            cls += ' move-target';
+            content += '<div class="cost-badge">' + selected.moveCost + '</div>';
+          }
+        }
+        const onclick = (turn==='player' && !gameOver) ? 'onclick="tileClick('+r+','+c+')"' : '';
+        // Gravemaw's two additions ride on top of whatever the tile already is:
+        // rot is a class so terrain and telegraphs still show through it, and a
+        // node is an overlay with its own health bar.
+        if(isCorrupt(r, c)) cls += ' corrupt';
+        const nd = nodeAt(r, c);
+        let nodeHtml = '';
+        if(nd){
+          const alive = nd.hp > 0;
+          nodeHtml = '<i class="node' + (alive ? '' : ' node-dead') + '">'
+            + (alive ? '<b style="height:' + Math.round(nd.hp / nd.maxHp * 100) + '%"></b>'
+                     : '<u>' + nd.respawn + '</u>')
+            + '</i>';
+          cls += alive ? ' has-node' : ' has-node-dead';
+        }
+        html += '<div class="' + cls + '" style="' + tileStyle + '" data-r="' + r + '" data-c="' + c + '" ' + onclick + '>' + nodeHtml + content + '</div>';
+      }
+    }
+    boardEl.innerHTML = html;
+
+    // roster
+    document.getElementById('player-roster').innerHTML = playerTanks.map(t => {
+      const deadCls = t.alive ? '' : ' dead';
+      const selCls = (selectedTankId === t.uid) ? ' selected' : '';
+      const onclick = t.alive ? 'onclick="selectTank(\'' + t.uid + '\')"' : '';
+      const shieldTag = (t.shield > 0 ? '<div class="shield-tag">🛡 ' + t.shield + '</div>' : '') +
+        (t.wardTurnsLeft > 0 ? '<div class="shield-tag" style="color:var(--green);">✚ x' + t.wardTurnsLeft + '</div>' : '');
+      const siegeTag = (t.siegeModeTurnsLeft > 0 ? '<div class="siege-tag">⚡x' + t.siegeModeTurnsLeft + '</div>' : '') +
+        (t.type === 'sniper' && t.firedThisTurn ? '<div class="root-tag">🔒 Rooted</div>' : '');
+
+      const canAct = t.alive && turn === 'player' && !gameOver;
+      const atkDisabled = !canAct || playerMana < t.attackCost;
+      const lvlTag = t.level > 1 ? '<div class="lv-tag">Lv' + t.level + '</div>' : '';
+
+      const rb = t.runes || {};
+      const pct = v => Math.round(v * 100) + '%';
+      const stats = ['<span class="rs-hp">\u2665' + formatHp(t.maxHp) + '</span>',
+                     '<span class="rs-atk">\u2694' + t.atk + '</span>'];
+      if(rb.dr > 0)    stats.push('<span class="rs-dr" title="Damage taken">\u26E8' + pct(rb.dr) + '</span>');
+      if(rb.skill > 0) stats.push('<span class="rs-sk" title="Skill power">\u2726' + pct(rb.skill) + '</span>');
+      if(rb.leech > 0) stats.push('<span class="rs-ls" title="Lifesteal">\u2695' + pct(rb.leech) + '</span>');
+      if(rb.regen > 0) stats.push('<span class="rs-rg" title="Regen per turn">\u267A' + rb.regen + '</span>');
+      const statStrip = '<div class="rune-stats">' + stats.join('') + '</div>';
+      const statTitle = t.name + (t.level > 1 ? ' Lv' + t.level : '') +
+        ' \u2014 ' + formatHp(t.maxHp) + ' HP, ' + t.atk + ' damage' +
+        (rb.skill > 0 ? ', +' + pct(rb.skill) + ' skill power' : '') +
+        (rb.dr > 0    ? ', ' + pct(rb.dr) + ' less damage taken' : '') +
+        (rb.leech > 0 ? ', ' + pct(rb.leech) + ' lifesteal' : '') +
+        (rb.regen > 0 ? ', +' + rb.regen + ' HP per turn' : '');
+
+      // The Marshal has no skill button — its slot shows the aura instead.
+      const skillBtn = t.skill
+        ? '<button class="qa-btn qa-skill" ' + ((!canAct || t.skillUsed || playerMana < t.skill.cost || isCorrupt(t.r, t.c)) ? 'disabled' : '') +
+          ' onclick="event.stopPropagation(); quickSkill(\'' + t.uid + '\')" title="' + t.skill.name + ' — ' + t.skill.desc + '">' +
+          (t.skillUsed ? '✓' : '✦') + '<span>' + (t.skillUsed ? 'used' : t.skill.cost) + '</span></button>'
+        : '<div class="qa-btn qa-passive" title="' + t.passive.name + ' — ' + t.passive.desc + '">★<span>+' +
+          Math.round(MARSHAL_AURA * skillPower(t) * 100) + '%</span></div>';
+      const btnTitle = t.skill ? t.skill.name : t.passive.name;
+
+      return '<div class="roster-tank' + deadCls + selCls + '" title="' + statTitle + '" ' + onclick + '>' +
+        lvlTag +
+        '<img class="size-' + t.type + ' ' + (t.siegeModeTurnsLeft > 0 ? 'siege-active' : '') + '" src="' + t.img + '" alt="">' +
+        '<div class="name">' + t.name + '</div>' +
+        shieldTag + siegeTag +
+        '<div class="hpbar"><div class="hpbar-fill" style="width:' + Math.max(0,(t.hp/t.maxHp*100)) + '%;"></div></div>' +
+        statStrip +
+        '<div class="costs">Move ' + t.moveCost + ' MP</div>' +
+        '<div class="tank-quick-actions">' +
+          '<button class="qa-btn qa-atk" ' + (atkDisabled?'disabled':'') + ' onclick="event.stopPropagation(); quickAttack(\'' + t.uid + '\')" title="' + btnTitle + '">⚔<span>' + t.attackCost + '</span></button>' +
+          skillBtn +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    document.getElementById('mana-row').innerHTML = manaCrystals(playerMana, playerMaxMana);
+    document.getElementById('end-turn-btn').disabled = (turn !== 'player' || gameOver);
+
+    // action buttons
+    const fullMapWarning = hasFullMap ? '<div style="color:var(--amber); font-weight:800; margin-bottom:2px;">⚠ FULL-MAP ATTACK INCOMING — everyone takes damage</div>' : '';
+    if(skillMode && turn === 'player' && !gameOver){
+      // a skill is aiming — say so, rather than telling them to move
+      document.getElementById('action-hint').innerHTML = fullMapWarning +
+        '<b style="color:var(--green);">Repair Pulse</b> — tap any ally tank to heal it ' +
+        '<span class="mono" style="color:var(--muted);">(tap the skill again to cancel)</span>';
+    } else if(selected && turn === 'player' && !gameOver){
+      document.getElementById('action-hint').innerHTML = fullMapWarning +
+        '<b style="color:var(--amber);">' + selected.name + '</b> selected — click an adjacent tile to move (' + selected.moveCost + ' MP) ' +
+        '<span class="mono" style="color:var(--muted);">(you have ' + playerMana + ' MP)</span>';
+    } else if(turn === 'player' && !gameOver){
+      document.getElementById('action-hint').innerHTML = fullMapWarning + 'Tap a tank to move it, or use its Attack/Skill buttons below.';
+    }
+
+    applyTankMotion();
+  }
+
+  // ---------- Game over ----------
+  function finishGame(result){
+    if(gameOver) return;
+    gameOver = true;
+    stopBgAmbience();
+
+    if(result === 'win') sfxVictory(); else sfxDefeat();
+
+    const aliveCount = playerTanks.filter(t => t.alive).length;
+    if(result === 'win'){
+      document.getElementById('over-eyebrow').textContent = 'GRAVEMAW SLAIN!';
+      document.getElementById('over-eyebrow').style.color = 'var(--green)';
+      document.getElementById('battle-summary').textContent = 'Gravemaw destroyed with ' + aliveCount + ' tank(s) still standing, in ' + Math.min(turnCount, DEFEAT_TURN_LIMIT) + ' turns.';
+    } else {
+      document.getElementById('over-eyebrow').textContent = 'Defeat';
+      document.getElementById('over-eyebrow').style.color = 'var(--red)';
+      document.getElementById('battle-summary').textContent = 'Your squad fell short. Boss HP remaining: ' + formatHp(Math.max(0,boss.hp)) + ' / ' + formatHp(boss.maxHp) + '.';
+    }
+
+    document.getElementById('submit-msg').textContent = 'Awarding rewards...';
+    document.getElementById('over-overlay').classList.remove('hidden');
+    awardRewards(result);
+  }
+
+  async function awardRewards(result){
+    const msg = document.getElementById('submit-msg');
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      msg.className = 'submit-msg error';
+      msg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to earn XP, coins, and tokens from this fight.';
+      return;
+    }
+    const { data: res, error } = await sb.rpc('game_finish_run', {
+      p_game: GAME_ID, p_win: result === 'win', p_token: runToken
+    });
+
+    if(error || !res || !res.ok){
+      msg.className = 'submit-msg error';
+      msg.textContent = 'Could not record your rewards this time.';
+    } else {
+      const drops = Array.isArray(res.runes) ? res.runes : [];
+      const netTokens = res.tokens - ENTRY_FEE_TOKENS;
+      const netTag = (netTokens >= 0 ? '+' : '') + netTokens +
+        ' net tokens (paid ' + ENTRY_FEE_TOKENS + ', earned ' + res.tokens + ')';
+      const runeLine = drops.length
+        ? ' 🔮 Runes found: ' + drops.map(id => (RUNES[id] || {}).name || id).join(' + ') + '!'
+        : '';
+      const clearTag = result === 'win'
+        ? (res.first_clear ? '<b style="color:var(--green);">\u2605 FIRST CLEAR</b> \u2014 full purse. '
+                           : '<b style="color:var(--muted);">Repeat clear</b> \u2014 reduced purse. ')
+        : '';
+      msg.className = 'submit-msg success';
+      msg.innerHTML = clearTag + '+' + res.xp + ' XP, +' + res.coins + ' coins, ' + netTag +
+        (res.leveled_up ? ' — LEVEL UP to ' + res.new_level + '!' : '') + runeLine;
+    }
+  }
+
+
+  // ---------- What this run pays ----------
+  // Read from boss_floor_table(), the same functions game_finish_run pays out
+  // through, so this panel cannot promise something the payout will not honour.
+  async function renderPayNote(alreadyCleared){
+    const el = document.getElementById('pay-note');
+    if(!el) return;
+    // Gravemaw is not in boss_floor_table -- it is not a floor. Its purse comes
+    // from arc_special_rewards, read here so the panel cannot promise anything
+    // the payout will not honour.
+    let first = null, again = null;
+    try{
+      const a = await sb.rpc('arc_special_rewards', { p_win: true, p_first: true });
+      const b = await sb.rpc('arc_special_rewards', { p_win: true, p_first: false });
+      first = a.data; again = b.data;
+    } catch(e){}
+    if(!first || !again){ el.style.display = 'none'; return; }
+
+    const money = p => '<b class="tok">+' + p.tokens + ' ⚔</b> and <b class="coin">+' + p.coins +
+                       ' \u{1FA99}</b> <b>+' + p.xp + ' XP</b>';
+    el.className = alreadyCleared ? '' : 'first';
+    el.innerHTML = alreadyCleared
+      ? '<div class="hd">Already slain — this is a rune run</div>' +
+        'Killing it again pays ' + money(again) + ', against an entry of <b class="tok">' +
+        ENTRY_FEE_TOKENS + ' ⚔</b>. That is <b>' + (again.tokens - ENTRY_FEE_TOKENS) +
+        '</b> tokens on the run: you are here for the drops.' +
+        '<div class="odds"><span>2 runes on a kill, rolled at Floor 15 odds</span></div>'
+      : '<div class="hd">★ First kill — full purse</div>' +
+        'Bringing Gravemaw down for the first time pays ' + money(first) +
+        ' and a <b style="color:#FFD9A0;">guaranteed Legendary or Mythic rune</b>. ' +
+        'After that it drops to ' + money(again) + ' per kill.' +
+        '<div class="odds"><span>Entry <b class="tok">' + ENTRY_FEE_TOKENS + ' ⚔</b> · tower progress is untouched</span></div>';
+  }
+
+  // ---------- Shop ----------
+  let ownedTanks = [];
+
+  function renderShop(tokens){
+    document.getElementById('shop-token-balance').textContent = tokens.toLocaleString();
+    const grid = document.getElementById('shop-grid');
+    grid.innerHTML = TYPE_ORDER.map(key => {
+      const def = BOSS_TANK_TYPES[key];
+      const owned = ownedTanks.includes(key);
+      const canAfford = tokens >= def.price;
+      let btnHtml;
+      if(owned) btnHtml = '<button disabled>✓ Owned</button>';
+      else if(canAfford) btnHtml = '<button onclick="buyTank(\'' + key + '\')">Buy — ' + def.price + ' ⚔</button>';
+      else btnHtml = '<button class="cant-afford" disabled>Need ' + def.price + ' ⚔</button>';
+      return '<div class="shop-card' + (owned?' owned':'') + '">' +
+        '<div class="tank-img-box"><img class="size-' + key + '" src="' + def.img + '" alt=""></div>' +
+        '<div class="name">' + def.name + '</div>' +
+        '<div class="role">' + ROLE_TEXT[key] + '</div>' +
+        '<div class="price">' + (owned ? 'Owned' : def.price + ' Battle Tokens') + '</div>' +
+        btnHtml +
+      '</div>';
+    }).join('');
+  }
+
+  async function buyTank(key){
+    const shopMsg = document.getElementById('shop-msg');
+    shopMsg.className = 'submit-msg'; shopMsg.textContent = '';
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      shopMsg.className = 'submit-msg error';
+      shopMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to purchase boss tanks.';
+      return;
+    }
+    // The server owns the price and the balance check now.
+    const { data: buyRes, error: buyErr } = await sb.rpc('buy_tank', { p_tank: key });
+    if(buyErr || !buyRes || !buyRes.ok){
+      const why = buyRes && buyRes.error;
+      shopMsg.className = 'submit-msg error';
+      shopMsg.textContent = why === 'not enough tokens'
+        ? 'Not enough Battle Tokens for ' + BOSS_TANK_TYPES[key].name + '.'
+        : why === 'already owned' ? '' : 'Purchase failed — please try again.';
+      return;
+    }
+    const newTokens = buyRes.tokens;
+    ownedTanks = buyRes.owned || [];
+    shopMsg.className = 'submit-msg success';
+    shopMsg.textContent = BOSS_TANK_TYPES[key].name + ' acquired!';
+    renderShop(newTokens);
+    if(ownedTanks.length >= SQUAD_SIZE){
+      setTimeout(() => {
+        document.getElementById('shop-overlay').classList.add('hidden');
+        document.getElementById('start-overlay').classList.remove('hidden');
+      }, 700);
+    }
+  }
+
+  async function initPage(){
+    const feeLabel = document.getElementById('entry-fee-label');
+    if(feeLabel) feeLabel.textContent = ENTRY_FEE_TOKENS + ' Battle Tokens';
+    document.getElementById('boss-portrait').src = 'data:image/svg+xml;utf8,' + encodeURIComponent(bossSvg());
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      window.location.href = 'game-boss-battle.html';
+      return;
+    }
+    const user = sessionData.session.user;
+    const { data: profile, error } = await sb.from('profiles').select('boss_tanks_owned,boss_tower_floor').eq('user_id', user.id).maybeSingle();
+    if(error) console.error('profile fetch error', error);
+    ownedTanks = profile ? (profile.boss_tanks_owned || []) : [];
+    const clearedFloor = profile ? (profile.boss_tower_floor || 0) : 0;
+    // The same two conditions the server enforces, mirrored here only so the
+    // button can say why instead of failing after the click.
+    const gateMsg = ownedTanks.length < SQUAD_SIZE
+      ? 'You need any 4 tanks before facing Gravemaw.'
+      : clearedFloor < 10 ? 'Clear Floor 10 of the tower first — you are on Floor ' + clearedFloor + '.'
+      : null;
+    if(gateMsg){
+      const em = document.getElementById('entry-msg');
+      if(em){ em.className = 'submit-msg error';
+              em.innerHTML = gateMsg + ' <a href="game-boss-battle.html" class="link-text">Back to the tower</a>.'; }
+      const db = document.getElementById('deploy-btn');
+      if(db){ db.disabled = true; db.textContent = 'Locked'; }
+    }
+    const TESTING_UNLOCK_ALL = false; // set to false to re-enable normal sequential floor gating
+    if(ownedTanks.length < SQUAD_SIZE || (!TESTING_UNLOCK_ALL && clearedFloor < 14)){
+      window.location.href = 'game-boss-battle.html';
+      return;
+    }
+    renderPayNote(clearedFloor >= FLOOR_NUM);
+    document.getElementById('start-overlay').classList.remove('hidden');
+  }
+
+  function bossSvg(){
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">' +
+      '<path d="M60 6 L74 34 L104 30 L88 56 L110 78 L80 84 L74 114 L60 96 L46 114 L40 84 L10 78 L32 56 L16 30 L46 34 Z" fill="#1A1408" stroke="#FFD700" stroke-width="2.4"/>' +
+      '<g fill="#FFD700">' +
+        '<path d="M60 10 L66 30 L54 30 Z"/><path d="M96 34 L92 52 L82 42 Z"/><path d="M24 34 L28 52 L38 42 Z"/>' +
+      '</g>' +
+      '<circle cx="60" cy="60" r="24" fill="none" stroke="#FFD700" stroke-width="1.6" opacity="0.5">' +
+        '<animate attributeName="r" values="20;30;20" dur="3.4s" repeatCount="indefinite"/>' +
+        '<animate attributeName="opacity" values="0.6;0;0.6" dur="3.4s" repeatCount="indefinite"/>' +
+      '</circle>' +
+      '<circle cx="60" cy="60" r="19" fill="#07060B" stroke="#FFD700" stroke-width="2.2"/>' +
+      '<circle cx="60" cy="60" r="11" fill="#0B0912"/>' +
+      '<circle cx="60" cy="60" r="5" fill="#FF5CB6">' +
+        '<animate attributeName="r" values="3.5;7;3.5" dur="1.2s" repeatCount="indefinite"/>' +
+        '<animate attributeName="opacity" values="0.8;1;0.8" dur="1.2s" repeatCount="indefinite"/>' +
+      '</circle>' +
+      '<circle cx="47" cy="48" r="2.4" fill="#FFF3D0"><animate attributeName="opacity" values="1;0.15;1" dur="1.5s" repeatCount="indefinite"/></circle>' +
+      '<circle cx="73" cy="48" r="2.4" fill="#FFF3D0"><animate attributeName="opacity" values="1;0.15;1" dur="1.5s" begin="0.5s" repeatCount="indefinite"/></circle>' +
+    '</svg>';
+  }
+
+  const ENTRY_FEE_TOKENS = 250;
+
+  async function startGame(){
+    const entryMsg = document.getElementById('entry-msg');
+    const deployBtn = document.getElementById('deploy-btn');
+    entryMsg.className = 'submit-msg'; entryMsg.textContent = '';
+    deployBtn.disabled = true; deployBtn.textContent = 'Checking Battle Tokens...';
+
+    const { data: sessionData } = await sb.auth.getSession();
+    if(!sessionData.session){
+      entryMsg.className = 'submit-msg error';
+      entryMsg.innerHTML = '<a href="auth.html" class="link-text">Log in</a> to enter — this floor requires ' + ENTRY_FEE_TOKENS + ' Battle Tokens.';
+      deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad';
+      return;
+    }
+    const { data: startRes, error: startErr } = await sb.rpc('game_start_run', { p_game: GAME_ID });
+    if(startErr || !startRes || !startRes.ok){
+      const why = startRes && startRes.error;
+      entryMsg.className = 'submit-msg error';
+      entryMsg.innerHTML =
+        why === 'not enough tokens' ? 'Not enough Battle Tokens (you have ' + startRes.tokens + ', need ' + startRes.need + ').'
+      : why === 'need 4 tanks'      ? 'You need any 4 tanks before facing Gravemaw. <a href="game-boss-battle.html" class="link-text">Open the armory</a>.'
+      : why === 'need floor 10'     ? 'Gravemaw only answers a squad that has cleared Floor 10. You are on Floor ' + (startRes.cleared_floor || 0) + '.'
+      : 'Could not begin the hunt — please try again.';
+      deployBtn.disabled = false;
+      deployBtn.textContent = 'Deploy Squad';
+      return;
+    }
+    runToken = startRes.token;
+    TANK_LEVELS = startRes.tank_levels || {};
+    if(startRes.tank_runes) EQUIPPED_RUNES = sanitiseRunes(startRes.tank_runes);
+
+    deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad';
+    document.getElementById('start-overlay').classList.add('hidden');
+    document.getElementById('over-overlay').classList.add('hidden');
+    resetGame();
+    startBgAmbience();
+    sfxGameStart();
+  }
+
+  const BACKDROP_MOTES = { n:48, color:'#FFD700', anim:'twinkle', lo:1, hi:3, dmin:4, dmax:11, o:0.75 };
+
+  // ---------- Backdrop ----------
+  // Particles are built once and left to CSS. Randomised delays mean the field
+  // never visibly loops, and every value is inline so one shared stylesheet
+  // serves whatever theme this floor picked.
+  function buildBackdrop(){
+    const host = document.getElementById('bd-motes');
+    if(!host || !BACKDROP_MOTES) return;
+    const m = BACKDROP_MOTES;
+    const rand = (a, b) => a + Math.random() * (b - a);
+    let html = '';
+    for(let i = 0; i < m.n; i++){
+      const size = rand(m.lo, m.hi).toFixed(1);
+      const dur = rand(m.dmin, m.dmax).toFixed(1);
+      const delay = (-Math.random() * dur).toFixed(1);
+      let pos;
+      if(m.anim === 'rise')       pos = 'left:' + rand(0, 100).toFixed(1) + '%; top:100%;';
+      else if(m.anim === 'fall')  pos = 'left:' + rand(0, 100).toFixed(1) + '%; top:-4%;';
+      else if(m.anim === 'swirl') pos = '--r:' + rand(60, 320).toFixed(0) + 'px;';
+      else                        pos = 'left:' + rand(0, 100).toFixed(1) + '%; top:' + rand(0, 100).toFixed(1) + '%;';
+      const wob = m.anim === 'float'
+        ? '--dx:' + rand(-26, 26).toFixed(0) + 'px; --dy:' + rand(-34, -8).toFixed(0) + 'px;'
+        : '';
+      html += '<i class="bd-mote ' + m.anim + '" style="' + pos + wob +
+        'width:' + size + 'px; height:' + size + 'px; background:' + m.color +
+        '; box-shadow:0 0 ' + (size * 3).toFixed(1) + 'px ' + m.color +
+        '; --o:' + m.o + '; animation:bd-' + m.anim + ' ' + dur + 's linear ' + delay + 's infinite;"></i>';
+    }
+    host.innerHTML = html;
+  }
+  buildBackdrop();
+
+  // Nothing else redraws the board while the player is thinking, so the idle
+  // motion needs its own slow pulse to stay alive between actions.
+  setInterval(() => { if(turn === 'player' && !gameOver) applyTankMotion(); }, 900);
+
+  initPage();
+</script>
+  <!-- Vercel Web Analytics. Cookieless and per-visit, so it needs no consent
+       banner; it also does nothing until the project has it switched on. -->
+  <script defer src="/_vercel/insights/script.js"></script>
+</body>
+</html>

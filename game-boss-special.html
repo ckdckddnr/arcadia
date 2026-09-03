@@ -108,7 +108,15 @@
     background:radial-gradient(ellipse at center, rgba(255,92,92,0.05) 0%, transparent 65%);
   }
   #board{
-    display:grid; grid-template-columns:repeat(9, minmax(28px,42px)); grid-template-rows:repeat(7, minmax(28px,42px));
+    display:grid; grid-template-columns:repeat(9, 1fr); grid-template-rows:repeat(7, 1fr);
+    /* Fixed tile sizes had to be guessed against a flex container and were
+       wrong twice: too small at 42px, overflowing both axes at 54. The board
+       now takes the largest 9:7 rectangle the wrapper allows and the tiles
+       fall out of that, so it fits whatever height the layout gives it. */
+    aspect-ratio:9 / 7; width:100%; height:auto; max-height:100%; margin:auto;
+    /* height:100% used to win over aspect-ratio and max-width then clamped the
+       width independently, which squashed the tiles into tall rectangles on a
+       phone. Letting height derive from the ratio keeps them square. */
     /* 42px is the largest tile that keeps seven rows inside .board-wrap;
        at the floor-15 size of 58px the board overflowed and clipped. */
     gap:3px; background:linear-gradient(160deg, rgba(26,31,44,0.80), rgba(18,22,31,0.86)); padding:8px; border-radius:12px; backdrop-filter:blur(1px);
@@ -409,7 +417,7 @@
   .shop-card button.cant-afford{ background:var(--surface); color:var(--muted); border:1px solid var(--line); }
 
   @media (max-width:480px){
-    #board{ grid-template-columns:repeat(9, minmax(26px,40px)); grid-template-rows:repeat(7, minmax(26px,40px)); gap:2px; }
+    #board{ gap:2px; padding:6px; }   /* ratio and sizing come from the base rule */
     /* Four cards, three gaps and the rail padding have to live inside 375px,
        so the card is sized to fit rather than left to scroll off-frame. */
     .roster{ gap:5px; padding:6px 8px; justify-content:center; }
@@ -501,6 +509,17 @@
   }
   .tile.has-node{ outline:1px solid rgba(255,182,39,0.4); outline-offset:-1px; }
 
+
+  /* Tiles a shot would land on a node from. Amber to match the nodes, and
+     dashed so it never gets confused with a red attack telegraph. */
+  .tile.node-reach{
+    box-shadow:inset 0 0 0 1.5px rgba(255,182,39,0.55), inset 0 0 12px rgba(255,182,39,0.18);
+  }
+  .tile.node-reach::after{
+    content:''; position:absolute; inset:2px; border-radius:5px;
+    border:1px dashed rgba(255,182,39,0.45); pointer-events:none;
+  }
+  .tile.node-reach.corrupt{ box-shadow:inset 0 0 0 1.5px rgba(255,182,39,0.5), inset 0 0 10px rgba(124,255,77,0.35); }
 </style>
 </head>
 <body>
@@ -1006,13 +1025,21 @@
   let nodes = [];
 
   function resetNodes(){
-    nodes = [{ r:0, c:4 }, { r:6, c:4 }, { r:3, c:8 }].map((p, i) => ({
+    // Two, not three. Three meant something was always in reach from
+    // somewhere, so the squad rarely had to commit to a side.
+    nodes = [{ r:0, c:4 }, { r:6, c:4 }].map((p, i) => ({
       id: i, r: p.r, c: p.c, hp: NODE_MAX_HP, maxHp: NODE_MAX_HP, respawn: 0
     }));
   }
   function liveNodes(){ return nodes.filter(n => n.hp > 0).length; }
   function isNode(r, c){ return nodes.some(n => n.r === r && n.c === c); }
   function nodeAt(r, c){ return nodes.find(n => n.r === r && n.c === c) || null; }
+  // Which tiles put a shot into a node. Drawn on the board so the rule is
+  // visible instead of something you have to be told.
+  function inNodeReach(r, c){
+    return nodes.some(n => n.hp > 0 &&
+      Math.max(Math.abs(n.r - r), Math.abs(n.c - c)) <= NODE_REACH);
+  }
   function nearestLiveNode(r, c){
     let best = null, bestD = Infinity;
     for(const n of nodes){
@@ -2409,6 +2436,7 @@
         // rot is a class so terrain and telegraphs still show through it, and a
         // node is an overlay with its own health bar.
         if(isCorrupt(r, c)) cls += ' corrupt';
+        if(inNodeReach(r, c)) cls += ' node-reach';
         const nd = nodeAt(r, c);
         let nodeHtml = '';
         if(nd){

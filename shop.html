@@ -76,10 +76,20 @@
     .pack-grid{ grid-template-columns:repeat(2,1fr); gap:14px; }
     .pack-card{ padding:22px 14px; }
   }
+
+  @media (max-width:860px){
+    /* Nav links measured 19-21px tall on every page. The look is unchanged;
+       the box you have to hit with a thumb is not. */
+    nav a, nav .back-link, .back-link, .nav-links a{
+      min-height:36px; display:inline-flex; align-items:center;
+    }
+    nav .logo{ min-height:36px; }
+  }
 </style>
 <!-- Anonymous funnel counters and client-side error reporting. Loaded first
      so its error handler is installed before anything else can throw. -->
 <script src="telemetry.js"></script>
+<script src="age-check.js"></script>
 </head>
 <body>
 
@@ -178,7 +188,17 @@
 
       const data = await res.json();
       if(!res.ok || !data.url){
-        showStatus('error', data.error || 'Could not start checkout. Try again.');
+        // The API refuses an account that has never given a date of birth --
+        // signing in with Google skips the question the email form asks. The
+        // prompt is already on this page, so just point at it.
+        if(data.error === 'age_unconfirmed'){
+          showStatus('error', data.message || 'Please confirm your date of birth first.');
+          const box = document.getElementById('age-check-back');
+          if(box) box.scrollIntoView({ block: 'center' });
+          else location.reload();     // the prompt loads on next paint
+        } else {
+          showStatus('error', data.error || 'Could not start checkout. Try again.');
+        }
         buttons.forEach(b => b.disabled = false);
         return;
       }

@@ -576,6 +576,15 @@
        it on a phone. */
     .bd-band{ animation:none !important; }
   }
+
+  @media (max-width:860px){
+    /* Nav links measured 19-21px tall on every page. The look is unchanged;
+       the box you have to hit with a thumb is not. */
+    nav a, nav .back-link, .back-link, .nav-links a{
+      min-height:36px; display:inline-flex; align-items:center;
+    }
+    nav .logo{ min-height:36px; }
+  }
 </style>
 </head>
 <body>

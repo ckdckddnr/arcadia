@@ -38,6 +38,24 @@ export default async function handler(req, res) {
     }
     const user = userData.user;
 
+    // Age gate. Signing up by email asks for a date of birth and an over-18
+    // tick; signing in with Google asks for neither, so without this an account
+    // could reach a card form having never answered. Play is not blocked --
+    // guests play with no account at all -- but money does not move until the
+    // question has been answered.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('birthday')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!profile || !profile.birthday) {
+      return res.status(403).json({
+        error: 'age_unconfirmed',
+        message: 'Please confirm your date of birth before buying Coins.'
+      });
+    }
+
     const origin = req.headers.origin || ('https://' + req.headers.host);
 
     const session = await stripe.checkout.sessions.create({

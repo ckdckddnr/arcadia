@@ -118,10 +118,20 @@
   }
   .quest-btn[disabled]{ background:var(--surface-2); color:var(--muted); border:1px solid var(--line); cursor:default; }
   .quest-row.bonus{ background:rgba(255,182,39,0.06); border-radius:10px; padding:12px; margin-top:10px; border-top:none; }
+
+  @media (max-width:860px){
+    /* Nav links measured 19-21px tall on every page. The look is unchanged;
+       the box you have to hit with a thumb is not. */
+    nav a, nav .back-link, .back-link, .nav-links a{
+      min-height:36px; display:inline-flex; align-items:center;
+    }
+    nav .logo{ min-height:36px; }
+  }
 </style>
 <!-- Anonymous funnel counters and client-side error reporting. Loaded first
      so its error handler is installed before anything else can throw. -->
 <script src="telemetry.js"></script>
+<script src="age-check.js"></script>
 </head>
 <body>
 

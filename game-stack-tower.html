@@ -71,6 +71,15 @@
     }
     .btn-ghost.start-action-btn{ background:var(--surface); }
   }
+
+  @media (max-width:860px){
+    /* Nav links measured 19-21px tall on every page. The look is unchanged;
+       the box you have to hit with a thumb is not. */
+    nav a, nav .back-link, .back-link, .nav-links a{
+      min-height:36px; display:inline-flex; align-items:center;
+    }
+    nav .logo{ min-height:36px; }
+  }
 </style>
 <!-- Anonymous funnel counters and client-side error reporting. Loaded first
      so its error handler is installed before anything else can throw. -->

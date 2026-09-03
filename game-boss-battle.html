@@ -305,8 +305,11 @@
     .floor-info{ order:4; flex:1 1 100%; min-width:100%; }
     .floor-name{ font-size:16px; margin-bottom:2px; }
     .floor-desc{ display:none; }
-    .floor-pay{ font-size:10px; gap:2px 8px; margin-top:5px; }
-    .floor-runes{ font-size:9.5px; gap:7px; margin-top:4px; }
+    /* 10px and 9.5px were small enough to be unreadable on a phone -- 29
+       elements on this page were under 10px. Compacting the card should not
+       have come out of the text. */
+    .floor-pay{ font-size:11.5px; gap:3px 8px; margin-top:6px; }
+    .floor-runes{ font-size:11px; gap:7px; margin-top:5px; }
 
     /* a Coming Soon panel does not deserve half a screen. The first paragraph
        describes the mode; the amber one says your tanks and runes carry over,
@@ -316,6 +319,15 @@
     .coop-body{ gap:12px; }
     .coop-text{ font-size:11.5px; line-height:1.5; }
     .coop-text:first-of-type{ display:none; }
+  }
+
+  @media (max-width:860px){
+    /* Nav links measured 19-21px tall on every page. The look is unchanged;
+       the box you have to hit with a thumb is not. */
+    nav a, nav .back-link, .back-link, .nav-links a{
+      min-height:36px; display:inline-flex; align-items:center;
+    }
+    nav .logo{ min-height:36px; }
   }
 </style>
 <!-- Anonymous funnel counters and client-side error reporting. Loaded first

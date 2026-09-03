@@ -149,6 +149,11 @@
   }
   .hero-ctas{display:flex; gap:14px; margin-bottom:36px;}
   .btn-lg{padding:15px 28px; font-size:18px;}
+  .hero-sub{
+    color:#C7CDDA; font-size:17px; line-height:1.6; max-width:44ch; margin:-8px 0 26px;
+  }
+  @media (max-width:640px){ .hero-sub{font-size:15px; margin:-4px 0 20px;} }
+
   .trust-row{display:flex; gap:28px; color:var(--muted); font-size:16px;}
   .trust-row b{color:var(--text); font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:600;}
 
@@ -363,10 +368,16 @@
 <section class="hero">
   <div>
     <div class="eyebrow" id="coin-eyebrow">🪙 Insert Coin</div>
-    <h1>Pick a cabinet.<br>Chase the <span>high score.</span></h1>
+    <!-- The ads show tanks fighting a boss, so this is what they have to land
+         on. The old hero sold "pick a cabinet" and its button went to an arcade
+         game, which meant the raid was not on the path from an ad at all -- it
+         was five clicks away, behind the lobby. -->
+    <h1>Four tanks.<br>One <span>boss.</span></h1>
+    <p class="hero-sub">Turn-based raid combat in your browser. The boss shows you where
+      it will strike — move, fire, and bring it down before turn 30.</p>
     <div class="hero-ctas">
-      <a href="game-asteroid-run.html" class="btn btn-primary btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Play Now — No Sign Up</a>
-      <a href="auth.html" class="btn btn-ghost btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Sign Up &amp; Get 200 Coins</a>
+      <a href="game-boss-fight-1.html" class="btn btn-primary btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">⚔ Fight the Boss — Free</a>
+      <a href="#games" class="btn btn-ghost btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">Or play the arcade</a>
     </div>
     <!-- The bonus is the single reason to make an account, so it is stated
          before the click rather than discovered after it. -->

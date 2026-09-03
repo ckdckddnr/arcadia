@@ -195,6 +195,7 @@
   .divider::before, .divider::after{content:""; flex:1; height:1px; background:var(--line);}
 
   .social-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .social-row.single{grid-template-columns:1fr;}   /* only Google is enabled */
   .btn-social{
     display:flex; align-items:center; justify-content:center; gap:8px;
     padding:12px; border-radius:8px; border:1px solid var(--line);
@@ -282,12 +283,10 @@
           </div>
           <button class="btn btn-primary" id="login-btn" onclick="handleLogin()">Log In</button>
 
-          <!-- Google and Apple sign-in are hidden, not deleted. Neither provider
-               is enabled on the Supabase project, so both buttons redirected to
-               a raw JSON error page on supabase.co with no way back -- offered
-               to every visitor for the whole of the ad campaign. socialLogin()
-               below still works; put these back the moment a provider is
-               actually configured. -->
+          <div class="divider">or continue with</div>
+          <div class="social-row single">
+            <button class="btn-social" onclick="socialLogin('google')"><svg width="17" height="17" viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2 5-4.4 6.6v5.5h7.1c4.1-3.8 6.6-9.4 6.6-16.1z"/><path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.4 2.1-5.7 0-10.6-3.9-12.3-9.1H4.3v5.7C7.9 41.1 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.7 28.1c-.4-1.3-.7-2.7-.7-4.1s.2-2.8.7-4.1v-5.7H4.3C2.8 17.2 2 20.5 2 24s.8 6.8 2.3 9.8l7.4-5.7z"/><path fill="#EA4335" d="M24 10.8c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 4.2 29.9 2 24 2 15.4 2 7.9 6.9 4.3 14.2l7.4 5.7c1.7-5.2 6.6-9.1 12.3-9.1z"/></svg> Continue with Google</button>
+          </div>
 
           <div class="fine-print">By logging in, you agree to our <a href="terms.html" class="link-text">Terms of Service</a> and <a href="privacy.html" class="link-text">Privacy Policy</a>.</div>
         </div>
@@ -341,6 +340,11 @@
           <label class="checkbox-row"><input type="checkbox" id="signup-agerule"> I'm 18 years or older</label>
         </div>
         <button class="btn btn-primary" id="signup-btn" onclick="handleSignup()">Create Account</button>
+
+        <div class="divider">or continue with</div>
+        <div class="social-row single">
+          <button class="btn-social" onclick="socialLogin('google')"><svg width="17" height="17" viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2 5-4.4 6.6v5.5h7.1c4.1-3.8 6.6-9.4 6.6-16.1z"/><path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.4 2.1-5.7 0-10.6-3.9-12.3-9.1H4.3v5.7C7.9 41.1 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.7 28.1c-.4-1.3-.7-2.7-.7-4.1s.2-2.8.7-4.1v-5.7H4.3C2.8 17.2 2 20.5 2 24s.8 6.8 2.3 9.8l7.4-5.7z"/><path fill="#EA4335" d="M24 10.8c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 4.2 29.9 2 24 2 15.4 2 7.9 6.9 4.3 14.2l7.4 5.7c1.7-5.2 6.6-9.1 12.3-9.1z"/></svg> Continue with Google</button>
+        </div>
 
         <div class="fine-print">By signing up, you agree to our <a href="terms.html" class="link-text">Terms of Service</a> and <a href="privacy.html" class="link-text">Privacy Policy</a>.</div>
       </div>
@@ -493,11 +497,11 @@
     }
   }
 
-  // Kept for when a provider is switched on in Supabase. Nothing calls it
-  // today: the buttons are commented out because neither Google nor Apple is
-  // enabled, and signInWithOAuth happily hands back an authorize URL either
-  // way -- the "provider is not enabled" error only appears after the browser
-  // has already been sent to supabase.co, which is far too late to show it.
+  // Google is the only provider enabled on the Supabase project, and the only
+  // one with a button. Do not add another without switching it on there first:
+  // signInWithOAuth hands back an authorize URL whether or not the provider
+  // exists, so a disabled one fails only after the browser has left the site,
+  // landing on a raw JSON error at supabase.co with no way back.
   async function socialLogin(provider){
     const { error } = await sb.auth.signInWithOAuth({
       provider: provider,

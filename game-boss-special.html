@@ -108,7 +108,9 @@
     background:radial-gradient(ellipse at center, rgba(255,92,92,0.05) 0%, transparent 65%);
   }
   #board{
-    display:grid; grid-template-columns:repeat(8, minmax(32px,64px)); grid-template-rows:repeat(6, minmax(32px,64px));
+    display:grid; grid-template-columns:repeat(9, minmax(28px,42px)); grid-template-rows:repeat(7, minmax(28px,42px));
+    /* 42px is the largest tile that keeps seven rows inside .board-wrap;
+       at the floor-15 size of 58px the board overflowed and clipped. */
     gap:3px; background:linear-gradient(160deg, rgba(26,31,44,0.80), rgba(18,22,31,0.86)); padding:8px; border-radius:12px; backdrop-filter:blur(1px);
     border:1px solid var(--line); box-shadow:0 0 0 1px rgba(255,92,92,0.08), 0 20px 50px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03);
   }
@@ -443,29 +445,16 @@
   }
 
   /* ---------- GRAVEMAW ----------
-     The creature is nine board tiles rather than a portrait, so it needs to
-     read as one slab of meat with a seam around it instead of nine squares. */
-  .tile.maw{
-    background:
-      radial-gradient(circle at 50% 40%, rgba(124,255,77,0.16), transparent 70%),
-      linear-gradient(160deg, #1B0F18, #2A1220 60%, #140A12);
-    border:none; border-radius:0; position:relative; overflow:visible;
-    box-shadow:inset 0 0 18px rgba(0,0,0,0.85);
+     The creature spans the middle 3x3 as one drawing. Nine separately shaded
+     tiles read as nine tiles; this reads as something sitting on the board. */
+  .maw-body{
+    position:relative; z-index:2; pointer-events:none;
+    display:flex; align-items:center; justify-content:center;
+    filter:drop-shadow(0 0 18px rgba(124,255,77,0.55)) drop-shadow(0 8px 22px rgba(0,0,0,0.8));
+    animation:mawBreathe 3.8s ease-in-out infinite;
   }
-  .tile.maw-top{ border-top:2px solid rgba(124,255,77,0.55); border-radius:12px 12px 0 0; }
-  .tile.maw-bottom{ border-bottom:2px solid rgba(124,255,77,0.55); border-radius:0 0 12px 12px; }
-  .tile.maw-left{ border-left:2px solid rgba(124,255,77,0.55); }
-  .tile.maw-right{ border-right:2px solid rgba(124,255,77,0.55); }
-  .maw-eye{
-    position:absolute; inset:14% 14%; border-radius:50%;
-    background:radial-gradient(circle, #EBFFD6 0 14%, #7CFF4D 22%, #2C6B18 55%, #0B1A06 78%);
-    box-shadow:0 0 26px rgba(124,255,77,0.85), inset 0 0 12px rgba(0,0,0,0.8);
-    animation:mawPulse 2.6s ease-in-out infinite;
-  }
-  @keyframes mawPulse{
-    0%,100%{ transform:scale(1);    box-shadow:0 0 22px rgba(124,255,77,0.75), inset 0 0 12px rgba(0,0,0,0.8); }
-    50%    { transform:scale(1.14); box-shadow:0 0 40px rgba(124,255,77,1),    inset 0 0 12px rgba(0,0,0,0.8); }
-  }
+  .maw-body svg{ width:104%; height:104%; display:block; }
+  @keyframes mawBreathe{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.035); } }
 
   /* rot: never recedes, so it is painted under everything else on the tile */
   .tile.corrupt{
@@ -477,21 +466,41 @@
   }
   @keyframes rotBreathe{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.35); } }
 
-  /* a weak node and the sliver of health it has left */
+  /* A weak node: a spiked growth with the health it has left drawn as a ring
+     around it, so you can read at a glance which one is nearly down. */
   .node{
-    position:absolute; left:50%; top:50%; width:76%; height:76%;
+    position:absolute; left:50%; top:50%; width:88%; height:88%;
     transform:translate(-50%,-50%); border-radius:50%;
-    border:2px solid #FFD9A0; background:rgba(20,12,6,0.75);
-    box-shadow:0 0 16px rgba(255,217,160,0.8); overflow:hidden;
-    display:flex; align-items:flex-end; justify-content:center; z-index:3;
+    background:
+      conic-gradient(#FFE55C calc(var(--nhp) * 1%), rgba(255,229,92,0.10) 0),
+      radial-gradient(circle at 50% 45%, #FFF6C8 0 16%, #FFB627 30%, #6B3A08 62%, #1A0E02 82%);
+    box-shadow:0 0 16px rgba(255,182,39,0.85), inset 0 0 8px rgba(0,0,0,0.7);
+    z-index:3; display:flex; align-items:center; justify-content:center;
+    animation:nodePulse 2.2s ease-in-out infinite;
   }
-  .node b{ display:block; width:100%; background:linear-gradient(180deg,#FFE9C4,#FF9A3C); }
+  /* the spikes */
+  .node::before{
+    content:''; position:absolute; inset:-16%;
+    background:
+      conic-gradient(from 0deg, transparent 0 8%, rgba(255,182,39,0.55) 10%, transparent 12% 33%,
+                     rgba(255,182,39,0.55) 35%, transparent 37% 58%,
+                     rgba(255,182,39,0.55) 60%, transparent 62% 83%,
+                     rgba(255,182,39,0.55) 85%, transparent 87%);
+    border-radius:50%;
+  }
+  @keyframes nodePulse{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.3); } }
+
   .node.node-dead{
-    border-style:dashed; border-color:#5A4A38; box-shadow:none; background:rgba(12,10,8,0.7);
-    align-items:center;
+    background:radial-gradient(circle, rgba(90,74,56,0.35), rgba(12,10,8,0.8) 70%);
+    box-shadow:none; animation:none;
   }
-  .node u{ text-decoration:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8A93A6; }
-  .tile.has-node{ outline:1px solid rgba(255,217,160,0.35); outline-offset:-1px; }
+  .node.node-dead::before{ opacity:0.15; }
+  .node u{
+    text-decoration:none; font-family:'IBM Plex Mono','Noto Sans KR',monospace;
+    font-size:11px; font-weight:700; color:#B9A98F; z-index:1;
+  }
+  .tile.has-node{ outline:1px solid rgba(255,182,39,0.4); outline-offset:-1px; }
+
 </style>
 </head>
 <body>
@@ -2269,6 +2278,54 @@
     return html;
   }
 
+
+  // One drawing across the nine middle tiles: jaw, gullet, ribs and four
+  // tendrils reaching for the corners the squad spawns in.
+  function mawBodyHtml(){
+    const hpPct = Math.max(0, boss.hp / boss.maxHp);
+    const open = 0.55 + 0.45 * (1 - hpPct);          // it gapes wider as it dies
+    const style = 'grid-area:' + (MAW_R0 + 1) + '/' + (MAW_C0 + 1)
+                + '/span ' + (MAW_R1 - MAW_R0 + 1) + '/span ' + (MAW_C1 - MAW_C0 + 1) + ';';
+    return '<div class="maw-body" style="' + style + '">'
+      + '<svg viewBox="0 0 120 120" preserveAspectRatio="xMidYMid meet" aria-hidden="true">'
+        + '<defs>'
+          + '<radialGradient id="gmGullet" cx="50%" cy="52%" r="52%">'
+            + '<stop offset="0%" stop-color="#EBFFD6"/><stop offset="22%" stop-color="#7CFF4D"/>'
+            + '<stop offset="58%" stop-color="#1E5C12"/><stop offset="100%" stop-color="#050D03"/>'
+          + '</radialGradient>'
+        + '</defs>'
+        // tendrils, behind the body
+        + '<g stroke="#2E7A1E" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.9">'
+          + '<path d="M26 26 Q10 6 2 2"><animate attributeName="d" values="M26 26 Q10 6 2 2;M26 26 Q6 12 2 2;M26 26 Q10 6 2 2" dur="4s" repeatCount="indefinite"/></path>'
+          + '<path d="M94 26 Q110 6 118 2"><animate attributeName="d" values="M94 26 Q110 6 118 2;M94 26 Q114 12 118 2;M94 26 Q110 6 118 2" dur="4.6s" repeatCount="indefinite"/></path>'
+          + '<path d="M26 94 Q10 114 2 118"><animate attributeName="d" values="M26 94 Q10 114 2 118;M26 94 Q6 108 2 118;M26 94 Q10 114 2 118" dur="5.2s" repeatCount="indefinite"/></path>'
+          + '<path d="M94 94 Q110 114 118 118"><animate attributeName="d" values="M94 94 Q110 114 118 118;M94 94 Q114 108 118 118;M94 94 Q110 114 118 118" dur="4.3s" repeatCount="indefinite"/></path>'
+        + '</g>'
+        // carapace
+        + '<path d="M60 4 L88 16 L106 42 L102 82 L78 108 L60 116 L42 108 L18 82 L14 42 L32 16 Z" '
+          + 'fill="#170C14" stroke="#7CFF4D" stroke-width="2.4"/>'
+        + '<path d="M60 12 L82 22 L96 44 L92 78 L72 100 L60 106 L48 100 L28 78 L24 44 L38 22 Z" '
+          + 'fill="#0E0710" stroke="#3F8F28" stroke-width="1.6"/>'
+        // gullet
+        + '<ellipse cx="60" cy="60" rx="30" ry="' + (26 * open).toFixed(1) + '" fill="url(#gmGullet)">'
+          + '<animate attributeName="ry" values="' + (24*open).toFixed(1) + ';' + (29*open).toFixed(1) + ';' + (24*open).toFixed(1) + '" dur="2.4s" repeatCount="indefinite"/>'
+        + '</ellipse>'
+        // teeth, upper and lower
+        + '<g fill="#E9F7DE">'
+          + '<path d="M32 46 L38 60 L44 46 Z"/><path d="M46 44 L52 60 L58 44 Z"/>'
+          + '<path d="M62 44 L68 60 L74 44 Z"/><path d="M76 46 L82 60 L88 46 Z"/>'
+          + '<path d="M32 74 L38 60 L44 74 Z"/><path d="M46 76 L52 60 L58 76 Z"/>'
+          + '<path d="M62 76 L68 60 L74 76 Z"/><path d="M76 74 L82 60 L88 74 Z"/>'
+        + '</g>'
+        // eyes on the carapace
+        + '<circle cx="42" cy="28" r="4.6" fill="#FFE55C">'
+          + '<animate attributeName="opacity" values="1;0.25;1" dur="3.1s" repeatCount="indefinite"/></circle>'
+        + '<circle cx="78" cy="28" r="4.6" fill="#FFE55C">'
+          + '<animate attributeName="opacity" values="1;0.25;1" dur="3.1s" begin="0.7s" repeatCount="indefinite"/></circle>'
+      + '</svg>'
+    + '</div>';
+  }
+
   function render(){
     // boss banner
     const pct = Math.max(0, boss.hp / boss.maxHp * 100);
@@ -2306,15 +2363,11 @@
       for(let c=0;c<COLS;c++){
         // Outside the arena: draw nothing at all, so the shape reads as a
         // silhouette rather than as a grid with some dead squares in it.
-        if(isMaw(r, c)){
-          // the creature itself, nine tiles of it, drawn as one slab
-          const edge = (r === MAW_R0 ? ' maw-top' : '') + (r === MAW_R1 ? ' maw-bottom' : '')
-                     + (c === MAW_C0 ? ' maw-left' : '') + (c === MAW_C1 ? ' maw-right' : '');
-          const eye = (r === MAW_R0 + 1 && c === MAW_C0 + 1) ? '<i class="maw-eye"></i>' : '';
-          html += '<div class="tile maw' + edge + '">' + eye + '</div>';
-          continue;
-        }
-        if(isVoid(r, c)){ html += '<div class="tile terrain-void"></div>'; continue; }
+        // The creature is drawn once, over the whole 3x3, after this loop. Nine
+        // separately shaded tiles read as nine tiles; one spanning drawing reads
+        // as a thing sitting on the board.
+        if(isMaw(r, c)) continue;
+        if(isVoid(r, c)){ html += '<div class="tile terrain-void" style="grid-area:' + (r+1) + '/' + (c+1) + ';"></div>'; continue; }
 
         let cls = 'tile';
         const ter = terrainAt(r, c);
@@ -2360,15 +2413,16 @@
         let nodeHtml = '';
         if(nd){
           const alive = nd.hp > 0;
-          nodeHtml = '<i class="node' + (alive ? '' : ' node-dead') + '">'
-            + (alive ? '<b style="height:' + Math.round(nd.hp / nd.maxHp * 100) + '%"></b>'
-                     : '<u>' + nd.respawn + '</u>')
+          const pct = Math.round(nd.hp / nd.maxHp * 100);
+          nodeHtml = '<i class="node' + (alive ? '' : ' node-dead') + '" style="--nhp:' + pct + '">'
+            + (alive ? '' : '<u>' + nd.respawn + '</u>')
             + '</i>';
           cls += alive ? ' has-node' : ' has-node-dead';
         }
-        html += '<div class="' + cls + '" style="' + tileStyle + '" data-r="' + r + '" data-c="' + c + '" ' + onclick + '>' + nodeHtml + content + '</div>';
+        html += '<div class="' + cls + '" style="grid-area:' + (r+1) + '/' + (c+1) + ';' + tileStyle + '" data-r="' + r + '" data-c="' + c + '" ' + onclick + '>' + nodeHtml + content + '</div>';
       }
     }
+    html += mawBodyHtml();
     boardEl.innerHTML = html;
 
     // roster
@@ -2631,23 +2685,31 @@
   }
 
   function bossSvg(){
+    // Matches the creature on the board rather than the tower's gold star, so
+    // the banner and the thing you are fighting are recognisably the same.
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">' +
-      '<path d="M60 6 L74 34 L104 30 L88 56 L110 78 L80 84 L74 114 L60 96 L46 114 L40 84 L10 78 L32 56 L16 30 L46 34 Z" fill="#1A1408" stroke="#FFD700" stroke-width="2.4"/>' +
-      '<g fill="#FFD700">' +
-        '<path d="M60 10 L66 30 L54 30 Z"/><path d="M96 34 L92 52 L82 42 Z"/><path d="M24 34 L28 52 L38 42 Z"/>' +
+      '<defs><radialGradient id="pGullet" cx="50%" cy="52%" r="52%">' +
+        '<stop offset="0%" stop-color="#EBFFD6"/><stop offset="22%" stop-color="#7CFF4D"/>' +
+        '<stop offset="58%" stop-color="#1E5C12"/><stop offset="100%" stop-color="#050D03"/>' +
+      '</radialGradient></defs>' +
+      '<g stroke="#2E7A1E" stroke-width="4.5" stroke-linecap="round" fill="none" opacity="0.85">' +
+        '<path d="M28 28 Q12 8 4 4"/><path d="M92 28 Q108 8 116 4"/>' +
+        '<path d="M28 92 Q12 112 4 116"/><path d="M92 92 Q108 112 116 116"/>' +
       '</g>' +
-      '<circle cx="60" cy="60" r="24" fill="none" stroke="#FFD700" stroke-width="1.6" opacity="0.5">' +
-        '<animate attributeName="r" values="20;30;20" dur="3.4s" repeatCount="indefinite"/>' +
-        '<animate attributeName="opacity" values="0.6;0;0.6" dur="3.4s" repeatCount="indefinite"/>' +
-      '</circle>' +
-      '<circle cx="60" cy="60" r="19" fill="#07060B" stroke="#FFD700" stroke-width="2.2"/>' +
-      '<circle cx="60" cy="60" r="11" fill="#0B0912"/>' +
-      '<circle cx="60" cy="60" r="5" fill="#FF5CB6">' +
-        '<animate attributeName="r" values="3.5;7;3.5" dur="1.2s" repeatCount="indefinite"/>' +
-        '<animate attributeName="opacity" values="0.8;1;0.8" dur="1.2s" repeatCount="indefinite"/>' +
-      '</circle>' +
-      '<circle cx="47" cy="48" r="2.4" fill="#FFF3D0"><animate attributeName="opacity" values="1;0.15;1" dur="1.5s" repeatCount="indefinite"/></circle>' +
-      '<circle cx="73" cy="48" r="2.4" fill="#FFF3D0"><animate attributeName="opacity" values="1;0.15;1" dur="1.5s" begin="0.5s" repeatCount="indefinite"/></circle>' +
+      '<path d="M60 4 L88 16 L106 42 L102 82 L78 108 L60 116 L42 108 L18 82 L14 42 L32 16 Z" fill="#170C14" stroke="#7CFF4D" stroke-width="2.4"/>' +
+      '<path d="M60 12 L82 22 L96 44 L92 78 L72 100 L60 106 L48 100 L28 78 L24 44 L38 22 Z" fill="#0E0710" stroke="#3F8F28" stroke-width="1.6"/>' +
+      '<ellipse cx="60" cy="60" rx="30" ry="24" fill="url(#pGullet)">' +
+        '<animate attributeName="ry" values="21;28;21" dur="2.4s" repeatCount="indefinite"/></ellipse>' +
+      '<g fill="#E9F7DE">' +
+        '<path d="M32 46 L38 60 L44 46 Z"/><path d="M46 44 L52 60 L58 44 Z"/>' +
+        '<path d="M62 44 L68 60 L74 44 Z"/><path d="M76 46 L82 60 L88 46 Z"/>' +
+        '<path d="M32 74 L38 60 L44 74 Z"/><path d="M46 76 L52 60 L58 76 Z"/>' +
+        '<path d="M62 76 L68 60 L74 76 Z"/><path d="M76 74 L82 60 L88 74 Z"/>' +
+      '</g>' +
+      '<circle cx="42" cy="28" r="4.6" fill="#FFE55C">' +
+        '<animate attributeName="opacity" values="1;0.25;1" dur="3.1s" repeatCount="indefinite"/></circle>' +
+      '<circle cx="78" cy="28" r="4.6" fill="#FFE55C">' +
+        '<animate attributeName="opacity" values="1;0.25;1" dur="3.1s" begin="0.7s" repeatCount="indefinite"/></circle>' +
     '</svg>';
   }
 
@@ -2691,7 +2753,7 @@
     sfxGameStart();
   }
 
-  const BACKDROP_MOTES = { n:48, color:'#FFD700', anim:'twinkle', lo:1, hi:3, dmin:4, dmax:11, o:0.75 };
+  const BACKDROP_MOTES = { n:44, color:'#7CFF4D', anim:'rise', lo:1, hi:3, dmin:7, dmax:16, o:0.6 };   // spores, not gold dust
 
   // ---------- Backdrop ----------
   // Particles are built once and left to CSS. Randomised delays mean the field

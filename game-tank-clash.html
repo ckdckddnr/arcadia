@@ -358,7 +358,7 @@
         <button class="btn-ghost diff-btn" data-diff="hard" onclick="setDifficulty('hard')" style="flex:1; padding:9px 4px; font-size:12px; font-weight:800; border-radius:8px; cursor:pointer;">Hard</button>
         <button class="btn-ghost diff-btn" data-diff="extreme" onclick="setDifficulty('extreme')" style="flex:1; padding:9px 4px; font-size:12px; font-weight:800; border-radius:8px; cursor:pointer;">Extreme</button>
       </div>
-      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;" id="entry-fee-note">⚔ Entry costs <b style="color:var(--pink);">15 Battle Tokens</b> — win to earn 35 back.</div>
+      <div style="font-size:12px; color:var(--muted); margin-bottom:10px;" id="entry-fee-note">⚔ Entry costs <b style="color:var(--pink);">15 Battle Tokens</b> + <b style="color:var(--amber);">25 Coins</b> — win to earn 35 tokens and 45 coins back.</div>
       <div class="submit-msg" id="entry-msg"></div>
       <button class="btn btn-primary" id="deploy-btn" onclick="startGame()">Deploy Squad</button>
     </div>
@@ -572,7 +572,8 @@
     const fee = DIFFICULTY_ENTRY_FEE[d];
     const win = DIFFICULTY_WIN_REWARD[d];
     document.getElementById('entry-fee-note').innerHTML =
-      '⚔ Entry costs <b style="color:var(--pink);">' + fee + ' Battle Tokens</b> — win to earn ' + win + ' back.';
+      '⚔ Entry costs <b style="color:var(--pink);">' + fee + ' Battle Tokens</b> + '
+      + '<b style="color:var(--amber);">' + ENTRY_FEE_COINS + ' Coins</b> — win to earn ' + win + ' tokens and 45 coins back.';
   }
 
   function tryAiSkill(aliveEnemies){
@@ -1604,6 +1605,11 @@
   }
 
   const DIFFICULTY_ENTRY_FEE = { easy: 10, medium: 15, hard: 20, extreme: 25 };
+  // Added 2026-09-03. Tank Clash used to cost no coins at all while paying 45
+  // on a win and 12 on a loss, so every match printed coins whatever happened
+  // -- a riskless faucet sitting next to the coin shop. A win is now +20 and a
+  // loss -13, which puts the coin break-even at a 39% win rate.
+  const ENTRY_FEE_COINS = 25;
   const DIFFICULTY_WIN_REWARD = { easy: 25, medium: 35, hard: 50, extreme: 60 };
   const DIFFICULTY_LOSS_REWARD = { easy: 5, medium: 8, hard: 10, extreme: 12 };
   let matchDifficulty = 'medium'; // locked in when the match actually starts
@@ -1632,7 +1638,9 @@
       });
       if(startErr || !startRes || !startRes.ok){
         entryMsg.className = 'submit-msg error';
-        entryMsg.textContent = (startRes && startRes.error === 'not enough tokens')
+        entryMsg.textContent = (startRes && startRes.error === 'not enough coins')
+        ? 'Not enough Coins (you have ' + startRes.coins + ', need ' + ENTRY_FEE_COINS + '). Play an arcade game to earn more.'
+        : (startRes && startRes.error === 'not enough tokens')
           ? 'Not enough Battle Tokens (you have ' + startRes.tokens + ', need ' + entryFee + '). Play Asteroid Run or Orbit Snap to earn more, or pick an easier difficulty.'
           : 'Could not start the match — please try again.';
         deployBtn.disabled = false;

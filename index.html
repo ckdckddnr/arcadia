@@ -174,51 +174,154 @@
   }
   @media (max-width:640px){ .bonus-pill{font-size:14px; padding:11px 14px; gap:10px;} }
 
-  /* SCOREBOARD SIGNATURE ELEMENT */
-  .scoreboard{
-    background:var(--surface);
-    border:1px solid var(--line);
-    border-radius:14px;
-    overflow:hidden;
-    box-shadow:0 30px 80px -20px rgba(0,0,0,0.6);
+  /* ---------- BOSS STAGE ----------
+     The signature element. It replaced a daily-leaderboard table, which sold
+     the site as a stats page when the thing worth showing is the fight. Every
+     moving part is a CSS animation on transform/opacity only, so a mid-range
+     phone renders it on the compositor and never touches the main thread. */
+  .boss-stage{
+    position:relative; isolation:isolate;
+    display:flex; flex-direction:column; align-items:center;
+    min-height:460px; padding:24px 16px 22px; border-radius:18px; overflow:hidden;
+    border:1px solid rgba(255,92,92,0.30);
+    background:
+      radial-gradient(120% 80% at 50% 108%, rgba(255,92,92,0.20), transparent 62%),
+      radial-gradient(70% 55% at 50% 42%,  rgba(255,92,92,0.12), transparent 72%),
+      linear-gradient(180deg, #0B0709 0%, #150A0C 55%, #1C0D0F 100%);
+    box-shadow:0 40px 90px -30px rgba(255,60,60,0.35), inset 0 0 90px rgba(0,0,0,0.6);
   }
-  .scoreboard-head{
-    display:flex; justify-content:space-between; align-items:center;
-    padding:16px 20px;
-    background:var(--surface-2);
-    border-bottom:1px solid var(--line);
+
+  /* the light the boss is sitting in */
+  .stage-glow{
+    position:absolute; left:50%; top:48%; width:340px; height:340px;
+    transform:translate(-50%,-50%); border-radius:50%;
+    background:radial-gradient(circle, rgba(255,92,92,0.42), rgba(255,92,92,0.12) 45%, transparent 70%);
+    filter:blur(14px); animation:stageGlow 3.6s ease-in-out infinite; z-index:0;
   }
-  .scoreboard-head .label{
-    font-size:13px; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); font-weight:700;
+  @keyframes stageGlow{
+    0%,100%{opacity:0.55; transform:translate(-50%,-50%) scale(1);}
+    50%    {opacity:0.95; transform:translate(-50%,-50%) scale(1.10);}
   }
-  .live-tag{
-    display:flex; align-items:center; gap:6px;
-    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:13px; color:var(--green); font-weight:600;
+
+  /* a horizon, so the boss reads as standing in a place rather than floating */
+  .stage-floor{
+    position:absolute; left:-10%; right:-10%; bottom:0; height:150px; z-index:0;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,92,92,0.16) 0 1px, transparent 1px 46px),
+      repeating-linear-gradient(0deg,  rgba(255,92,92,0.13) 0 1px, transparent 1px 26px);
+    transform:perspective(240px) rotateX(64deg);
+    transform-origin:bottom center;
+    mask-image:linear-gradient(to top, #000 5%, transparent 85%);
+    -webkit-mask-image:linear-gradient(to top, #000 5%, transparent 85%);
   }
-  .live-tag::before{content:""; width:6px; height:6px; border-radius:50%; background:var(--green); animation:pulse 1.4s infinite;}
-  .score-row{
-    display:grid; grid-template-columns:34px 1fr auto auto;
-    align-items:center; gap:14px;
-    padding:14px 20px;
-    border-bottom:1px solid var(--line);
-    font-size:17px;
+
+  /* a searchlight turning behind the boss: it never repeats visibly and costs
+     one composited rotation */
+  .stage-sweep{
+    position:absolute; left:50%; top:46%; width:620px; height:620px; z-index:0;
+    transform:translate(-50%,-50%); pointer-events:none;
+    background:conic-gradient(from 0deg,
+      transparent 0deg, rgba(255,92,92,0.16) 22deg, transparent 52deg,
+      transparent 180deg, rgba(255,140,90,0.11) 202deg, transparent 236deg, transparent 360deg);
+    mask-image:radial-gradient(circle, #000 18%, transparent 68%);
+    -webkit-mask-image:radial-gradient(circle, #000 18%, transparent 68%);
+    animation:sweepSpin 26s linear infinite;
   }
-  .score-row:last-child{border-bottom:none;}
-  .rank-badge{
-    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:600; font-size:16px;
-    color:var(--muted); text-align:center;
+  @keyframes sweepSpin{to{transform:translate(-50%,-50%) rotate(360deg);}}
+
+  .stage-vignette{
+    position:absolute; inset:0; z-index:1; pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 45%, transparent 42%, rgba(0,0,0,0.55) 100%);
   }
-  .score-row.gold .rank-badge{color:var(--amber);}
-  .player-name{font-weight:600;}
-  .player-name .tag{color:var(--muted); font-weight:400; font-size:14px; margin-left:6px;}
-  .score-val{font-family:'IBM Plex Mono','Noto Sans KR',monospace; color:var(--cyan); font-size:16px;}
-  .prize-val{
-    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:600; font-size:16px; color:var(--green);
-    min-width:60px; text-align:right;
+
+  .stage-embers{position:absolute; inset:0; overflow:hidden; z-index:1; pointer-events:none;}
+  .stage-embers i{
+    position:absolute; bottom:-14px; border-radius:50%;
+    background:#FF7A4D; box-shadow:0 0 8px rgba(255,122,77,0.9);
+    animation:emberRise linear infinite;
   }
-  .scoreboard-foot{
-    padding:12px 20px; text-align:center; font-size:14px; color:var(--muted);
-    background:var(--surface-2); border-top:1px solid var(--line);
+  @keyframes emberRise{
+    0%  {transform:translateY(0) translateX(0);      opacity:0;}
+    12% {opacity:0.9;}
+    75% {opacity:0.55;}
+    100%{transform:translateY(-430px) translateX(18px); opacity:0;}
+  }
+
+  .boss-art{
+    position:relative; z-index:2; flex:0 0 auto;
+    display:block; width:min(70%, 292px); height:auto; margin:14px auto 0;
+    filter:drop-shadow(0 0 26px rgba(255,60,60,0.65)) drop-shadow(0 14px 30px rgba(0,0,0,0.7));
+    animation:bossBreathe 4.2s ease-in-out infinite;
+  }
+  @keyframes bossBreathe{
+    0%,100%{transform:translateY(0)     scale(1);}
+    50%    {transform:translateY(-12px) scale(1.025);}
+  }
+
+  /* the health plate, lifted from the fight so the page looks like the game */
+  .boss-plate{position:relative; z-index:3; width:100%; text-align:center;}
+  .boss-label{
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace;
+    font-size:11px; letter-spacing:0.22em; color:#FF8A8A; opacity:0.85; margin-bottom:5px;
+  }
+  .boss-title{
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif;
+    font-size:38px; letter-spacing:0.04em; line-height:1; color:#fff;
+    text-shadow:0 0 22px rgba(255,60,60,0.75); margin-bottom:9px;
+  }
+  .boss-bar{
+    height:7px; max-width:290px; margin:0 auto; border-radius:4px;
+    background:rgba(255,255,255,0.10); border:1px solid rgba(255,92,92,0.40); overflow:hidden;
+  }
+  .boss-bar i{
+    display:block; height:100%; width:100%;
+    background:linear-gradient(90deg, #B4231F, #FF5C5C 55%, #FF9A6B);
+    animation:barPulse 2.6s ease-in-out infinite;
+  }
+  @keyframes barPulse{0%,100%{filter:brightness(1);} 50%{filter:brightness(1.45);}}
+  .boss-hp{
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace;
+    font-size:12px; color:#FFB0A0; margin-top:7px; letter-spacing:0.06em;
+  }
+
+  /* four tanks, small and backlit, so the boss has something to be big next to */
+  .stage-squad{
+    position:relative; z-index:2; width:100%; margin-top:auto; padding-top:14px;
+    display:flex; align-items:flex-end; justify-content:center; gap:clamp(10px, 4vw, 34px);
+  }
+  .stage-squad img{
+    width:clamp(42px, 9.5vw, 64px); height:auto;
+    filter:brightness(0.92) saturate(1.15)
+           drop-shadow(0 0 10px rgba(255,92,92,0.55)) drop-shadow(0 6px 10px rgba(0,0,0,0.75));
+    animation:squadIdle 3s ease-in-out infinite;
+  }
+  .stage-squad img:nth-child(2){animation-delay:0.45s;}
+  .stage-squad img:nth-child(3){animation-delay:0.90s;}
+  .stage-squad img:nth-child(4){animation-delay:1.35s;}
+  @keyframes squadIdle{0%,100%{transform:translateY(0);} 50%{transform:translateY(-4px);}}
+
+  @media (max-width:860px){
+    /* the boss goes first on a phone: it is the whole reason to stay */
+    .hero > div:first-child{order:2;}
+    /* Getting the play button above the fold on a 375x812 screen is worth
+       more than any of this: the nav was wrapping to two lines and eating
+       90px, and Log In is already in the hamburger menu. */
+    .nav-login{display:none !important;}   /* beats the inline display on the anchor */
+    nav{padding:12px 5vw;}
+    .hero{padding-top:22px; gap:18px;}
+    .boss-stage{order:1; min-height:300px; padding:16px 14px 14px; margin-bottom:2px;}
+    .boss-art{width:min(50%, 156px); margin-top:8px;}
+    .boss-title{font-size:27px;}
+    .boss-label{font-size:10px;}
+    .stage-glow{width:200px; height:200px;}
+    .stage-squad{padding-top:8px;}
+    .hero h1{font-size:clamp(38px, 12vw, 54px); margin-bottom:10px;}
+    .hero-sub{margin:-2px 0 16px;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .boss-art, .stage-glow, .boss-bar i, .stage-squad img, .stage-sweep{animation:none;}
+    .stage-embers{display:none;}
   }
 
   /* SECTION HEADERS */
@@ -343,7 +446,7 @@
   </div>
   <button class="hamburger-btn" onclick="toggleMobileMenu()" aria-label="Open menu">☰</button>
   <div style="display:flex; gap:10px; align-items:center;" id="nav-auth-area">
-    <a href="auth.html" class="btn btn-ghost" style="text-decoration:none; display:inline-flex; align-items:center;">Log In</a>
+    <a href="auth.html" class="btn btn-ghost nav-login" style="text-decoration:none; display:inline-flex; align-items:center;">Log In</a>
     <a href="auth.html" class="btn btn-primary" style="text-decoration:none; display:inline-flex; align-items:center;">Sign Up Free</a>
   </div>
 </nav>
@@ -391,15 +494,32 @@
     </div>
   </div>
 
-  <div class="scoreboard">
-    <div class="scoreboard-head">
-      <span class="label" id="hero-scoreboard-label">Daily Leaderboard · <span style="color:var(--amber);">Asteroid Run</span></span>
-      <span class="live-tag">LIVE</span>
+  <!-- The boss, not a table of numbers. Someone arriving from a Reel of
+       tanks fighting Core-Eater should land on Core-Eater. The art is the
+       same SVG the fight itself draws, so the page is not promising a
+       different game than the one behind the button. -->
+  <div class="boss-stage">
+    <div class="stage-sweep"></div>
+    <div class="stage-glow"></div>
+    <div class="stage-floor"></div>
+    <div class="stage-embers" id="stage-embers"></div>
+    <div class="stage-vignette"></div>
+
+    <div class="boss-plate">
+      <div class="boss-label">FLOOR 1 &middot; BOSS</div>
+      <div class="boss-title">CORE-EATER</div>
+      <div class="boss-bar"><i></i></div>
+      <div class="boss-hp">7,000 HP</div>
     </div>
-    <div id="hero-scoreboard-rows">
-      <div style="padding:24px 20px; text-align:center; color:var(--muted); font-size:14px;">Loading today's scores...</div>
+
+    <svg class="boss-art" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M60 4 L74 16 L92 12 L88 32 L104 44 L90 56 L100 76 L78 76 L68 96 L60 82 L52 96 L42 76 L20 76 L30 56 L16 44 L32 32 L28 12 L46 16 Z" fill="#1c1212" stroke="#FF5C5C" stroke-width="2.2"/><path d="M60 22 L74 30 L78 50 L66 62 L60 58 L54 62 L42 50 L46 30 Z" fill="#2a1616" stroke="#FF5C5C" stroke-width="1.6"/><path d="M22 46 L6 60 L14 74 L26 66" fill="none" stroke="#7A1F1F" stroke-width="5" stroke-linecap="round"/><path d="M98 46 L114 60 L106 74 L94 66" fill="none" stroke="#7A1F1F" stroke-width="5" stroke-linecap="round"/><circle cx="10" cy="66" r="4" fill="#FF5C5C"/><circle cx="110" cy="66" r="4" fill="#FF5C5C"/><circle cx="60" cy="52" r="17" fill="#2a1010" stroke="#FF5C5C" stroke-width="2"/><circle cx="60" cy="52" r="9" fill="#FF5C5C"><animate attributeName="r" values="8;11;8" dur="1.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.85;1;0.85" dur="1.4s" repeatCount="indefinite"/></circle><circle cx="60" cy="52" r="4" fill="#FFE8B0"/><circle cx="46" cy="30" r="3.2" fill="#FFB627"><animate attributeName="opacity" values="1;0.3;1" dur="2.2s" repeatCount="indefinite"/></circle><circle cx="74" cy="30" r="3.2" fill="#FFB627"><animate attributeName="opacity" values="1;0.3;1" dur="2.2s" begin="0.4s" repeatCount="indefinite"/></circle><path d="M46 80 L60 92 L74 80 L68 74 L60 78 L52 74 Z" fill="#3a1414" stroke="#FF5C5C" stroke-width="1.4"/></svg>
+
+    <div class="stage-squad" aria-hidden="true">
+      <img src="boss_light_tank.png" alt="">
+      <img src="boss_medium_tank.png" alt="">
+      <img src="boss_heavy_tank.png" alt="">
+      <img src="boss_guardian_tank.png" alt="">
     </div>
-    <div class="scoreboard-foot" id="hero-scoreboard-foot">Resets in --:--:--</div>
   </div>
 </section>
 
@@ -1017,82 +1137,26 @@
     document.getElementById('daily-strip').style.display = 'block';
   })();
 
-  // ---- Hero scoreboard: live daily leaderboard for Asteroid Run ----
-  function startOfTodayUTC(){
-    const d = new Date();
-    d.setUTCHours(0, 0, 0, 0);
-    return d;
-  }
-
-  function updateHeroCountdown(){
-    const now = new Date();
-    const start = startOfTodayUTC();
-    const next = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-    const diff = Math.max(0, next - now);
-    const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
-    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
-    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
-    const el = document.getElementById('hero-scoreboard-foot');
-    if(el) el.textContent = 'Resets in ' + h + ':' + m + ':' + s;
-  }
-  updateHeroCountdown();
-  setInterval(updateHeroCountdown, 1000);
-
-  const HERO_GAMES = [
-    { id: 'asteroid-run', name: 'Asteroid Run' },
-    { id: 'orbit-snap', name: 'Orbit Snap' }
-  ];
-  let heroGameIndex = 0;
-
-  async function loadHeroScoreboard(){
-    const rowsEl = document.getElementById('hero-scoreboard-rows');
-    const labelEl = document.getElementById('hero-scoreboard-label');
-    if(!rowsEl) return;
-
-    const game = HERO_GAMES[heroGameIndex];
-    if(labelEl) labelEl.innerHTML = 'Daily Leaderboard · <span style="color:var(--amber);">' + game.name + '</span>';
-
-    const startISO = startOfTodayUTC().toISOString();
-
-    const { data: rows, error } = await sb
-      .from('scores')
-      .select('user_id, username, score')
-      .eq('game', game.id)
-      .gte('created_at', startISO)
-      .order('score', { ascending: false })
-      .limit(500);
-
-    if(error || !rows || rows.length === 0){
-      rowsEl.innerHTML = '<div style="padding:24px 20px; text-align:center; color:var(--muted); font-size:14px;">No scores yet today for ' + game.name + ' — be the first to play!</div>';
-      return;
+  // ---- Boss stage embers ----
+  // Built once and handed to CSS. Negative delays mean the field is already
+  // mid-flight on the first paint instead of every ember starting together.
+  (function buildEmbers(){
+    const host = document.getElementById('stage-embers');
+    if(!host) return;
+    if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const rand = (a, b) => a + Math.random() * (b - a);
+    let html = '';
+    for(let i = 0; i < 22; i++){
+      const size = rand(1.5, 4).toFixed(1);
+      html += '<i style="left:' + rand(2, 98).toFixed(1) + '%;'
+            + 'width:' + size + 'px; height:' + size + 'px;'
+            + 'animation-duration:' + rand(4.5, 11).toFixed(1) + 's;'
+            + 'animation-delay:-' + rand(0, 11).toFixed(1) + 's;'
+            + 'opacity:' + rand(0.35, 0.9).toFixed(2) + ';"></i>';
     }
+    host.innerHTML = html;
+  })();
 
-    const bestByUser = new Map();
-    for(const r of rows){
-      const existing = bestByUser.get(r.user_id);
-      if(!existing || r.score > existing.score) bestByUser.set(r.user_id, r);
-    }
-    const top = Array.from(bestByUser.values()).sort((a, b) => b.score - a.score).slice(0, 5);
-
-    rowsEl.innerHTML = top.map((r, i) => {
-      const rank = i + 1;
-      const goldClass = rank <= 3 ? ' gold' : '';
-      return '<div class="score-row' + goldClass + '">' +
-        '<span class="rank-badge">' + String(rank).padStart(2, '0') + '</span>' +
-        '<span class="player-name">' + (r.username || 'player') + '</span>' +
-        '<span class="score-val">' + Math.floor(r.score).toLocaleString() + '</span>' +
-        '<span class="prize-val" style="visibility:hidden;">—</span>' +
-      '</div>';
-    }).join('');
-  }
-
-  function cycleHeroScoreboard(){
-    heroGameIndex = (heroGameIndex + 1) % HERO_GAMES.length;
-    loadHeroScoreboard();
-  }
-
-  loadHeroScoreboard();
-  setInterval(cycleHeroScoreboard, 5000);
 })();
 </script>
   <!-- Vercel Web Analytics. Cookieless and per-visit, so it needs no consent

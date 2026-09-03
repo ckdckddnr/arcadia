@@ -187,6 +187,7 @@
     .coop-badge{ position:static; display:inline-block; margin-bottom:10px; }
   }
 
+
   .floor-list{ display:flex; flex-direction:column; gap:12px; }
   .floor-art{
     flex-shrink:0; width:64px; height:64px; border-radius:12px; overflow:hidden;
@@ -260,6 +261,61 @@
     .rune-slots{ width:100%; }
     .rune-slot{ width:calc(50% - 4px); }
     .rune-totals{ width:100%; margin-left:0; padding-left:0; }
+  }
+
+  /* ---------- MOBILE: fold the tower into something you can actually read ----------
+     Stacked, this page was 13,744px on a 375px screen -- roughly seventeen
+     swipes from the armory to the floor you wanted. Sections become an
+     accordion with their state on the header, and each floor card breaks into
+     two rows so its text is not squeezed into the ~50px the tag left behind.
+     This block lives at the end of the sheet on purpose: it is the same
+     specificity as the base rules it overrides, so source order decides. */
+  @media (max-width:860px){
+    .card.collapsible{ padding:15px 17px; margin-bottom:13px; }
+    .card.collapsible > .section-title{
+      display:flex; align-items:center; gap:10px;
+      margin-bottom:0; cursor:pointer; -webkit-user-select:none; user-select:none;
+    }
+    /* chevron drawn from borders, so it never renders as tofu */
+    .card.collapsible > .section-title::after{
+      content:''; margin-left:auto; flex:none; width:9px; height:9px;
+      border-right:2px solid var(--muted); border-bottom:2px solid var(--muted);
+      transform:rotate(-45deg); transition:transform 0.2s ease;
+    }
+    .card.collapsible:not(.collapsed) > .section-title::after{ transform:rotate(45deg); }
+    .card.collapsible.collapsed > .card-body{ display:none; }
+    .card.collapsible > .card-body{ margin-top:13px; }
+
+    .acc-chip{
+      font-family:'IBM Plex Mono','Noto Sans KR',monospace;
+      font-size:11px; font-weight:700; white-space:nowrap;
+      color:var(--amber); background:rgba(255,182,39,0.13);
+      padding:2px 8px; border-radius:9px;
+    }
+    .acc-chip.warn{ color:var(--red); background:rgba(255,92,92,0.14); }
+    .acc-chip.done{ color:var(--green); background:rgba(52,211,153,0.13); }
+
+    /* Row 1: number, art, status tag. Row 2: everything that is words.
+       Before this the tag ate the width and .floor-info was 52px wide, so a
+       single pay line wrapped into nine. */
+    .floor-card{ flex-wrap:wrap; padding:12px 13px; gap:9px 10px; align-items:center; }
+    .floor-num{ order:1; font-size:20px; }
+    .floor-art{ order:2; width:44px; height:44px; }
+    .floor-tag{ order:3; margin-left:auto; }
+    .floor-info{ order:4; flex:1 1 100%; min-width:100%; }
+    .floor-name{ font-size:16px; margin-bottom:2px; }
+    .floor-desc{ display:none; }
+    .floor-pay{ font-size:10px; gap:2px 8px; margin-top:5px; }
+    .floor-runes{ font-size:9.5px; gap:7px; margin-top:4px; }
+
+    /* a Coming Soon panel does not deserve half a screen. The first paragraph
+       describes the mode; the amber one says your tanks and runes carry over,
+       which is the only part that changes what you do today. */
+    .coop-teaser{ padding:15px 16px; }
+    .coop-art{ width:48px; height:48px; }
+    .coop-body{ gap:12px; }
+    .coop-text{ font-size:11.5px; line-height:1.5; }
+    .coop-text:first-of-type{ display:none; }
   }
 </style>
 <!-- Anonymous funnel counters and client-side error reporting. Loaded first
@@ -1011,6 +1067,69 @@
   }
 
   initPage();
+
+  // ---------- Mobile accordion ----------
+  // Wraps each card's body so the section can fold, without touching any of the
+  // markup the render functions write into -- they address elements by id, and
+  // those ids move with the wrapper. Floors stays open: it is what the page is
+  // for. The chip in each closed header carries the state you would otherwise
+  // have to open the section to see.
+  (function mobileAccordion(){
+    if(!window.matchMedia || !window.matchMedia('(max-width:860px)').matches) return;
+
+    const cards = [];
+    document.querySelectorAll('.card').forEach(card => {
+      const title = card.querySelector(':scope > .section-title');
+      if(!title) return;
+      const body = document.createElement('div');
+      body.className = 'card-body';
+      while(title.nextSibling) body.appendChild(title.nextSibling);
+      card.appendChild(body);
+      card.classList.add('collapsible');
+
+      const name = title.textContent.trim();
+      if(!/^Floors/i.test(name)) card.classList.add('collapsed');
+
+      const chip = document.createElement('span');
+      chip.className = 'acc-chip';
+      chip.style.display = 'none';
+      title.appendChild(chip);
+
+      title.addEventListener('click', () => card.classList.toggle('collapsed'));
+      cards.push({ card, name, chip, body });
+    });
+    if(!cards.length) return;
+
+    function setChip(chip, text, tone){
+      if(!text){ chip.style.display = 'none'; return; }
+      chip.textContent = text;
+      chip.className = 'acc-chip' + (tone ? ' ' + tone : '');
+      chip.style.display = '';
+    }
+
+    function refresh(){
+      cards.forEach(({ name, chip, body }) => {
+        if(/^Squad Armory/i.test(name)){
+          const total = body.querySelectorAll('.shop-card').length;
+          const owned = body.querySelectorAll('.shop-card.owned').length;
+          setChip(chip, total ? owned + ' / ' + total + ' owned' : '', owned >= 4 ? 'done' : 'warn');
+        } else if(/^Deploy Squad/i.test(name)){
+          const picked = body.querySelectorAll('.squad-slot.filled, .slot.filled, .deploy-slot.filled').length;
+          setChip(chip, picked ? picked + ' / 4 picked' : 'pick 4', picked === 4 ? 'done' : 'warn');
+        } else if(/^Runes/i.test(name)){
+          const n = body.querySelectorAll('.rune-chip, .rune-card, .inv-rune').length;
+          setChip(chip, n ? n + ' held' : 'none yet', n ? '' : 'warn');
+        } else if(/^Tank Upgrades/i.test(name)){
+          setChip(chip, '', '');
+        }
+      });
+    }
+
+    // the sections fill in asynchronously, so watch rather than guess at timing
+    const obs = new MutationObserver(() => { clearTimeout(obs._t); obs._t = setTimeout(refresh, 60); });
+    cards.forEach(({ body }) => obs.observe(body, { childList:true, subtree:true }));
+    refresh();
+  })();
 </script>
   <!-- Vercel Web Analytics. Cookieless and per-visit, so it needs no consent
        banner; it also does nothing until the project has it switched on. -->

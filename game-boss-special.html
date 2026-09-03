@@ -585,6 +585,14 @@
     }
     nav .logo{ min-height:36px; }
   }
+
+  /* The coin option on the four starter tanks. Amber so it reads as Coins next
+     to the token button, and never the primary of the two. */
+  .shop-card .coin-buy{
+    margin-top:6px; background:transparent; color:var(--amber);
+    border:1px solid rgba(255,182,39,0.55);
+  }
+  .shop-card .coin-buy:hover{ background:rgba(255,182,39,0.12); }
 </style>
 </head>
 <body>
@@ -2749,6 +2757,12 @@
   // ---------- Shop ----------
   let ownedTanks = [];
 
+  // The four starter tanks also take Coins. A new player needed 385 tokens --
+  // about ninety arcade runs -- before the tower opened past floor 1, which is
+  // a wall at exactly the point they have decided they like it. Prices mirror
+  // arc_tank_coin_prices() on the server, which is what actually charges.
+  const TANK_COIN_PRICE = { light: 300, medium: 400, guardian: 400, heavy: 500 };
+
   function renderShop(tokens){
     document.getElementById('shop-token-balance').textContent = tokens.toLocaleString();
     const grid = document.getElementById('shop-grid');
@@ -2760,17 +2774,26 @@
       if(owned) btnHtml = '<button disabled>✓ Owned</button>';
       else if(canAfford) btnHtml = '<button onclick="buyTank(\'' + key + '\')">Buy — ' + def.price + ' ⚔</button>';
       else btnHtml = '<button class="cant-afford" disabled>Need ' + def.price + ' ⚔</button>';
+      // The server owns the price and the balance check, so the coin button is
+      // always live and a shortfall comes back as an error. The shops differ
+      // between the lobby and the fight pages -- one reads a global, the other
+      // takes an argument -- and neither carries a coin balance.
+      const cp = TANK_COIN_PRICE[key];
+      if(!owned && cp){
+        btnHtml += '<button class="coin-buy" onclick="buyTank(\'' + key + '\', \'coins\')">' +
+          'Buy — ' + cp + ' \u{1FA99}</button>';
+      }
       return '<div class="shop-card' + (owned?' owned':'') + '">' +
         '<div class="tank-img-box"><img class="size-' + key + '" src="' + def.img + '" alt=""></div>' +
         '<div class="name">' + def.name + '</div>' +
         '<div class="role">' + ROLE_TEXT[key] + '</div>' +
-        '<div class="price">' + (owned ? 'Owned' : def.price + ' Battle Tokens') + '</div>' +
+        '<div class="price">' + (owned ? 'Owned' : def.price + ' ⚔' + (TANK_COIN_PRICE[key] ? '  ·  ' + TANK_COIN_PRICE[key] + ' \u{1FA99}' : ' Battle Tokens')) + '</div>' +
         btnHtml +
       '</div>';
     }).join('');
   }
 
-  async function buyTank(key){
+  async function buyTank(key, pay){
     const shopMsg = document.getElementById('shop-msg');
     shopMsg.className = 'submit-msg'; shopMsg.textContent = '';
     const { data: sessionData } = await sb.auth.getSession();
@@ -2780,7 +2803,7 @@
       return;
     }
     // The server owns the price and the balance check now.
-    const { data: buyRes, error: buyErr } = await sb.rpc('buy_tank', { p_tank: key });
+    const { data: buyRes, error: buyErr } = await sb.rpc('buy_tank', { p_tank: key, p_pay: pay || 'tokens' });
     if(buyErr || !buyRes || !buyRes.ok){
       const why = buyRes && buyRes.error;
       shopMsg.className = 'submit-msg error';

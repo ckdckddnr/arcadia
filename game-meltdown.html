@@ -605,7 +605,7 @@
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
       msg.className = 'submit-msg error';
-      msg.innerHTML = 'Result not saved — <a href="auth.html" class="link-text">log in</a> to appear on the leaderboard.';
+      msg.innerHTML = 'Result not saved — <a href="auth.html" class="link-text">log in</a> to keep it and earn rewards.';
       btn.style.display = 'none';
       return;
     }

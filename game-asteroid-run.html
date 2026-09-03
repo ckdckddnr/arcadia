@@ -220,7 +220,7 @@
       <div class="score-display" id="final-score">0</div>
       <div class="score-label">Final Score</div>
       <div class="submit-msg" id="submit-msg"></div>
-      <button class="btn btn-primary" id="submit-btn" onclick="submitScore()">Submit to Leaderboard</button>
+      <button class="btn btn-primary" id="submit-btn" onclick="submitScore()">Save Score</button>
       <button class="btn btn-ghost start-action-btn" onclick="startGame()">Play Again</button>
     </div>
   </div>
@@ -938,9 +938,9 @@
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
       msg.className = 'submit-msg error';
-      msg.innerHTML = 'Score not saved — <a href="auth.html" class="link-text">log in</a> to appear on the leaderboard.';
+      msg.innerHTML = 'Score not saved — <a href="auth.html" class="link-text">log in</a> to keep it and earn rewards.';
       btn.disabled = false;
-      btn.textContent = 'Submit to Leaderboard';
+      btn.textContent = 'Save Score';
       return;
     }
 

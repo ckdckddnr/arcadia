@@ -2198,6 +2198,10 @@
       if(deployBtn){ deployBtn.disabled = false; deployBtn.textContent = 'Deploy Squad'; }
       document.getElementById('start-overlay').classList.add('hidden');
       document.getElementById('over-overlay').classList.add('hidden');
+      // This branch returns before the shared tail, so it needs its own event.
+      // It is also the single most important one on the site: floor 1 is where
+      // ad traffic lands, and everyone arriving there is a guest.
+      if(window.arcTrack) arcTrack('start');
       resetGame();
       startBgAmbience();
       sfxGameStart();

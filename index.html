@@ -214,9 +214,17 @@
   }
 
   @media (max-width:860px){
-    /* one fewer moving surface, and the sweep is the least missed */
+    /* One fewer moving surface, and the sweep is the least missed. The nebulae
+       also stop scaling: re-rasterising a 78vw gradient every frame is what a
+       phone shows as the page shimmering. They still drift. */
     .sweep{ display:none; }
     .bg-grid{ height:30vh; }
+    .neb-3{ display:none; }
+    /* Rotating a masked conic gradient is the single most expensive thing on
+       this page and the least visible at 375px. */
+    .stage-sweep{ display:none; }
+    @keyframes nebDrift1{0%,100%{transform:translate(0,0);} 50%{transform:translate(7vw,5vh);}}
+    @keyframes nebDrift2{0%,100%{transform:translate(0,0);} 50%{transform:translate(-6vw,7vh);}}
   }
   @media (prefers-reduced-motion:reduce){
     .neb-1, .neb-2, .neb-3, .sweep{ animation:none; }
@@ -263,9 +271,10 @@
     background:radial-gradient(circle, rgba(255,92,92,0.42), rgba(255,92,92,0.12) 45%, transparent 70%);
     filter:blur(14px); animation:stageGlow 3.6s ease-in-out infinite; z-index:0;
   }
+  /* Opacity only: scaling this re-rasterised a 340px gradient every frame. */
   @keyframes stageGlow{
-    0%,100%{opacity:0.55; transform:translate(-50%,-50%) scale(1);}
-    50%    {opacity:0.95; transform:translate(-50%,-50%) scale(1.10);}
+    0%,100%{opacity:0.55;}
+    50%    {opacity:0.95;}
   }
 
   /* a horizon, so the boss reads as standing in a place rather than floating */
@@ -343,7 +352,7 @@
     background:linear-gradient(90deg, #B4231F, #FF5C5C 55%, #FF9A6B);
     animation:barPulse 2.6s ease-in-out infinite;
   }
-  @keyframes barPulse{0%,100%{filter:brightness(1);} 50%{filter:brightness(1.45);}}
+  @keyframes barPulse{0%,100%{opacity:1;} 50%{opacity:0.72;}} 50%{filter:brightness(1.45);}}
   .boss-hp{
     font-family:'IBM Plex Mono','Noto Sans KR',monospace;
     font-size:12px; color:#FFB0A0; margin-top:7px; letter-spacing:0.06em;
@@ -1246,7 +1255,9 @@
     if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const rand = (a, b) => a + Math.random() * (b - a);
     let html = '';
-    for(let i = 0; i < 22; i++){
+    // 22 separately animated layers is fine on a desktop and a lot for a phone
+    const count = window.matchMedia('(max-width:860px)').matches ? 10 : 22;
+    for(let i = 0; i < count; i++){
       const size = rand(1.5, 4).toFixed(1);
       html += '<i style="left:' + rand(2, 98).toFixed(1) + '%;'
             + 'width:' + size + 'px; height:' + size + 'px;'

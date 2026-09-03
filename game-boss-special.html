@@ -474,9 +474,11 @@
       radial-gradient(circle at 30% 30%, rgba(124,255,77,0.30), transparent 55%),
       radial-gradient(circle at 72% 68%, rgba(90,220,60,0.24), transparent 58%);
     box-shadow:inset 0 0 10px rgba(124,255,77,0.35);
-    animation:rotBreathe 3.4s ease-in-out infinite;
-  }
-  @keyframes rotBreathe{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.35); } }
+    /* No animation here on purpose. This class lands on up to 32 tiles at once
+       and filter:brightness is not composited, so every one of them repainted
+       on every frame -- which is what the shimmer on a phone was. The rot is
+       already distinct without breathing. */
+  } }
 
   /* A weak node: a spiked growth with the health it has left drawn as a ring
      around it, so you can read at a glance which one is nearly down. */
@@ -488,7 +490,7 @@
       radial-gradient(circle at 50% 45%, #FFF6C8 0 16%, #FFB627 30%, #6B3A08 62%, #1A0E02 82%);
     box-shadow:0 0 16px rgba(255,182,39,0.85), inset 0 0 8px rgba(0,0,0,0.7);
     z-index:3; display:flex; align-items:center; justify-content:center;
-    animation:nodePulse 2.2s ease-in-out infinite;
+    animation:nodePulse 2.2s ease-in-out infinite;   /* opacity only, see below */
   }
   /* the spikes */
   .node::before{
@@ -500,7 +502,7 @@
                      rgba(255,182,39,0.55) 85%, transparent 87%);
     border-radius:50%;
   }
-  @keyframes nodePulse{ 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.3); } }
+  @keyframes nodePulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.82; } } }
 
   .node.node-dead{
     background:radial-gradient(circle, rgba(90,74,56,0.35), rgba(12,10,8,0.8) 70%);
@@ -534,9 +536,10 @@
   }
   .node.node-hit{ animation:nodeHit 0.32s ease-out; }
   @keyframes nodeHit{
-    0%{ transform:translate(-50%,-50%) scale(1);    filter:brightness(2.6); }
-    45%{ transform:translate(-50%,-50%) scale(1.28); filter:brightness(2); }
-    100%{ transform:translate(-50%,-50%) scale(1);   filter:brightness(1); }
+    0%{ transform:translate(-50%,-50%) scale(1);    opacity:1; }
+    45%{ transform:translate(-50%,-50%) scale(1.3); opacity:0.55; }
+    100%{ transform:translate(-50%,-50%) scale(1);  opacity:1; }
+  }
   }
 
   /* Weak node health, beside the body's. The number inside a node is only
@@ -565,6 +568,13 @@
     /* and the panel is ~110px wide there, so the max drops off the value */
     .nb-val em{ display:none; }
     .nb-track{ min-width:28px; }
+  }
+
+  @media (max-width:860px){
+    /* bd-pan scrolls background-position, which repaints the whole band every
+       frame. Two full-width bands doing that behind a busy board is not worth
+       it on a phone. */
+    .bd-band{ animation:none !important; }
   }
 </style>
 </head>
@@ -2889,7 +2899,10 @@
     sfxGameStart();
   }
 
-  const BACKDROP_MOTES = { n:44, color:'#7CFF4D', anim:'rise', lo:1, hi:3, dmin:7, dmax:16, o:0.6 };   // spores, not gold dust
+  // Spores, not gold dust. Halved on a phone: 44 separately animated layers
+  // over a 9x7 board is where the shimmer came from.
+  const BACKDROP_MOTES = { n: (window.matchMedia && window.matchMedia('(max-width:860px)').matches ? 18 : 44),
+                           color:'#7CFF4D', anim:'rise', lo:1, hi:3, dmin:7, dmax:16, o:0.6 };
 
   // ---------- Backdrop ----------
   // Particles are built once and left to CSS. Randomised delays mean the field

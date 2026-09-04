@@ -92,6 +92,47 @@
   .pack-card.token .pack-coins{ color:var(--cyan); }
   .pack-card.token button{ background:var(--cyan); color:#04222A; }
 
+  .pass-card{
+    display:flex; gap:28px; align-items:center; flex-wrap:wrap;
+    background:linear-gradient(135deg, rgba(255,182,39,0.07), rgba(45,225,252,0.05));
+    border:1.5px solid rgba(255,182,39,0.35); border-radius:16px; padding:26px 28px;
+  }
+  .pass-main{ flex:1 1 320px; min-width:0; }
+  .pass-title{
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:26px;
+    color:var(--amber); margin-bottom:12px;
+  }
+  .pass-perks{ list-style:none; margin:0; padding:0; }
+  .pass-perks li{
+    color:#C7CDDA; font-size:14px; line-height:1.6; padding-left:20px;
+    position:relative; margin-bottom:7px;
+  }
+  .pass-perks li::before{ content:'✓'; position:absolute; left:0; color:var(--green); font-weight:800; }
+  .pass-buy{ flex:0 0 236px; text-align:center; }
+  .pass-price{
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:30px; font-weight:800;
+    margin-bottom:12px; color:var(--text);
+  }
+  .pass-price span{ font-size:14px; color:var(--muted); font-weight:600; }
+  .pass-card button{
+    width:100%; padding:13px; border-radius:8px; border:none; cursor:pointer;
+    font-weight:800; font-size:14px; background:var(--amber); color:#1A1200;
+  }
+  .pass-card button[disabled]{ opacity:0.5; cursor:not-allowed; }
+  .pass-card button.manage{ background:transparent; border:1.5px solid var(--line); color:var(--text); }
+  /* The renewal terms sit with the button, not in the small print at the
+     bottom: someone must be able to read what recurs before they agree to it. */
+  .pass-terms{ font-size:11px; color:var(--muted); line-height:1.6; margin-top:10px; }
+  .pass-state{
+    font-size:13px; font-weight:700; color:var(--green); margin-bottom:10px;
+  }
+  .pass-state.ending{ color:var(--amber); }
+
+  @media (max-width:600px){
+    .pass-card{ padding:22px 18px; gap:18px; }
+    .pass-buy{ flex:1 1 100%; }
+  }
+
   .fine-print{ margin-top:34px; text-align:center; color:var(--muted); font-size:12px; line-height:1.7; }
   .fine-print a{ color:var(--cyan); }
 
@@ -142,6 +183,30 @@
   </div>
 
   <div class="pack-grid token-grid" id="token-grid"></div>
+
+  <div class="section-split">
+    <h2>Arcadia Pass</h2>
+    <p>A monthly membership that doubles what your daily check-in pays.</p>
+  </div>
+
+  <div class="pass-card" id="pass-card">
+    <div class="pass-main">
+      <div class="pass-title">🎫 Arcadia Pass</div>
+      <ul class="pass-perks">
+        <li>Your daily check-in pays <b>double</b> — coins and tokens alike</li>
+        <li>Works with your streak, so the seventh day doubles too</li>
+        <li>Keeps running to the end of the month you paid for, even if you cancel</li>
+      </ul>
+    </div>
+    <div class="pass-buy">
+      <div class="pass-price">$2.99<span>/month</span></div>
+      <button id="pass-btn" disabled>Sign in to subscribe</button>
+      <div class="pass-terms" id="pass-terms">
+        Renews automatically every month at $2.99 until cancelled.
+        Cancel any time — it takes effect at the end of the paid month.
+      </div>
+    </div>
+  </div>
 
   <div class="fine-print">
     All prices are in <b>US dollars</b>. Payments are handled by Stripe — Arcadia never sees your card details.<br>
@@ -212,7 +277,7 @@
   }
 
   async function buyPack(packId){
-    const buttons = document.querySelectorAll('.pack-card button');
+    const buttons = document.querySelectorAll('.pack-card button, .pass-card button');
     buttons.forEach(b => b.disabled = true);
     showStatus('info', 'Opening secure checkout...');
 
@@ -244,7 +309,10 @@
           if(box) box.scrollIntoView({ block: 'center' });
           else location.reload();     // the prompt loads on next paint
         } else {
-          showStatus('error', data.error || 'Could not start checkout. Try again.');
+          // The API sends a human message for refusals it expects, such as
+          // already holding a Pass; the raw error code is the last resort.
+          showStatus('error', data.message || data.error || 'Could not start checkout. Try again.');
+          if(data.error === 'already_subscribed') loadPass();
         }
         buttons.forEach(b => b.disabled = false);
         return;
@@ -340,11 +408,117 @@
       '</a> from your account address and we will add them by hand.', true);
   }
 
+  function fmtDate(iso){
+    if(!iso) return '';
+    try{ return new Date(iso).toLocaleDateString(undefined,
+      { year:'numeric', month:'short', day:'numeric' }); } catch(e){ return ''; }
+  }
+
+  async function loadPass(){
+    const btn = document.getElementById('pass-btn');
+    const card = document.getElementById('pass-card');
+    const { data: sessionData } = await sb.auth.getSession();
+
+    // Anything already added by a previous render, so repeated calls do not stack.
+    const old = card.querySelector('.pass-state');
+    if(old) old.remove();
+
+    if(!sessionData.session){
+      btn.disabled = true;
+      btn.className = '';
+      btn.textContent = 'Sign in to subscribe';
+      btn.onclick = null;
+      return;
+    }
+
+    let st = null;
+    try{
+      const { data } = await sb.rpc('arc_subscription_status');
+      st = data;
+    } catch(e){ /* fall through to the plain subscribe button */ }
+
+    if(st && st.active){
+      const line = document.createElement('div');
+      line.className = 'pass-state' + (st.cancel_at_period_end ? ' ending' : '');
+      line.textContent = st.cancel_at_period_end
+        ? 'Ends ' + fmtDate(st.renews_at)
+        : 'Active · renews ' + fmtDate(st.renews_at);
+      document.querySelector('.pass-buy').prepend(line);
+
+      btn.disabled = false;
+      btn.className = 'manage';
+      btn.textContent = 'Manage subscription';
+      btn.onclick = openPortal;
+      document.getElementById('pass-terms').textContent = st.cancel_at_period_end
+        ? 'This Pass will not renew. It keeps working until the date above.'
+        : 'Renews automatically every month at $2.99 until cancelled. '
+          + 'Use Manage subscription to cancel or change your card.';
+    } else {
+      btn.disabled = false;
+      btn.className = '';
+      btn.textContent = 'Get the Pass';
+      btn.onclick = () => buyPack('pass');
+    }
+  }
+
+  async function openPortal(){
+    const btn = document.getElementById('pass-btn');
+    btn.disabled = true;
+    showStatus('info', 'Opening your billing settings…');
+    try{
+      const { data: sessionData } = await sb.auth.getSession();
+      if(!sessionData.session){
+        showStatus('error', 'Your session expired. Please sign in again.');
+        btn.disabled = false;
+        return;
+      }
+      const res = await fetch('/api/customer-portal', {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ accessToken: sessionData.session.access_token })
+      });
+      const data = await res.json();
+      if(!res.ok || !data.url){
+        showStatus('error', data.message || data.error || 'Could not open billing settings.');
+        btn.disabled = false;
+        return;
+      }
+      window.location.href = data.url;
+    } catch(err){
+      showStatus('error', 'Could not reach the billing server. Try again.');
+      btn.disabled = false;
+    }
+  }
+
+  // Stripe confirms the subscription over the webhook, which can land a moment
+  // after the redirect, so the Pass is polled the same way a coin balance is
+  // rather than asking the buyer to refresh.
+  async function watchForPass(){
+    showStatus('info', 'Payment received. Activating your Pass…');
+    const deadline = Date.now() + 45000;
+    while(Date.now() < deadline){
+      try{
+        const { data } = await sb.rpc('arc_subscription_status');
+        if(data && data.active){
+          await loadPass();
+          showStatus('success', '✓ Arcadia Pass is active. Your daily check-in now pays double.');
+          return;
+        }
+      } catch(e){}
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    showStatus('error',
+      'Your payment went through, but the Pass has not switched on yet. ' +
+      'Nothing has been lost — email <a href="mailto:' + SUPPORT_EMAIL + '">' + SUPPORT_EMAIL +
+      '</a> from your account address and we will sort it out.', true);
+  }
+
   (function handleReturn(){
     const params = new URLSearchParams(window.location.search);
     const status = params.get('status');
     if(status === 'success'){
       watchForCredit();
+    } else if(status === 'subscribed'){
+      watchForPass();
     } else if(status === 'cancelled'){
       sessionStorage.removeItem(PENDING_KEY);
       showStatus('info', 'Checkout cancelled — no charge was made.');
@@ -352,6 +526,7 @@
   })();
 
   loadBalance();
+  loadPass();
 </script>
   <!-- Vercel Web Analytics. Cookieless and per-visit, so it needs no consent
        banner; it also does nothing until the project has it switched on. -->

@@ -40,12 +40,64 @@ export default async function handler(req, res) {
     return res.status(400).send('Webhook signature verification failed');
   }
 
+  const supabaseAdmin = () => createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  // --- Subscription lifecycle -------------------------------------------
+  // The Pass is not a balance, so it is not credited; its state is mirrored
+  // from Stripe. Renewals, cancellations and failed payments all arrive as
+  // subscription events rather than as checkout sessions, which is why the
+  // benefit has to be driven from here rather than from the moment of sale.
+  if (event.type === 'customer.subscription.created' ||
+      event.type === 'customer.subscription.updated' ||
+      event.type === 'customer.subscription.deleted') {
+    const sub = event.data.object;
+    const subUser = sub.metadata && sub.metadata.user_id;
+
+    if (!subUser) {
+      console.error('Subscription event without user_id:', sub.id);
+      return res.status(200).send('No user on subscription');
+    }
+
+    // A deleted subscription is over regardless of what status it carries.
+    const status = event.type === 'customer.subscription.deleted' ? 'canceled' : sub.status;
+    const periodEnd = sub.current_period_end
+      ? new Date(sub.current_period_end * 1000).toISOString()
+      : null;
+
+    try {
+      const { data, error } = await supabaseAdmin().rpc('set_subscription', {
+        p_user_id: subUser,
+        p_customer_id: typeof sub.customer === 'string' ? sub.customer : null,
+        p_subscription_id: sub.id,
+        p_status: status,
+        p_period_end: periodEnd,
+        p_cancel_at_period_end: !!sub.cancel_at_period_end
+      });
+      if (error) throw error;
+      console.log('Subscription', sub.id, '->', status, 'for', subUser, 'active:', data && data.active);
+      return res.status(200).send('Subscription recorded');
+    } catch (err) {
+      console.error('Failed to record subscription:', err);
+      return res.status(500).send('Subscription update failed');
+    }
+  }
+
   if (event.type !== 'checkout.session.completed') {
     // Acknowledge anything we don't handle so Stripe stops retrying it.
     return res.status(200).send('Ignored');
   }
 
   const session = event.data.object;
+
+  // The subscription's own events carry the state, and they arrive for every
+  // later renewal too. Recording the sale here as well would add nothing and
+  // would risk writing a period end this session does not actually know.
+  if (session.mode === 'subscription') {
+    return res.status(200).send('Subscription start — handled by subscription events');
+  }
 
   // Only credit fully-paid sessions.
   if (session.payment_status !== 'paid') {
@@ -63,10 +115,7 @@ export default async function handler(req, res) {
     return res.status(200).send('Nothing to credit');
   }
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
+  const supabase = supabaseAdmin();
 
   try {
     // One database call does the whole thing atomically: it claims the payment

@@ -20,6 +20,18 @@ const COIN_PACKS = {
   tokens150: { name: 'Battle Token Pack', coins: 0, tokens: 150, amount: 199 }
 };
 
+// Recurring products are kept apart from the one-off packs: they open a
+// different Stripe mode, and nothing about them should be creditable by the
+// pack-crediting path.
+const SUBSCRIPTIONS = {
+  pass: {
+    name: 'Arcadia Pass',
+    description: 'Doubles your daily check-in reward. Renews monthly, cancel any time.',
+    amount: 299,
+    interval: 'month'
+  }
+};
+
 function packDescription(pack) {
   const parts = [];
   if (pack.coins)  parts.push(pack.coins.toLocaleString() + ' Arcadia Coins');
@@ -37,7 +49,8 @@ export default async function handler(req, res) {
     const { packId, accessToken } = req.body || {};
 
     const pack = COIN_PACKS[packId];
-    if (!pack) return res.status(400).json({ error: 'Unknown coin pack' });
+    const plan = SUBSCRIPTIONS[packId];
+    if (!pack && !plan) return res.status(400).json({ error: 'Unknown product' });
     if (!accessToken) return res.status(401).json({ error: 'Not signed in' });
 
     // Verify the caller really is who they claim to be, using their Supabase session token.
@@ -70,6 +83,51 @@ export default async function handler(req, res) {
     }
 
     const origin = req.headers.origin || ('https://' + req.headers.host);
+
+    if (plan) {
+      // Stripe will happily sell a second concurrent subscription to the same
+      // person, and they would be charged twice for one benefit. Refuse here.
+      const { data: existing } = await supabase
+        .from('subscriptions')
+        .select('status, current_period_end')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      const stillActive = existing
+        && ['active', 'trialing'].includes(existing.status)
+        && (!existing.current_period_end || new Date(existing.current_period_end) > new Date());
+
+      if (stillActive) {
+        return res.status(409).json({
+          error: 'already_subscribed',
+          message: 'You already have an active Arcadia Pass.'
+        });
+      }
+
+      const subSession = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        customer_email: user.email || undefined,
+        line_items: [{
+          quantity: 1,
+          price_data: {
+            currency: 'usd',
+            unit_amount: plan.amount,
+            recurring: { interval: plan.interval },
+            product_data: { name: plan.name, description: plan.description }
+          }
+        }],
+        client_reference_id: user.id,
+        // Copied onto the subscription too, because the events that matter
+        // later (renewal, cancellation) carry the subscription, not this session.
+        metadata: { user_id: user.id, plan_id: packId },
+        subscription_data: { metadata: { user_id: user.id, plan_id: packId } },
+        success_url: origin + '/shop.html?status=subscribed',
+        cancel_url: origin + '/shop.html?status=cancelled'
+      });
+
+      return res.status(200).json({ url: subSession.url });
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',

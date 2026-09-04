@@ -572,6 +572,24 @@
     letter-spacing:0.02em; color:var(--text); line-height:1.1; }
   .boss-hp{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:11px;
     color:var(--muted); margin-top:3px; }
+  .deep-works{
+    max-width:900px; margin:52px auto 0; padding:24px 26px; border-radius:16px;
+    display:flex; align-items:center; gap:26px; flex-wrap:wrap;
+    background:linear-gradient(135deg, rgba(194,112,59,0.12), rgba(255,122,47,0.04));
+    border:1px solid rgba(194,112,59,0.4);
+  }
+  .dw-copy{flex:1 1 340px; min-width:0;}
+  .dw-eyebrow{font-size:10px; letter-spacing:0.16em; color:#C2703B; font-weight:800; margin-bottom:7px;}
+  .deep-works h3{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:30px; margin-bottom:8px;}
+  .deep-works p{color:#C7CDDA; font-size:14px; line-height:1.65;}
+  .dw-btn{
+    flex:0 0 auto; text-decoration:none; display:inline-flex; align-items:center;
+    justify-content:center; background:#C2703B; color:#1A0E05; border:none;
+  }
+  @media (max-width:620px){
+    .deep-works{margin-top:34px; padding:20px 18px; gap:16px;}
+    .dw-btn{width:100%;}
+  }
   .tower-cta{ text-align:center; margin-top:34px; }
 
   @media (max-width:640px){
@@ -1023,6 +1041,19 @@
   </div>
   <div class="tower-cta">
     <a href="game-boss-fight-1.html" class="btn btn-primary btn-lg" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;">⚔ Fight Floor 1 — Free</a>
+  </div>
+
+  <!-- The caves are a separate ladder with their own rules, so they get their
+       own invitation rather than another card in the tower's gallery. -->
+  <div class="deep-works">
+    <div class="dw-copy">
+      <div class="dw-eyebrow">⛏ A SECOND WAY DOWN</div>
+      <h3>The Deep Works</h3>
+      <p>Machines shaped like animals, still working a mine nobody owns. They run hot —
+        every hit you land cooks them, and a machine pushed past its limit vents across
+        the floor and then seizes, wide open. Cave One needs no account.</p>
+    </div>
+    <a href="cave.html" class="btn btn-lg dw-btn">Enter the caves</a>
   </div>
 </section>
 

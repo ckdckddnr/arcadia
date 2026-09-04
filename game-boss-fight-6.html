@@ -1582,7 +1582,8 @@
     if(teamDmgBuffTurns > 0) teamDmgBuffTurns--;
     if(bossExposedTurns > 0) bossExposedTurns--;
     for(const t of playerTanks){
-      \1\n      if(t.phasedTurns > 0) t.phasedTurns--;
+      t.firedThisTurn = false;
+      if(t.phasedTurns > 0) t.phasedTurns--;
       if(t.alive && t.runes && t.runes.regen > 0 && t.hp < t.maxHp){
         t.hp = Math.min(t.maxHp, t.hp + t.runes.regen);
       }

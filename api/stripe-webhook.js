@@ -63,9 +63,24 @@ export default async function handler(req, res) {
 
     // A deleted subscription is over regardless of what status it carries.
     const status = event.type === 'customer.subscription.deleted' ? 'canceled' : sub.status;
-    const periodEnd = sub.current_period_end
-      ? new Date(sub.current_period_end * 1000).toISOString()
-      : null;
+
+    // Stripe moved current_period_end off the subscription and onto its items
+    // in the 2025-03-31 API version, and a webhook payload is serialised with
+    // whatever version the endpoint is pinned to -- not the version this SDK
+    // defaults to. Reading only the old field would quietly store no expiry at
+    // all, which makes a lapsed subscription look like it never ends.
+    const periodEndUnix = sub.current_period_end
+      || (sub.items && sub.items.data || [])
+           .map(i => i.current_period_end)
+           .filter(Boolean)
+           .sort((a, b) => b - a)[0]
+      || null;
+
+    const periodEnd = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null;
+    if (!periodEnd) {
+      console.warn('Subscription', sub.id, 'carried no period end; membership will ' +
+                   'rely on status alone until the next event.');
+    }
 
     try {
       const { data, error } = await supabaseAdmin().rpc('set_subscription', {

@@ -153,6 +153,7 @@
 </style>
 <!-- Anonymous funnel counters and client-side error reporting. Loaded first
      so its error handler is installed before anything else can throw. -->
+<script src="packs.js"></script>
 <script src="telemetry.js"></script>
 <script src="age-check.js"></script>
 </head>
@@ -222,18 +223,12 @@
   const SUPABASE_KEY = 'sb_publishable_3w88cicQLrH0bSJfSNpi1Q_6kyY0Qsy';
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Display only — the server has its own copy and is the source of truth for pricing.
-  const PACKS = [
-    { id:'starter', icon:'🪙', coins:500,   price:'$1.99', badge:null },
-    { id:'plus',    icon:'💰', coins:1500,  price:'$4.99', badge:'Popular' },
-    { id:'pro',     icon:'💎', coins:4000,  price:'$9.99', badge:'Best Value' },
-    { id:'mega',    icon:'👑', coins:10000, price:'$19.99', badge:null }
-  ];
-
-  const TOKEN_PACKS = [
-    { id:'tokens150', icon:'⚔', tokens:150, price:'$1.99', badge:null }
-  ];
-
+  // Display only — the server has its own copy and is the source of truth for
+  // pricing. The catalogue lives in packs.js so this page and the landing page
+  // cannot disagree about what a pack costs.
+  const CATALOG = window.ARCADIA_PACKS || { coins: [], tokens: [] };
+  const PACKS = CATALOG.coins;
+  const TOKEN_PACKS = CATALOG.tokens;
   const ALL_PACKS = PACKS.concat(TOKEN_PACKS);
 
   const SUPPORT_EMAIL = 'csunrisegaming@gmail.com';

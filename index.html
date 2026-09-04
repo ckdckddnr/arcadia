@@ -572,6 +572,54 @@
     letter-spacing:0.02em; color:var(--text); line-height:1.1; }
   .boss-hp{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:11px;
     color:var(--muted); margin-top:3px; }
+  .store{ max-width:1100px; margin:0 auto; padding:70px 5vw 20px; }
+  .store-head{ text-align:center; margin-bottom:28px; }
+  .store-eyebrow{ font-size:11px; letter-spacing:0.16em; color:var(--amber); font-weight:800; margin-bottom:8px; }
+  .store h2{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:38px; margin-bottom:8px; }
+  .store-head p{ color:var(--muted); font-size:14px; max-width:480px; margin:0 auto; line-height:1.6; }
+  .store-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(190px,1fr)); gap:14px; }
+  .store-card{
+    background:var(--surface); border:1.5px solid var(--line); border-radius:14px;
+    padding:20px 16px; text-align:center; position:relative; text-decoration:none;
+    color:inherit; display:block; transition:border-color 0.2s, transform 0.2s;
+  }
+  .store-card:hover{ border-color:var(--amber); transform:translateY(-3px); }
+  .store-card.best{ border-color:var(--amber); }
+  .store-card.tok{ border-color:rgba(45,225,252,0.35); }
+  .store-card.tok:hover{ border-color:var(--cyan); }
+  .store-badge{
+    position:absolute; top:-10px; left:50%; transform:translateX(-50%);
+    background:var(--amber); color:#1A1200; font-size:9px; font-weight:800;
+    letter-spacing:0.08em; padding:3px 10px; border-radius:11px; text-transform:uppercase; white-space:nowrap;
+  }
+  .store-icon{ font-size:30px; margin-bottom:6px; }
+  .store-amount{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:29px; color:var(--amber); line-height:1; }
+  .store-card.tok .store-amount{ color:var(--cyan); }
+  .store-unit{ font-size:10px; color:var(--muted); margin-bottom:10px; }
+  .store-price{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:17px; font-weight:800; }
+  .store-pass{
+    margin-top:16px; display:flex; align-items:center; gap:18px; flex-wrap:wrap;
+    background:linear-gradient(135deg, rgba(255,182,39,0.08), rgba(45,225,252,0.04));
+    border:1.5px solid rgba(255,182,39,0.35); border-radius:14px; padding:18px 22px;
+    text-decoration:none; color:inherit;
+  }
+  .store-pass:hover{ border-color:var(--amber); }
+  .store-pass .pi{ font-size:30px; flex:0 0 auto; }
+  .store-pass .pm{ flex:1 1 260px; min-width:0; }
+  .store-pass .pn{ font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:22px; color:var(--amber); }
+  .store-pass .pb{ color:#C7CDDA; font-size:13px; line-height:1.5; }
+  .store-pass .pp{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:22px; font-weight:800; flex:0 0 auto; }
+  .store-pass .pp span{ font-size:12px; color:var(--muted); }
+  .store-note{ text-align:center; color:var(--muted); font-size:11px; line-height:1.7; margin-top:16px; }
+  .store-note a{ color:var(--cyan); }
+  @media (max-width:600px){
+    .store{ padding:44px 5vw 10px; }
+    .store h2{ font-size:30px; }
+    .store-grid{ grid-template-columns:repeat(2,1fr); gap:10px; }
+    .store-card{ padding:16px 10px; }
+    .store-pass{ padding:16px; gap:12px; }
+  }
+
   .deep-works{
     max-width:900px; margin:52px auto 0; padding:24px 26px; border-radius:16px;
     display:flex; align-items:center; gap:26px; flex-wrap:wrap;
@@ -609,6 +657,7 @@
 </style>
 <!-- Anonymous funnel counters and client-side error reporting. Loaded first
      so its error handler is installed before anything else can throw. -->
+<script src="packs.js"></script>
 <script src="telemetry.js"></script>
 <script src="age-check.js"></script>
 </head>
@@ -1063,6 +1112,23 @@
   </div>
 </section>
 
+<!-- The shop used to be reachable only through the hamburger menu on a phone,
+     which is to say most people never saw it. Its own section on the page a
+     visitor already scrolls costs nothing and hides nothing. -->
+<section class="store" id="store">
+  <div class="store-head">
+    <div class="store-eyebrow">🪙 COIN SHOP</div>
+    <h2>Top up</h2>
+    <p>Coins pay the entry fee on every game. Battle Tokens buy the tanks that fight the tower.</p>
+  </div>
+  <div class="store-grid" id="store-grid"></div>
+  <div class="store-pass" id="store-pass"></div>
+  <div class="store-note">
+    Prices in US dollars. Payments handled by Stripe — Arcadia never sees your card details.
+    <a href="terms.html#refunds">Refund policy</a>
+  </div>
+</section>
+
 <footer>
   <div class="logo">ARCADIA</div>
   <div>Free to play · <a href="terms.html" style="color:var(--muted);">Terms</a> · <a href="privacy.html" style="color:var(--muted);">Privacy</a> · © 2026</div>
@@ -1386,6 +1452,41 @@
 </script>
   <!-- Vercel Web Analytics. Cookieless and per-visit, so it needs no consent
        banner; it also does nothing until the project has it switched on. -->
-  <script defer src="/_vercel/insights/script.js"></script>
+  <script defer src="/_vercel/insights/script.js">
+
+</script>
+<script>
+  // Rendered from the shared catalogue in packs.js so the home page can never
+  // advertise a price the shop does not charge. Cards link to the shop rather
+  // than checking out here: the purchase flow needs the age gate, a signed-in
+  // session and the return handler, and duplicating that is how it rots.
+  (function renderStore(){
+    const cat = window.ARCADIA_PACKS;
+    const grid = document.getElementById('store-grid');
+    if(!cat || !grid) return;
+    const card = (p, isTok) =>
+      '<a class="store-card' + (p.badge === 'Best Value' ? ' best' : '') + (isTok ? ' tok' : '') +
+        '" href="shop.html">' +
+        (p.badge ? '<div class="store-badge">' + p.badge + '</div>' : '') +
+        '<div class="store-icon">' + p.icon + '</div>' +
+        '<div class="store-amount">' + (isTok ? p.tokens : p.coins).toLocaleString() + '</div>' +
+        '<div class="store-unit">' + (isTok ? 'Battle Tokens' : 'Coins') + '</div>' +
+        '<div class="store-price">' + p.price + '</div>' +
+      '</a>';
+    grid.innerHTML = cat.coins.map(p => card(p, false)).join('') +
+                     cat.tokens.map(p => card(p, true)).join('');
+
+    const pass = cat.pass, holder = document.getElementById('store-pass');
+    if(pass && holder){
+      holder.outerHTML =
+        '<a class="store-pass" href="shop.html">' +
+          '<div class="pi">' + pass.icon + '</div>' +
+          '<div class="pm"><div class="pn">' + pass.name + '</div>' +
+          '<div class="pb">' + pass.blurb + '</div></div>' +
+          '<div class="pp">' + pass.price + '<span>/' + pass.period + '</span></div>' +
+        '</a>';
+    }
+  })();
+</script>
 </body>
 </html>

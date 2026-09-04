@@ -592,11 +592,11 @@
 
   const TANK_CLICK_SOUND = { light:'gui_041.wav', medium:'weapon_outofammo_008.wav', heavy:'weapon_outofammo_005.wav', guardian:'gui_036.wav',
     medic:'gui_006.wav', raider:'gui_009.wav', sniper:'gui_014.wav', warden:'gui_021.wav',
-    marshal:'gui_028.wav' };
+    marshal:'gui_028.wav', revenant:'gui_032.wav' };
   const TANK_FIRE_SOUND = { light:'weapon_mortar_003.wav', medium:'explosion_med_015.wav', heavy:'explosion_large_005.wav', guardian:'explosion_small_014.wav',
     medic:'weapon_laser_003.wav', raider:'weapon_blaster_002.wav',
     sniper:'weapon_railgun_002.wav', warden:'weapon_blaster_004.wav',
-    marshal:'weapon_mortar_004.wav' };
+    marshal:'weapon_mortar_004.wav', revenant:'impact_blaster_001.wav' };
 
   function sfxTankClick(type){ playClip(TANK_CLICK_SOUND[type], 0.6); }
   function sfxMove(){ playTone(150, 0.13, 'square', 0.06, 90); playNoise(0.08, 0.05, 400); }
@@ -610,7 +610,13 @@
   function sfxRepair(){ playClip('shield_recharge.wav', 0.75); }
   function sfxWarcry(){ playClip('bonus_powerup.wav', 0.7); }
   function sfxExpose(){ playClip('bonus_alarm_002.wav', 0.6); }
-  function sfxDecoy(){ playClip('shield_boost.wav', 0.75); }
+    function sfxDecoy(){ playClip('shield_boost.wav', 0.75); }
+  // The only unique-tier skill in the game gets its own sound rather than
+  // borrowing the Warden's: a hard electrical tear under a rising sweep.
+  function sfxPhase(){
+    playClip('weapon_lightning_001.wav', 0.6);
+    playTone(300, 0.38, 'sine', 0.10, 1150);
+  }
   function sfxBossHit(){ playNoise(0.15, 0.18, 1500); playTone(220, 0.1, 'square', 0.1, 110); }
   const PATTERN_SOUND = {
     cross: 'explosion_large_008.wav',
@@ -1450,6 +1456,59 @@
     }, 220);
   }
 
+  // Phase Recall moves tanks, so the effect has to read across two tiles: a
+  // rift tears open where the tank stood, a trail snaps to where it lands, and
+  // a ring closes behind it.
+  function fxPhaseGate(fromR, fromC, toR, toC){
+    const layer = document.getElementById('fx-layer');
+    if(!layer) return;
+    const a = tileCenter(fromR, fromC), b = tileCenter(toR, toC);
+    const GREEN = '#7CFF4F', PALE = '#C8FFA8';
+
+    const rift = document.createElement('div');
+    rift.style.cssText = 'position:absolute; left:' + a.x + 'px; top:' + a.y + 'px;'
+      + 'width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:50%; z-index:8;'
+      + 'pointer-events:none; background:' + PALE + ';'
+      + 'box-shadow:0 0 18px ' + GREEN + ', 0 0 44px ' + GREEN + ';'
+      + 'transition:transform 0.32s cubic-bezier(.2,.9,.3,1), opacity 0.32s ease-out;';
+    layer.appendChild(rift);
+    requestAnimationFrame(() => {
+      rift.style.transform = 'scaleY(6.5) scaleX(0.55)';
+      rift.style.opacity = '0';
+    });
+    setTimeout(() => rift.remove(), 430);
+
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if(len > 2){
+      const ang = Math.atan2(dy, dx) + 'rad';
+      const trail = document.createElement('div');
+      trail.style.cssText = 'position:absolute; left:' + a.x + 'px; top:' + a.y + 'px;'
+        + 'height:3px; width:' + len + 'px; margin-top:-1.5px; transform-origin:0 50%;'
+        + 'transform:rotate(' + ang + ') scaleX(0); opacity:0.95; z-index:8; pointer-events:none;'
+        + 'background:linear-gradient(90deg, ' + GREEN + ', ' + PALE + ');'
+        + 'box-shadow:0 0 12px ' + GREEN + ';'
+        + 'transition:transform 0.24s ease-out, opacity 0.4s ease-out 0.22s;';
+      layer.appendChild(trail);
+      requestAnimationFrame(() => {
+        trail.style.transform = 'rotate(' + ang + ') scaleX(1)';
+        trail.style.opacity = '0';
+      });
+      setTimeout(() => trail.remove(), 720);
+    }
+
+    const ring = document.createElement('div');
+    ring.style.cssText = 'position:absolute; left:' + b.x + 'px; top:' + b.y + 'px;'
+      + 'width:58px; height:58px; margin:-29px 0 0 -29px; border:3px solid ' + PALE + ';'
+      + 'border-radius:50%; z-index:9; pointer-events:none; opacity:0; transform:scale(1.9);'
+      + 'box-shadow:0 0 20px ' + GREEN + ', inset 0 0 16px ' + GREEN + ';'
+      + 'transition:transform 0.34s cubic-bezier(.2,.9,.3,1), opacity 0.34s ease-out;';
+    layer.appendChild(ring);
+    requestAnimationFrame(() => { ring.style.opacity = '1'; ring.style.transform = 'scale(0.78)'; });
+    setTimeout(() => { ring.style.opacity = '0'; }, 370);
+    setTimeout(() => ring.remove(), 780);
+  }
+
   function fxFloatText(r, c, text, color){
     const pos = tileCenter(r,c);
     const layer = document.getElementById('fx-layer');
@@ -1980,13 +2039,15 @@
           if(d < bestD){ bestD = d; best = [r, c]; }
         }
         if(!best) continue;                       // nowhere safe left on the board
+        const fromR = a.r, fromC = a.c;
         board[a.r][a.c].occupant = null;
         a.r = best[0]; a.c = best[1];
         board[a.r][a.c].occupant = a;
         a.phasedTurns = 1;                        // lasts exactly the attack it dodged
+        fxPhaseGate(fromR, fromC, a.r, a.c);
         moved++;
       }
-      sfxDecoy();
+      sfxPhase();
       showAction('YOUR ' + t.name.toUpperCase() + ' PHASES ' + moved + ' TANK' +
                  (moved === 1 ? '' : 'S') + ' OUT OF THE STRIKE', 'a-heal');
       log('Your ' + t.name + ' opens a phase gate — ' + moved + ' tank' + (moved === 1 ? '' : 's') +

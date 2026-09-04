@@ -582,6 +582,12 @@
   .dw-eyebrow{font-size:10px; letter-spacing:0.16em; color:#C2703B; font-weight:800; margin-bottom:7px;}
   .deep-works h3{font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:30px; margin-bottom:8px;}
   .deep-works p{color:#C7CDDA; font-size:14px; line-height:1.65;}
+  .deep-works.soon{ border-color:rgba(194,112,59,0.22); }
+  .deep-works.soon h3, .deep-works.soon p{ opacity:0.72; }
+  .dw-btn.soon-tag{
+    background:transparent; border:1px dashed rgba(194,112,59,0.55); color:#C2703B;
+    cursor:default; font-weight:800; padding:13px 22px; border-radius:8px;
+  }
   .dw-btn{
     flex:0 0 auto; text-decoration:none; display:inline-flex; align-items:center;
     justify-content:center; background:#C2703B; color:#1A0E05; border:none;
@@ -1045,15 +1051,15 @@
 
   <!-- The caves are a separate ladder with their own rules, so they get their
        own invitation rather than another card in the tower's gallery. -->
-  <div class="deep-works">
+  <div class="deep-works soon">
     <div class="dw-copy">
-      <div class="dw-eyebrow">⛏ A SECOND WAY DOWN</div>
+      <div class="dw-eyebrow">⛏ COMING SOON</div>
       <h3>The Deep Works</h3>
       <p>Machines shaped like animals, still working a mine nobody owns. They run hot —
         every hit you land cooks them, and a machine pushed past its limit vents across
-        the floor and then seizes, wide open. Cave One needs no account.</p>
+        the floor and then seizes, wide open.</p>
     </div>
-    <a href="cave.html" class="btn btn-lg dw-btn">Enter the caves</a>
+    <div class="dw-btn soon-tag">Coming soon</div>
   </div>
 </section>
 

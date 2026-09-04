@@ -87,6 +87,8 @@
     position:absolute; border-top:2px dashed rgba(138,147,166,0.3);
     transform-origin:0 0; z-index:0;
   }
+  .planet-node.soon{ opacity:0.55; cursor:default; pointer-events:none; }
+  .planet-node.soon .planet-tag{ color:var(--muted); }
   .planet-node{
     position:absolute; width:150px; text-align:center; z-index:2;
     transform:translate(-50%,-50%); cursor:pointer;
@@ -223,11 +225,13 @@
       <div class="planet-tag planet-live">● Floor 1 free</div>
     </a>
 
-    <a href="cave.html" class="planet-node" id="node-cave" style="text-decoration:none; color:inherit;">
-      <div class="planet-orb" style="background:radial-gradient(circle at 35% 30%, rgba(194,112,59,0.5), rgba(40,22,10,0.9));">⛏</div>
+    <!-- Built and playable at cave.html, but not announced yet: the node is
+         deliberately not a link so nobody wanders in before it is ready. -->
+    <div class="planet-node soon" id="node-cave">
+      <div class="planet-orb" style="background:radial-gradient(circle at 35% 30%, rgba(194,112,59,0.35), rgba(40,22,10,0.9));">⛏</div>
       <div class="planet-name">The Deep Works</div>
-      <div class="planet-tag planet-live">● Cave 1 free</div>
-    </a>
+      <div class="planet-tag">◷ Coming soon</div>
+    </div>
 
     <a href="game-stack-tower.html" class="planet-node" id="node-5" style="text-decoration:none; color:inherit;">
       <div class="planet-orb" style="background:radial-gradient(circle at 35% 30%, rgba(255,182,39,0.5), rgba(45,35,10,0.9));">🧱</div>

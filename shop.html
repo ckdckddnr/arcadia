@@ -68,6 +68,30 @@
   }
   .pack-card button[disabled]{ opacity:0.5; cursor:not-allowed; }
 
+  .balance-sep{ opacity:0.35; }
+
+  .section-split{ text-align:center; margin:46px auto 22px; max-width:520px; }
+  .section-split h2{
+    font-family:'Bebas Neue','Noto Sans KR',sans-serif; font-size:28px;
+    letter-spacing:0.02em; color:var(--cyan); margin-bottom:8px;
+  }
+  .section-split p{ color:var(--muted); font-size:13px; line-height:1.7; }
+
+  /* One card in an auto-fit grid would otherwise stretch the full width.
+     Two class names so this beats the plain .pack-grid rules by specificity
+     rather than by where it sits in the sheet. */
+  .pack-grid.token-grid{
+    grid-template-columns:repeat(auto-fit, minmax(210px, 240px));
+    justify-content:center;
+  }
+  .pack-card.token{ border-color:rgba(45,225,252,0.35); }
+  .pack-card.token:hover{
+    border-color:var(--cyan);
+    box-shadow:0 10px 40px -12px rgba(45,225,252,0.35);
+  }
+  .pack-card.token .pack-coins{ color:var(--cyan); }
+  .pack-card.token button{ background:var(--cyan); color:#04222A; }
+
   .fine-print{ margin-top:34px; text-align:center; color:var(--muted); font-size:12px; line-height:1.7; }
   .fine-print a{ color:var(--cyan); }
 
@@ -102,18 +126,27 @@
   <div class="shop-hero">
     <div class="eyebrow">Coin Shop</div>
     <h1>Top up your <span>coins</span></h1>
-    <p>Coins pay the entry fee on every game. Battle Tokens stay earn-only — you can't buy those.</p>
-    <div class="balance-bar">🪙 <span id="coin-balance">—</span> Coins</div>
+    <p>Coins pay the entry fee on every game. Battle Tokens buy tanks for the tower.</p>
+    <div class="balance-bar">🪙 <span id="coin-balance">—</span> Coins
+      <span class="balance-sep">·</span> ⚔ <span id="token-balance">—</span> Tokens</div>
   </div>
 
   <div class="status-msg" id="status-msg"></div>
 
   <div class="pack-grid" id="pack-grid"></div>
 
+  <div class="section-split">
+    <h2>Battle Tokens</h2>
+    <p>Tokens buy tanks outright and are never spent back into the game, so they are
+      deliberately scarce. You can still earn every one of them by playing.</p>
+  </div>
+
+  <div class="pack-grid token-grid" id="token-grid"></div>
+
   <div class="fine-print">
     All prices are in <b>US dollars</b>. Payments are handled by Stripe — Arcadia never sees your card details.<br>
-    Coins are for in-game use only. They have no cash value and can't be withdrawn, transferred, or exchanged for money.<br>
-    <b>Refunds:</b> within 14 days of purchase, as long as none of those Coins have been spent —
+    Coins and Battle Tokens are for in-game use only. They have no cash value and can't be withdrawn, transferred, or exchanged for money.<br>
+    <b>Refunds:</b> within 14 days of purchase, as long as nothing from that purchase has been spent —
     see the <a href="terms.html#refunds">refund policy</a>.
     By buying you agree to the <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>.
   </div>
@@ -132,6 +165,12 @@
     { id:'mega',    icon:'👑', coins:10000, price:'$19.99', badge:null }
   ];
 
+  const TOKEN_PACKS = [
+    { id:'tokens150', icon:'⚔', tokens:150, price:'$1.99', badge:null }
+  ];
+
+  const ALL_PACKS = PACKS.concat(TOKEN_PACKS);
+
   const SUPPORT_EMAIL = 'csunrisegaming@gmail.com';
   const PENDING_KEY = 'arcadia-pending-purchase';
 
@@ -144,24 +183,32 @@
   async function readCoins(){
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session) return null;
-    const { data: profile } = await sb.from('profiles').select('coins')
+    const { data: profile } = await sb.from('profiles').select('coins, battle_tokens')
       .eq('user_id', sessionData.session.user.id).maybeSingle();
-    return profile ? (profile.coins || 0) : null;
+    if(!profile) return null;
+    return { coins: profile.coins || 0, tokens: profile.battle_tokens || 0 };
+  }
+
+  function packCard(p, signedIn){
+    const isToken = !!p.tokens;
+    return '<div class="pack-card' + (p.badge === 'Best Value' ? ' best' : '') +
+             (isToken ? ' token' : '') + '">' +
+      (p.badge ? '<div class="pack-badge">' + p.badge + '</div>' : '') +
+      '<div class="pack-icon">' + p.icon + '</div>' +
+      '<div class="pack-coins">' + (isToken ? p.tokens : p.coins).toLocaleString() + '</div>' +
+      '<div class="pack-label">' + (isToken ? 'Battle Tokens' : 'Coins') + '</div>' +
+      '<div class="pack-price">' + p.price + '</div>' +
+      '<button onclick="buyPack(\'' + p.id + '\')"' + (signedIn ? '' : ' disabled') + '>' +
+        (signedIn ? 'Buy Now' : 'Sign in to buy') +
+      '</button>' +
+    '</div>';
   }
 
   function renderPacks(signedIn){
-    document.getElementById('pack-grid').innerHTML = PACKS.map(p =>
-      '<div class="pack-card' + (p.badge === 'Best Value' ? ' best' : '') + '">' +
-        (p.badge ? '<div class="pack-badge">' + p.badge + '</div>' : '') +
-        '<div class="pack-icon">' + p.icon + '</div>' +
-        '<div class="pack-coins">' + p.coins.toLocaleString() + '</div>' +
-        '<div class="pack-label">Coins</div>' +
-        '<div class="pack-price">' + p.price + '</div>' +
-        '<button onclick="buyPack(\'' + p.id + '\')"' + (signedIn ? '' : ' disabled') + '>' +
-          (signedIn ? 'Buy Now' : 'Sign in to buy') +
-        '</button>' +
-      '</div>'
-    ).join('');
+    document.getElementById('pack-grid').innerHTML =
+      PACKS.map(p => packCard(p, signedIn)).join('');
+    document.getElementById('token-grid').innerHTML =
+      TOKEN_PACKS.map(p => packCard(p, signedIn)).join('');
   }
 
   async function buyPack(packId){
@@ -205,10 +252,12 @@
 
       // Remember the balance we are leaving with. On the way back this is what
       // tells us whether the coins actually landed, rather than guessing.
-      const pack = PACKS.find(p => p.id === packId);
+      const pack = ALL_PACKS.find(p => p.id === packId);
       try{
         sessionStorage.setItem(PENDING_KEY, JSON.stringify({
-          packId, expect: pack ? pack.coins : 0,
+          packId,
+          expect: pack ? (pack.coins || 0) : 0,
+          expectTokens: pack ? (pack.tokens || 0) : 0,
           before: await readCoins(), at: Date.now()
         }));
       } catch(e){}
@@ -220,18 +269,22 @@
     }
   }
 
+  function showBalances(bal){
+    document.getElementById('coin-balance').textContent =
+      bal ? bal.coins.toLocaleString() : '—';
+    document.getElementById('token-balance').textContent =
+      bal ? bal.tokens.toLocaleString() : '—';
+  }
+
   async function loadBalance(){
     const { data: sessionData } = await sb.auth.getSession();
     if(!sessionData.session){
-      document.getElementById('coin-balance').textContent = '—';
+      showBalances(null);
       renderPacks(false);
       showStatus('info', 'Sign in to buy coins.');
       return;
     }
-    const user = sessionData.session.user;
-    const { data: profile } = await sb.from('profiles').select('coins').eq('user_id', user.id).maybeSingle();
-    const coins = profile ? (profile.coins || 0) : 100;
-    document.getElementById('coin-balance').textContent = coins.toLocaleString();
+    showBalances(await readCoins());
     renderPacks(true);
   }
 
@@ -245,20 +298,33 @@
     try{ pending = JSON.parse(sessionStorage.getItem(PENDING_KEY) || 'null'); } catch(e){}
 
     const deadline = Date.now() + 45000;
-    const before = pending && typeof pending.before === 'number' ? pending.before : null;
+    // `before` used to be a bare coin count. A session opened before this page
+    // was redeployed can still hold that shape, so read both forms.
+    let before = pending && pending.before;
+    if(typeof before === 'number') before = { coins: before, tokens: null };
+    if(!before || typeof before !== 'object') before = null;
 
-    showStatus('info', 'Payment received. Adding your coins…');
+    // A token pack buys nothing called a coin, so do not promise coins.
+    const wantTokens = !!(pending && pending.expectTokens);
+    const noun = wantTokens ? 'Battle Tokens' : 'coins';
+
+    showStatus('info', 'Payment received. Adding your ' + noun + '…');
 
     while(Date.now() < deadline){
-      const coins = await readCoins();
-      if(coins !== null){
-        document.getElementById('coin-balance').textContent = coins.toLocaleString();
-        if(before === null || coins > before){
-          const gained = before === null ? (pending && pending.expect) : coins - before;
+      const bal = await readCoins();
+      if(bal !== null){
+        showBalances(bal);
+        const key = wantTokens ? 'tokens' : 'coins';
+        const was = before ? before[key] : null;
+        if(was === null || was === undefined || bal[key] > was){
+          const gained = (was === null || was === undefined)
+            ? (pending && (wantTokens ? pending.expectTokens : pending.expect))
+            : bal[key] - was;
           sessionStorage.removeItem(PENDING_KEY);
           showStatus('success', gained
-            ? '✓ ' + gained.toLocaleString() + ' coins added. Balance is now ' + coins.toLocaleString() + '.'
-            : '✓ Your coins have been added.');
+            ? '✓ ' + gained.toLocaleString() + ' ' + noun + ' added. Balance is now ' +
+              bal[key].toLocaleString() + '.'
+            : '✓ Your ' + noun + ' have been added.');
           renderPacks(true);
           return;
         }
@@ -269,7 +335,7 @@
     // Still nothing after 45 seconds. The payment is real and recorded on
     // Stripe's side, so this is ours to fix — make that clear.
     showStatus('error',
-      'Your payment went through, but the coins have not appeared yet. ' +
+      'Your payment went through, but the ' + noun + ' have not appeared yet. ' +
       'Nothing has been lost — email <a href="mailto:' + SUPPORT_EMAIL + '">' + SUPPORT_EMAIL +
       '</a> from your account address and we will add them by hand.', true);
   }

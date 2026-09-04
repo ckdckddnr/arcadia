@@ -7,12 +7,25 @@ import { createClient } from '@supabase/supabase-js';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // Prices are in the smallest currency unit (cents for USD).
+//
+// Battle Tokens are priced far above Coins on purpose. Coins are spent on game
+// entries and come back from playing well; Tokens buy tanks outright and never
+// come back, so 150 at the price of 500 Coins keeps the tower worth playing
+// rather than something you finish with a card.
 const COIN_PACKS = {
-  starter: { name: 'Starter Pack',  coins: 500,   amount: 199 },
-  plus:    { name: 'Plus Pack',     coins: 1500,  amount: 499 },
-  pro:     { name: 'Pro Pack',      coins: 4000,  amount: 999 },
-  mega:    { name: 'Mega Pack',     coins: 10000, amount: 1999 }
+  starter: { name: 'Starter Pack',  coins: 500,   tokens: 0,   amount: 199 },
+  plus:    { name: 'Plus Pack',     coins: 1500,  tokens: 0,   amount: 499 },
+  pro:     { name: 'Pro Pack',      coins: 4000,  tokens: 0,   amount: 999 },
+  mega:    { name: 'Mega Pack',     coins: 10000, tokens: 0,   amount: 1999 },
+  tokens150: { name: 'Battle Token Pack', coins: 0, tokens: 150, amount: 199 }
 };
+
+function packDescription(pack) {
+  const parts = [];
+  if (pack.coins)  parts.push(pack.coins.toLocaleString() + ' Arcadia Coins');
+  if (pack.tokens) parts.push(pack.tokens.toLocaleString() + ' Battle Tokens');
+  return parts.join(' + ');
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -52,7 +65,7 @@ export default async function handler(req, res) {
     if (!profile || !profile.birthday) {
       return res.status(403).json({
         error: 'age_unconfirmed',
-        message: 'Please confirm your date of birth before buying Coins.'
+        message: 'Please confirm your date of birth before making a purchase.'
       });
     }
 
@@ -68,7 +81,7 @@ export default async function handler(req, res) {
           unit_amount: pack.amount,
           product_data: {
             name: pack.name,
-            description: pack.coins.toLocaleString() + ' Arcadia Coins'
+            description: packDescription(pack)
           }
         }
       }],
@@ -77,7 +90,8 @@ export default async function handler(req, res) {
       metadata: {
         user_id: user.id,
         pack_id: packId,
-        coins: String(pack.coins)
+        coins: String(pack.coins),
+        tokens: String(pack.tokens || 0)
       },
       success_url: origin + '/shop.html?status=success',
       cancel_url: origin + '/shop.html?status=cancelled'

@@ -53,9 +53,12 @@ export default async function handler(req, res) {
   }
 
   const userId = session.metadata && session.metadata.user_id;
-  const coins = parseInt(session.metadata && session.metadata.coins, 10);
+  // Older sessions predate token packs and carry no `tokens` key at all, so a
+  // missing value has to read as zero rather than as a broken payment.
+  const coins = parseInt((session.metadata && session.metadata.coins) || '0', 10) || 0;
+  const tokens = parseInt((session.metadata && session.metadata.tokens) || '0', 10) || 0;
 
-  if (!userId || !Number.isFinite(coins) || coins <= 0) {
+  if (!userId || (coins <= 0 && tokens <= 0)) {
     console.error('Webhook missing usable metadata:', session.id);
     return res.status(200).send('Nothing to credit');
   }
@@ -78,7 +81,8 @@ export default async function handler(req, res) {
       p_session_id: session.id,
       p_coins: coins,
       p_amount: session.amount_total,
-      p_currency: session.currency
+      p_currency: session.currency,
+      p_tokens: tokens
     });
 
     if (error) throw error;
@@ -88,7 +92,8 @@ export default async function handler(req, res) {
       return res.status(200).send('Already credited');
     }
 
-    console.log('Credited', coins, 'coins to', userId, '- balance now', result.coins);
+    console.log('Credited', coins, 'coins /', tokens, 'tokens to', userId,
+                '- balances now', result.coins, '/', result.tokens);
     return res.status(200).send('Credited');
   } catch (err) {
     // Return 500 so Stripe retries — better than silently losing a paid purchase.

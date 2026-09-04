@@ -60,6 +60,7 @@
   .shop-card img.size-sniper{ height:72px; }
   .shop-card img.size-warden{ height:64px; }
   .shop-card img.size-marshal{ height:64px; }
+  .shop-card img.size-revenant{ height:64px; }
 
   /* ---- Deploy squad picker ---- */
   .squad-grid{ display:flex; flex-wrap:wrap; gap:10px; }
@@ -83,6 +84,7 @@
   .squad-chip.locked{ opacity:0.38; cursor:not-allowed; }
   .squad-chip .tick{ margin-left:4px; font-size:13px; color:var(--cyan); font-weight:900; }
   .squad-chip img.size-marshal{ height:34px; }
+  .squad-chip img.size-revenant{ height:34px; }
   .squad-count{ font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; font-size:13px; margin-bottom:10px; }
 
   /* ---- Tank upgrades ---- */
@@ -332,6 +334,12 @@
 
   /* The coin option on the four starter tanks. Amber so it reads as Coins next
      to the token button, and never the primary of the two. */
+  /* The one tank that cannot be bought gets the one card that looks different. */
+  .shop-card.unique{ border-color:rgba(124,255,79,0.45); position:relative;
+    background:linear-gradient(160deg, rgba(124,255,79,0.08), transparent 60%); }
+  .shop-card.unique .price{ color:#7CFF4F; }
+  .unique-tag{ position:absolute; top:8px; right:8px; font-size:9px; font-weight:800;
+    letter-spacing:0.09em; color:#0C1A06; background:#7CFF4F; padding:3px 7px; border-radius:9px; }
   .shop-card .coin-buy{
     margin-top:6px; background:transparent; color:var(--amber);
     border:1px solid rgba(255,182,39,0.55);
@@ -490,9 +498,9 @@
     sniper: { name:'Sniper Tank', img:'sniper_tank.png', price:150, hp:900, atk:380, role:'Huge damage, rooted after firing' },
     warden: { name:'Warden Tank', img:'warden_tank.png', price:140, hp:2200, atk:110, role:'Decoy eats one boss attack' },
     marshal: { name:'Marshal Tank', img:'marshal_tank.png', price:160, hp:1900, atk:240, role:'No skill — the whole squad hits harder' },
-    jammer: { name:'Jammer Tank', img:'jammer_tank.svg', price:155, hp:1500, atk:130, role:'Weakens the boss attacks' }
+    revenant: { name:'Revenant Tank', img:'revenant_tank.svg', price:null, unique:true, hp:2600, atk:300, role:'Pulls the squad clear of the strike' }
   };
-  const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider','sniper','warden','marshal','jammer'];
+  const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider','sniper','warden','marshal','revenant'];
   const SQUAD_SIZE = 4;
   const SQUAD_KEY = 'arcadia-raid-squad';
   const TANK_RUNES_KEY = 'arcadia-tank-runes';
@@ -666,7 +674,10 @@
       const owned = ownedTanks.includes(key);
       const canAfford = currentTokens >= def.price;
       let btnHtml;
-      if(owned) btnHtml = '<button disabled>✓ Owned</button>';
+      // A unique tank has no price at all. Showing it greyed out with the way
+      // to earn it is the point: it advertises the fight that drops it.
+      if(def.unique && !owned) btnHtml = '<button class="cant-afford" disabled>Beat Gravemaw</button>';
+      else if(owned) btnHtml = '<button disabled>✓ Owned</button>';
       else if(canAfford) btnHtml = '<button onclick="buyTank(\'' + key + '\')">Buy — ' + def.price + ' ⚔</button>';
       else btnHtml = '<button class="cant-afford" disabled>Need ' + def.price + ' ⚔</button>';
       // The server owns the price and the balance check, so the coin button is
@@ -678,11 +689,15 @@
         btnHtml += '<button class="coin-buy" onclick="buyTank(\'' + key + '\', \'coins\')">' +
           'Buy — ' + cp + ' \u{1FA99}</button>';
       }
-      return '<div class="shop-card' + (owned?' owned':'') + '">' +
+      const priceLine = owned ? 'Owned'
+        : def.unique ? 'Unique — first Gravemaw clear'
+        : def.price + ' ⚔' + (TANK_COIN_PRICE[key] ? '  ·  ' + TANK_COIN_PRICE[key] + ' \u{1FA99}' : ' Battle Tokens');
+      return '<div class="shop-card' + (owned?' owned':'') + (def.unique?' unique':'') + '">' +
+        (def.unique ? '<div class="unique-tag">UNIQUE</div>' : '') +
         '<div class="tank-img-box"><img class="size-' + key + '" src="' + def.img + '" alt=""></div>' +
         '<div class="name">' + def.name + '</div>' +
         '<div class="role">' + def.role + '</div>' +
-        '<div class="price">' + (owned ? 'Owned' : def.price + ' ⚔' + (TANK_COIN_PRICE[key] ? '  ·  ' + TANK_COIN_PRICE[key] + ' \u{1FA99}' : ' Battle Tokens')) + '</div>' +
+        '<div class="price">' + priceLine + '</div>' +
         btnHtml +
       '</div>';
     }).join('');

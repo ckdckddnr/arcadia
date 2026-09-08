@@ -319,6 +319,9 @@
     height:36px; border-radius:7px; cursor:pointer; font-weight:800; font-size:13px;
     border:1.5px solid var(--red); background:rgba(255,92,92,0.12); color:var(--red);
   }
+  #action-hint.coaching{ background:rgba(255,182,39,0.10);
+    border-top:1px solid rgba(255,182,39,0.45); border-bottom:1px solid rgba(255,182,39,0.45);
+    cursor:pointer; }
   .qa-btn span{ font-size:11px; font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-weight:800; opacity:0.95; }
   .qa-btn.qa-skill{ border-color:var(--pink); background:rgba(255,92,182,0.12); color:var(--pink); }
   .qa-btn[disabled]{ opacity:0.3; cursor:not-allowed; }
@@ -419,7 +422,9 @@
     .roster-tank .lv-tag{ font-size:8.5px; padding:1px 3px; }
     .roster-tank .shield-tag, .roster-tank .siege-tag{ font-size:10px; }
     .tank-quick-actions{ gap:3px; margin-top:5px; }
-    .qa-btn{ height:32px; font-size:12px; }
+    /* 32px was under every thumb-target guideline, and the entire ad
+       audience arrived on a phone inside Meta's in-app browser. */
+    .qa-btn{ height:44px; font-size:13px; }
     .shop-grid{ grid-template-columns:1fr; }
     .board-wrap{ flex:2.2; }
     #boss-banner{ flex:1; padding:6px 4px; gap:6px; }
@@ -529,6 +534,12 @@
       <div class="eyebrow" id="over-eyebrow">Defeat</div>
       <div id="battle-summary" style="font-size:14px; color:var(--muted); margin-bottom:18px;"></div>
       <div class="submit-msg" id="submit-msg"></div>
+      <!-- The conversion lives here, not on the screen before the fight. A
+           guest who has just beaten the boss is the only guest who has any
+           reason to want an account, and until now the only thing offered at
+           this moment was a text link competing with two ghost buttons. -->
+      <button class="btn btn-primary hidden" id="guest-signup-btn"
+              onclick="window.location.href='auth.html'">Sign up free — keep this clear</button>
       <button class="btn btn-ghost" onclick="location.reload()">Try Again</button>
       <button class="btn btn-ghost" onclick="window.location.href='game-boss-battle.html'">Back to Tower</button>
     </div>
@@ -844,7 +855,73 @@
   const SQUAD_SLOTS = [[1,1],[1,6],[4,1],[4,6]];
   const SQUAD_SIZE = SQUAD_SLOTS.length;
 
+  // What a guest fights with. Deliberately not the first four in TYPE_ORDER,
+  // which are simply the cheapest: two of those four (poison, shield) barely
+  // register on screen, and 425 people landed here from an ad while only 29
+  // pressed start and none finished. These four each do something visible in
+  // the first three turns -- the biggest hit in the game, a bruiser that
+  // survives, the decoy that flashes the whole board, and the one tank that
+  // moves two tiles, which is the mechanic the ad actually sells.
+  //
+  // It costs nothing to give these away: floor 1 pays out nothing and records
+  // nothing, and buying tanks is what floors 2-15 ask for regardless.
+  const GUEST_SQUAD = ['sniper', 'heavy', 'warden', 'raider'];
+
+  // startPlayerTurn adds one before handing over, so this is "turn one opens
+  // with 6" -- enough for two swings immediately, and it lands the whole early
+  // curve one step higher.
+  //
+  // Measured at 4: a bot that never moves and never uses a skill won one run
+  // in three, losing the other two with the boss on 10 and 100 HP out of 7,000.
+  // That is the pessimistic floor -- a real player dodges and has the Warden's
+  // decoy -- but a first-timer from an ad losing by 10 HP is a bad trade for
+  // the sake of two mana.
+  const FLOOR1_START_MANA = 5;
+
+  // Someone who clicked an ad showing a boss fight should get a boss fight,
+  // not a page of rules. Meta appends fbclid to every click; ?play=1 is there
+  // so any other campaign can ask for the same thing.
+  const AD_ARRIVAL = (() => {
+    try {
+      const q = new URLSearchParams(location.search);
+      return q.has('fbclid') || q.get('play') === '1';
+    } catch (e) { return false; }
+  })();
+
+  // The rules the intro used to state up front, delivered while the board is
+  // in front of them instead. Tap to advance, or they advance themselves.
+  const COACH_STEPS = [
+    'The red tiles are where it strikes next. Move off them.',
+    'Tap a tank, then tap a tile to move it.',
+    'Tap ⚔ to fire. Mana limits how much you can do each turn.'
+  ];
+
+  // Driven through the hint bar that already sits between the board and the
+  // cards, rather than a floating box. At 375x600 -- the size Meta's in-app
+  // browser actually gives you, which is where all of the ad traffic was -- an
+  // overlay covered the board, so step one told people to look at red tiles it
+  // was hiding.
+  let coachTimer = null;
+  function showCoachMarks(){
+    const el = document.getElementById('action-hint');
+    if (!el) return;
+    let i = 0;
+    const step = () => {
+      clearTimeout(coachTimer);
+      if (i >= COACH_STEPS.length) { el.classList.remove('coaching'); return; }
+      el.classList.add('coaching');
+      el.innerHTML = '<b style="color:var(--amber);">' + COACH_STEPS[i] + '</b>' +
+        '<span style="opacity:0.65;font-weight:400;"> &middot; ' +
+        (i + 1) + '/' + COACH_STEPS.length + '</span>';
+      i++;
+      coachTimer = setTimeout(step, 5200);
+    };
+    el.addEventListener('click', step);
+    step();
+  }
+
   function getSquad(){
+    if(guestRun) return GUEST_SQUAD.slice();
     try{
       const saved = JSON.parse(localStorage.getItem('arcadia-raid-squad') || '[]');
       const valid = saved.filter(k => BOSS_TANK_TYPES[k]);
@@ -1464,7 +1541,12 @@
     telegraphQueue = [];
     initTelegraphQueue();
 
-    playerMana = 0; playerMaxMana = 0;
+    // Mana grows +1 a turn from zero, and an attack costs 2 or 3 -- which made
+    // turn one literally unplayable: every button was unaffordable, so a new
+    // arrival tapped four times, heard the error sound, and learned that the
+    // game does not respond. Floor 1 is the free practice floor and the page
+    // ad traffic lands on, so it opens with enough to act twice.
+    playerMana = 0; playerMaxMana = FLOOR1_START_MANA;
     startPlayerTurn(true);
   }
 
@@ -2089,7 +2171,12 @@
         '<b style="color:var(--amber);">' + selected.name + '</b> selected — click an adjacent tile to move (' + selected.moveCost + ' MP) ' +
         '<span class="mono" style="color:var(--muted);">(you have ' + playerMana + ' MP)</span>';
     } else if(turn === 'player' && !gameOver){
-      document.getElementById('action-hint').innerHTML = fullMapWarning + 'Tap a tank to move it, or use its Attack/Skill buttons below.';
+      // render() runs constantly; while the coach marks own this bar, leave it
+      // alone or the first tip is wiped before it can be read.
+      const hintEl = document.getElementById('action-hint');
+      if(!hintEl.classList.contains('coaching')){
+        hintEl.innerHTML = fullMapWarning + 'Tap a tank to move it, or use its Attack/Skill buttons below.';
+      }
     }
 
     applyTankMotion();
@@ -2127,13 +2214,17 @@
     if(guestRun){
       msg.className = 'submit-msg';
       msg.innerHTML = result === 'win'
-        ? '<b style="color:var(--green);">★ Floor 1 cleared</b> — practice floor, so there is nothing to pay out.<br>'
-          + '<a href="auth.html" class="link-text">Create a free account</a> to save the clear and open '
-          + '<b>Floors 2–15</b>, where the purse and the rune drops are. New players start with '
-          + '<b style="color:var(--amber);">200 Coins</b>.'
-        : 'Practice run — nothing lost.<br>'
-          + '<a href="auth.html" class="link-text">Create a free account</a> to save your progress, buy and '
-          + 'upgrade tanks, and start with <b style="color:var(--amber);">200 Coins</b>.';
+        ? 'Open <b>Floors 2–15</b>, where the Coins, Battle Tokens and rune drops are. '
+          + 'New players start with <b style="color:var(--amber);">200 Coins</b>.'
+        : 'Nothing lost — this floor is free. Save your progress, buy and upgrade tanks, '
+          + 'and start with <b style="color:var(--amber);">200 Coins</b>.';
+      const cta = document.getElementById('guest-signup-btn');
+      if(cta){
+        cta.textContent = result === 'win'
+          ? 'Sign up free — keep this clear'
+          : 'Sign up free — start with 200 Coins';
+        cta.classList.remove('hidden');
+      }
       return;
     }
     const { data: sessionData } = await sb.auth.getSession();
@@ -2175,15 +2266,18 @@
     // returns zeroes for it, so there is no purse to describe and no fee to
     // warn about. Say what it actually is, and point at what costs something.
     el.className = 'first';
-    let html = '<div class="hd">Free practice floor \u2014 no cost, no rewards</div>' +
-      'Floor 1 is open to everyone and always free: no entry fee, no tanks required, ' +
-      'and nothing is paid out. It is here so you can learn the fight.<br>' +
-      '<b>Floor 2 and up</b> pay real Coins, Battle Tokens and rune drops \u2014 those need ' +
-      '<b>four tanks of your own</b>' +
-      (guestRun
-        ? ' and an account. <a href="auth.html" class="link-text">Sign up free</a> and start with <b class="coin">200 \u{1FA99}</b>.'
-        : ', bought in the armory with Battle Tokens.');
-    el.innerHTML = html;
+    // What this box used to lead with was "no rewards", at the exact moment a
+    // visitor decides whether to press start. Ninety-three percent of the ad
+    // traffic that reached this screen left without starting. Say what they
+    // get, not what they don't; the account is asked for after they have won.
+    el.innerHTML = guestRun
+      ? '<div class="hd">Free \u2014 no account, no download</div>' +
+        'Floor 1 is open to everyone. Four tanks, one boss, and it tells you where ' +
+        'it will strike before every attack.'
+      : '<div class="hd">Free practice floor</div>' +
+        'Floor 1 costs nothing and pays nothing \u2014 it is here so you can learn the fight.<br>' +
+        '<b>Floor 2 and up</b> pay real Coins, Battle Tokens and rune drops, and need ' +
+        '<b>four tanks of your own</b>, bought in the armory with Battle Tokens.';
   }
 
   // ---------- Shop ----------
@@ -2267,6 +2361,12 @@
       // to the first four types, so the starter squad needs nothing set up.
       ownedTanks = [];
       renderPayNote();
+      if(AD_ARRIVAL){
+        // Straight into the fight, rules taught over the board.
+        startGame();
+        showCoachMarks();
+        return;
+      }
       document.getElementById('start-overlay').classList.remove('hidden');
       return;
     }

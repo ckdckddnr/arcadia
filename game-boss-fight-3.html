@@ -512,7 +512,7 @@
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Telegraphed attacks:</b> the boss shows upcoming strike zones as red tiles. Move your tanks off them before its turn.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Easier to dodge = harder it hits.</b> A single cross-shaped strike hurts more than a full-map strike.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">3 phases:</b> more simultaneous attack zones appear as its HP drops — plan ahead.</span></li>
-        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 30.</span></li>
+        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 50.</span></li>
       </ul>
       <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);" id="entry-fee-label">25 Battle Tokens</b> — win to earn more back.</div>
       <div id="pay-note"></div>
@@ -778,7 +778,7 @@
       skill:null,
       passive:{ name:'Chain of Command', desc:'No active skill. Every tank in the squad deals +10% damage for the whole fight, even after the Marshal falls.' } },
     revenant: { key:'revenant', name:'Revenant Tank', img:'revenant_tank.svg', hp:2600, atk:300, moveCost:1, attackCost:2, moveRange:2, price:null, unique:true,
-      skill:{ key:'recall', name:'Phase Recall', cost:5, desc:"Tears open a phase gate: every tank standing in the boss's telegraphed strike is pulled to the nearest safe tile, and cannot be hit by that attack." } }
+      skill:{ key:'recall', name:'Phase Recall', cost:10, uses:3, desc:"Tears open a phase gate: the whole squad slips out of step, and none of it can be hit by the boss's next attack. Anything standing in the telegraphed strike is pulled clear as well. Three times a fight." } }
   };
   const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider','sniper','warden','marshal','revenant'];
   const ROLE_TEXT = {
@@ -850,7 +850,7 @@
 
   const BOSS_MAX_HP = 11500;
   const PHASE_THRESHOLDS = { p2: 0.6, p3: 0.3 };
-  const ENRAGE_TURN = 30;
+  const ENRAGE_TURN = 50;
   const DEFEAT_TURN_LIMIT = 60;
   // Leech reads off damage, and damage carries siege, warcry, expose and the
   // Marshal's aura — so the more the squad buffed, the more one tank healed.
@@ -1930,20 +1930,32 @@
       log('Your ' + t.name + ' rallies the squad — +' + cryPct + '% damage for 3 turns.');
       render();
     } else if(sk.key === 'recall'){
+      // It used to refuse unless a tank was standing in the telegraphed strike,
+      // which is the one thing a player actively avoids -- so in practice the
+      // skill never fired and read as broken. It now always does something: the
+      // whole squad phases out of the next attack, and anyone caught in the
+      // strike is pulled clear on top of that.
+      const usedSoFar = t.recallUses || 0;
+      const allowed = sk.uses || 3;
+      if(usedSoFar >= allowed){
+        showAction('PHASE GATE SPENT', 'a-warn');
+        log('Phase Recall is spent — ' + allowed + ' uses a fight.');
+        return;
+      }
       const danger = new Set();
       (telegraphQueue[0] || []).forEach(b => b.tiles.forEach(([dr,dc]) => danger.add(dr + ',' + dc)));
       const caught = playerTanks.filter(a => a.alive && danger.has(a.r + ',' + a.c));
-      if(caught.length === 0){
-        // Spending five mana to move nobody is a misclick, not a decision.
-        showAction('NO TANK STANDS IN THE STRIKE', 'a-warn');
-        log('Phase Recall needs a tank inside the telegraphed strike.');
-        return;
-      }
-      playerMana -= sk.cost; t.skillUsed = true;
+      playerMana -= sk.cost; t.skillUsed = true; t.recallUses = usedSoFar + 1;
+      // Everyone phases, whether or not they were in the strike.
+      for(const a of playerTanks){ if(a.alive) a.phasedTurns = 1; }
       // Somewhere to land means the board allows standing there and the boss
       // is not about to hit it either.
+      // inArena only exists on the Gravemaw board, where the boss occupies
+      // tiles. Calling it on an ordinary floor threw before anything moved,
+      // which is why this skill looked dead everywhere but the special fight.
+      const inPlay = (typeof inArena === 'function') ? inArena : () => true;
       const landable = (r, c) => r >= 0 && r < ROWS && c >= 0 && c < COLS &&
-        inArena(r, c) && !blocksMove(r, c) && !board[r][c].occupant && !danger.has(r + ',' + c);
+        inPlay(r, c) && !blocksMove(r, c) && !board[r][c].occupant && !danger.has(r + ',' + c);
       let moved = 0;
       for(const a of caught){
         let best = null, bestD = Infinity;
@@ -1962,10 +1974,11 @@
         moved++;
       }
       sfxPhase();
-      showAction('YOUR ' + t.name.toUpperCase() + ' PHASES ' + moved + ' TANK' +
-                 (moved === 1 ? '' : 'S') + ' OUT OF THE STRIKE', 'a-heal');
-      log('Your ' + t.name + ' opens a phase gate — ' + moved + ' tank' + (moved === 1 ? '' : 's') +
-          ' pulled clear and untouchable this turn.');
+      const left = allowed - t.recallUses;
+      showAction('PHASE GATE — THE SQUAD CANNOT BE HIT' + (moved ? ' (' + moved + ' PULLED CLEAR)' : ''), 'a-heal');
+      log('Your ' + t.name + ' opens a phase gate — the squad is untouchable this turn' +
+          (moved ? ', ' + moved + ' pulled out of the strike' : '') + '. ' + left + ' use' +
+          (left === 1 ? '' : 's') + ' left.');
       render();
     }
   }

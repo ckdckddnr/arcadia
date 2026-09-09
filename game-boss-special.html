@@ -467,7 +467,10 @@
     filter:drop-shadow(0 0 18px rgba(124,255,77,0.55)) drop-shadow(0 8px 22px rgba(0,0,0,0.8));
     animation:mawBreathe 3.8s ease-in-out infinite;
   }
-  .maw-body svg{ width:104%; height:104%; display:block; }
+  /* Bigger than the block it sits on, so the tendrils can reach past the
+     carapace instead of stopping dead at the edge of its own three-by-three.
+     The viewBox is padded by the same ratio, so the shell keeps its size. */
+  .maw-body svg{ width:156%; height:156%; display:block; overflow:visible; }
   @keyframes mawBreathe{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.035); } }
 
   /* rot: never recedes, so it is painted under everything else on the tile */
@@ -661,7 +664,7 @@
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Telegraphed attacks:</b> the boss shows upcoming strike zones as red tiles. Move your tanks off them before its turn.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--green);">Weak nodes:</b> three sit on the board. While any lives the body takes only a quarter of your damage &mdash; and a tank within 2 tiles of a node hits <i>the node</i> instead. Walk to it, or plink the hide.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--green);">Corruption:</b> the floor rots outward from the maw every turn and never recedes. Standing in it costs health and seals your skill. The ground you can fight on keeps shrinking.</span></li>
-        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 30.</span></li>
+        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 50.</span></li>
       </ul>
       <div style="font-size:12px; color:var(--muted); margin-bottom:10px;">⚔ Entry costs <b style="color:var(--pink);" id="entry-fee-label">250 Battle Tokens</b> — requires 4 tanks and <b>Floor 10 cleared</b>.</div>
       <div id="pay-note"></div>
@@ -933,7 +936,7 @@
       skill:null,
       passive:{ name:'Chain of Command', desc:'No active skill. Every tank in the squad deals +10% damage for the whole fight, even after the Marshal falls.' } },
     revenant: { key:'revenant', name:'Revenant Tank', img:'revenant_tank.svg', hp:2600, atk:300, moveCost:1, attackCost:2, moveRange:2, price:null, unique:true,
-      skill:{ key:'recall', name:'Phase Recall', cost:5, desc:"Tears open a phase gate: every tank standing in the boss's telegraphed strike is pulled to the nearest safe tile, and cannot be hit by that attack." } }
+      skill:{ key:'recall', name:'Phase Recall', cost:10, uses:3, desc:"Tears open a phase gate: the whole squad slips out of step, and none of it can be hit by the boss's next attack. Anything standing in the telegraphed strike is pulled clear as well. Three times a fight." } }
   };
   const TYPE_ORDER = ['light','medium','heavy','guardian','medic','raider','sniper','warden','marshal','revenant'];
   const ROLE_TEXT = {
@@ -1230,7 +1233,7 @@
   }
 
   const PHASE_THRESHOLDS = { p2: 0.6, p3: 0.3 };
-  const ENRAGE_TURN = 30;
+  const ENRAGE_TURN = 50;
   const DEFEAT_TURN_LIMIT = 60;
   // Leech reads off damage, and damage carries siege, warcry, expose and the
   // Marshal's aura — so the more the squad buffed, the more one tank healed.
@@ -2468,20 +2471,32 @@
       log('Your ' + t.name + ' rallies the squad — +' + cryPct + '% damage for 3 turns.');
       render();
     } else if(sk.key === 'recall'){
+      // It used to refuse unless a tank was standing in the telegraphed strike,
+      // which is the one thing a player actively avoids -- so in practice the
+      // skill never fired and read as broken. It now always does something: the
+      // whole squad phases out of the next attack, and anyone caught in the
+      // strike is pulled clear on top of that.
+      const usedSoFar = t.recallUses || 0;
+      const allowed = sk.uses || 3;
+      if(usedSoFar >= allowed){
+        showAction('PHASE GATE SPENT', 'a-warn');
+        log('Phase Recall is spent — ' + allowed + ' uses a fight.');
+        return;
+      }
       const danger = new Set();
       (telegraphQueue[0] || []).forEach(b => b.tiles.forEach(([dr,dc]) => danger.add(dr + ',' + dc)));
       const caught = playerTanks.filter(a => a.alive && danger.has(a.r + ',' + a.c));
-      if(caught.length === 0){
-        // Spending five mana to move nobody is a misclick, not a decision.
-        showAction('NO TANK STANDS IN THE STRIKE', 'a-warn');
-        log('Phase Recall needs a tank inside the telegraphed strike.');
-        return;
-      }
-      playerMana -= sk.cost; t.skillUsed = true;
+      playerMana -= sk.cost; t.skillUsed = true; t.recallUses = usedSoFar + 1;
+      // Everyone phases, whether or not they were in the strike.
+      for(const a of playerTanks){ if(a.alive) a.phasedTurns = 1; }
       // Somewhere to land means the board allows standing there and the boss
       // is not about to hit it either.
+      // inArena only exists on the Gravemaw board, where the boss occupies
+      // tiles. Calling it on an ordinary floor threw before anything moved,
+      // which is why this skill looked dead everywhere but the special fight.
+      const inPlay = (typeof inArena === 'function') ? inArena : () => true;
       const landable = (r, c) => r >= 0 && r < ROWS && c >= 0 && c < COLS &&
-        inArena(r, c) && !blocksMove(r, c) && !board[r][c].occupant && !danger.has(r + ',' + c);
+        inPlay(r, c) && !blocksMove(r, c) && !board[r][c].occupant && !danger.has(r + ',' + c);
       let moved = 0;
       for(const a of caught){
         let best = null, bestD = Infinity;
@@ -2500,10 +2515,11 @@
         moved++;
       }
       sfxPhase();
-      showAction('YOUR ' + t.name.toUpperCase() + ' PHASES ' + moved + ' TANK' +
-                 (moved === 1 ? '' : 'S') + ' OUT OF THE STRIKE', 'a-heal');
-      log('Your ' + t.name + ' opens a phase gate — ' + moved + ' tank' + (moved === 1 ? '' : 's') +
-          ' pulled clear and untouchable this turn.');
+      const left = allowed - t.recallUses;
+      showAction('PHASE GATE — THE SQUAD CANNOT BE HIT' + (moved ? ' (' + moved + ' PULLED CLEAR)' : ''), 'a-heal');
+      log('Your ' + t.name + ' opens a phase gate — the squad is untouchable this turn' +
+          (moved ? ', ' + moved + ' pulled out of the strike' : '') + '. ' + left + ' use' +
+          (left === 1 ? '' : 's') + ' left.');
       render();
     }
   }
@@ -2534,19 +2550,35 @@
     const style = 'grid-area:' + (MAW_R0 + 1) + '/' + (MAW_C0 + 1)
                 + '/span ' + (MAW_R1 - MAW_R0 + 1) + '/span ' + (MAW_C1 - MAW_C0 + 1) + ';';
     return '<div class="maw-body" style="' + style + '">'
-      + '<svg viewBox="0 0 120 120" preserveAspectRatio="xMidYMid meet" aria-hidden="true">'
+      + '<svg viewBox="-34 -34 188 188" preserveAspectRatio="xMidYMid meet" aria-hidden="true">'
         + '<defs>'
           + '<radialGradient id="gmGullet" cx="50%" cy="52%" r="52%">'
             + '<stop offset="0%" stop-color="#EBFFD6"/><stop offset="22%" stop-color="#7CFF4D"/>'
             + '<stop offset="58%" stop-color="#1E5C12"/><stop offset="100%" stop-color="#050D03"/>'
           + '</radialGradient>'
+          + '<filter id="gmGlow" x="-40%" y="-40%" width="180%" height="180%">'
+            + '<feGaussianBlur stdDeviation="3" result="b"/>'
+            + '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>'
+          + '</filter>'
         + '</defs>'
         // tendrils, behind the body
-        + '<g stroke="#2E7A1E" stroke-width="5" stroke-linecap="round" fill="none" opacity="0.9">'
-          + '<path d="M26 26 Q10 6 2 2"><animate attributeName="d" values="M26 26 Q10 6 2 2;M26 26 Q6 12 2 2;M26 26 Q10 6 2 2" dur="4s" repeatCount="indefinite"/></path>'
-          + '<path d="M94 26 Q110 6 118 2"><animate attributeName="d" values="M94 26 Q110 6 118 2;M94 26 Q114 12 118 2;M94 26 Q110 6 118 2" dur="4.6s" repeatCount="indefinite"/></path>'
-          + '<path d="M26 94 Q10 114 2 118"><animate attributeName="d" values="M26 94 Q10 114 2 118;M26 94 Q6 108 2 118;M26 94 Q10 114 2 118" dur="5.2s" repeatCount="indefinite"/></path>'
-          + '<path d="M94 94 Q110 114 118 118"><animate attributeName="d" values="M94 94 Q110 114 118 118;M94 94 Q114 108 118 118;M94 94 Q110 114 118 118" dur="4.3s" repeatCount="indefinite"/></path>'
+        // Tendrils. They were #2E7A1E at 5px and stopped at the edge of the
+        // carapace's own box, which on a dark board read as part of the shell
+        // rather than as anything reaching. Brighter, thicker, glowing, and
+        // now long enough to cross into the tiles around it.
+        + '<g stroke="#4FD62A" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.92"'
+          + ' filter="url(#gmGlow)">'
+          + '<path d="M26 26 Q-4 -6 -28 -28"><animate attributeName="d" values="M26 26 Q-4 -6 -28 -28;M26 26 Q-12 4 -28 -28;M26 26 Q-4 -6 -28 -28" dur="4s" repeatCount="indefinite"/></path>'
+          + '<path d="M94 26 Q124 -6 148 -28"><animate attributeName="d" values="M94 26 Q124 -6 148 -28;M94 26 Q132 4 148 -28;M94 26 Q124 -6 148 -28" dur="4.6s" repeatCount="indefinite"/></path>'
+          + '<path d="M26 94 Q-4 126 -28 148"><animate attributeName="d" values="M26 94 Q-4 126 -28 148;M26 94 Q-12 116 -28 148;M26 94 Q-4 126 -28 148" dur="5.2s" repeatCount="indefinite"/></path>'
+          + '<path d="M94 94 Q124 126 148 148"><animate attributeName="d" values="M94 94 Q124 126 148 148;M94 94 Q132 116 148 148;M94 94 Q124 126 148 148" dur="4.3s" repeatCount="indefinite"/></path>'
+        + '</g>'
+        // shorter secondary limbs off the flanks, so it reads as many-armed
+        + '<g stroke="#2E7A1E" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.8">'
+          + '<path d="M14 60 Q-10 52 -26 60"><animate attributeName="d" values="M14 60 Q-10 52 -26 60;M14 60 Q-10 70 -26 60;M14 60 Q-10 52 -26 60" dur="5.8s" repeatCount="indefinite"/></path>'
+          + '<path d="M106 60 Q130 52 146 60"><animate attributeName="d" values="M106 60 Q130 52 146 60;M106 60 Q130 70 146 60;M106 60 Q130 52 146 60" dur="6.4s" repeatCount="indefinite"/></path>'
+          + '<path d="M60 8 Q52 -14 60 -30"><animate attributeName="d" values="M60 8 Q52 -14 60 -30;M60 8 Q70 -14 60 -30;M60 8 Q52 -14 60 -30" dur="5.1s" repeatCount="indefinite"/></path>'
+          + '<path d="M60 114 Q52 134 60 150"><animate attributeName="d" values="M60 114 Q52 134 60 150;M60 114 Q70 134 60 150;M60 114 Q52 134 60 150" dur="5.5s" repeatCount="indefinite"/></path>'
         + '</g>'
         // carapace
         + '<path d="M60 4 L88 16 L106 42 L102 82 L78 108 L60 116 L42 108 L18 82 L14 42 L32 16 Z" '

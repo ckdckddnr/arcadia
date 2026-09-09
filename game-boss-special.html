@@ -461,6 +461,28 @@
   /* ---------- GRAVEMAW ----------
      The creature spans the middle 3x3 as one drawing. Nine separately shaded
      tiles read as nine tiles; this reads as something sitting on the board. */
+  /* The Brood Warden: drawn once across its own 2x2, the way the maw is. */
+  .ward-body{
+    position:relative; z-index:2; pointer-events:none;
+    display:flex; align-items:center; justify-content:center;
+    filter:drop-shadow(0 0 12px rgba(124,255,77,0.45)) drop-shadow(0 6px 16px rgba(0,0,0,0.75));
+  }
+  .ward-body svg{ width:128%; height:128%; display:block; overflow:visible; }
+  .ward-body .ward-hp{
+    position:absolute; top:0; left:50%; transform:translate(-50%,-45%);
+    font-family:'IBM Plex Mono','Noto Sans KR',monospace; font-size:11px; font-weight:800;
+    color:#EAFFDB; background:rgba(6,14,4,0.85); border:1px solid rgba(124,255,77,0.5);
+    border-radius:6px; padding:1px 6px; white-space:nowrap;
+  }
+  .ward-body.ward-down{ filter:grayscale(0.85) brightness(0.55); }
+  .ward-body.ward-down svg{ opacity:0.4; }
+  .ward-body.ward-hit{ animation:wardHit 0.3s ease-out; }
+  @keyframes wardHit{
+    0%{ transform:scale(1); filter:drop-shadow(0 0 26px rgba(255,182,39,0.95)); }
+    100%{ transform:scale(1); }
+  }
+  @media (max-width:620px){ .ward-body .ward-hp{ font-size:9px; padding:0 4px; } }
+
   .maw-body{
     position:relative; z-index:2; pointer-events:none;
     display:flex; align-items:center; justify-content:center;
@@ -662,7 +684,7 @@
       <p>Not a floor &mdash; something the tower grew. Nine tiles of it sit in the middle of the widest arena in the game, and it is still spreading.</p>
       <ul style="text-align:left; list-style:none; margin-bottom:16px;">
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">Telegraphed attacks:</b> the boss shows upcoming strike zones as red tiles. Move your tanks off them before its turn.</span></li>
-        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--green);">Weak nodes:</b> three sit on the board. While any lives the body takes only a quarter of your damage &mdash; and a tank within 2 tiles of a node hits <i>the node</i> instead. Walk to it, or plink the hide.</span></li>
+        <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--green);">The Brood Warden:</b> a second body stands in your half of the board with <b>4,000</b> health. While it lives every shot lands on it, not on Gravemaw. Kill it to reach the maw &mdash; it reforms ten turns later.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--green);">Corruption:</b> the floor rots outward from the maw every turn and never recedes. Standing in it costs health and seals your skill. The ground you can fight on keeps shrinking.</span></li>
         <li style="display:flex; gap:8px; margin-bottom:8px; font-size:12px; color:var(--muted);"><span style="color:var(--red);">⬛</span><span><b style="color:var(--text);">It regenerates</b> if you go 3 turns without landing a hit, and enrages after turn 50.</span></li>
       </ul>
@@ -1045,7 +1067,10 @@
 
   function terrainAt(r, c){ return TERRAIN[r + ',' + c] || null; }
   // Rubble is floor that fell in; void was never floor. Both are impassable.
-  function blocksMove(r, c){ const t = terrainAt(r, c); return !!t && (t.type === 'rubble' || t.type === 'void'); }
+  function blocksMove(r, c){
+    if(wardAlive() && isWard(r, c)) return true;   // it is a body, not a marker
+    const t = terrainAt(r, c); return !!t && (t.type === 'rubble' || t.type === 'void');
+  }
 
   // Resolved when the player commits their turn, so a tile that looked safe
   // can still hand you to the boss before it fires.
@@ -1108,73 +1133,62 @@
   // to open a window worth only 6,000 -- arithmetically unwinnable inside the
   // 60-turn limit. Now a full break costs 6,000 and buys ten turns, and the
   // body is small enough that three or four such cycles finish it.
-  const NODE_MAX_HP = 2000;
-  const NODE_REACH = 2;            // chebyshev distance
-  const NODE_RESPAWN_TURNS = 10;
-  const BODY_DR = 0.25;            // body damage taken while any node lives
-  let nodes = [];
+  // One Brood Warden instead of two scattered nodes. It stands in the squad's
+  // half, between them and the maw, and while it lives every point of damage
+  // lands on it rather than on Gravemaw. Kill it to get at the body; it pulls
+  // itself back together ten turns later.
+  const WARD_MAX_HP = 4000;
+  const WARD_RESPAWN_TURNS = 10;
+  const WARD_R0 = 5, WARD_C0 = 4;          // top-left of a 2x2 block
+  let ward = null;
 
   function resetNodes(){
-    // Two, not three. Three meant something was always in reach from
-    // somewhere, so the squad rarely had to commit to a side.
-    nodes = [{ r:0, c:4 }, { r:6, c:4 }].map((p, i) => ({
-      id: i, r: p.r, c: p.c, hp: NODE_MAX_HP, maxHp: NODE_MAX_HP, respawn: 0
-    }));
+    ward = { r: WARD_R0, c: WARD_C0, hp: WARD_MAX_HP, maxHp: WARD_MAX_HP, respawn: 0 };
   }
-  function liveNodes(){ return nodes.filter(n => n.hp > 0).length; }
-  function isNode(r, c){ return nodes.some(n => n.r === r && n.c === c); }
-  function nodeAt(r, c){ return nodes.find(n => n.r === r && n.c === c) || null; }
-  // Which tiles put a shot into a node. Drawn on the board so the rule is
-  // visible instead of something you have to be told.
-  function inNodeReach(r, c){
-    return nodes.some(n => n.hp > 0 &&
-      Math.max(Math.abs(n.r - r), Math.abs(n.c - c)) <= NODE_REACH);
+  function isWard(r, c){
+    return !!ward && r >= ward.r && r <= ward.r + 1 && c >= ward.c && c <= ward.c + 1;
   }
-  function nearestLiveNode(r, c){
-    let best = null, bestD = Infinity;
-    for(const n of nodes){
-      if(n.hp <= 0) continue;
-      const d = Math.max(Math.abs(n.r - r), Math.abs(n.c - c));
-      if(d <= NODE_REACH && d < bestD){ best = n; bestD = d; }
-    }
-    return best;
-  }
+  function wardAlive(){ return !!ward && ward.hp > 0; }
+
+  // Old names, new meaning, so every call site downstream still reads.
+  function liveNodes(){ return wardAlive() ? 1 : 0; }
+  function isNode(r, c){ return wardAlive() && isWard(r, c); }
+  function nodeAt(r, c){ return (wardAlive() && isWard(r, c)) ? ward : null; }
+  function inNodeReach(){ return false; }   // no distance rule any more
+  function nearestLiveNode(){ return wardAlive() ? ward : null; }
 
   // Every point of damage the boss takes comes through here, so the node gate
   // cannot be bypassed by poison, a railgun or anything added later.
   function hitBoss(dmg, src){
     boss.turnsSinceDamage = 0;
-    const node = src ? nearestLiveNode(src.r, src.c) : null;
-    if(node){
-      node.hp = Math.max(0, node.hp - dmg);
-      fxFloatText(node.r, node.c, '-' + dmg, '#FFB627');
-      const el = document.querySelector('.tile[data-r="' + node.r + '"][data-c="' + node.c + '"] .node');
-      if(el){ el.classList.remove('node-hit'); void el.offsetWidth; el.classList.add('node-hit'); }
-      if(node.hp === 0){
-        node.respawn = NODE_RESPAWN_TURNS;
+    // Every point of damage the body takes comes through here, so the Warden
+    // gate cannot be walked around by poison, a railgun or anything added later.
+    if(wardAlive()){
+      ward.hp = Math.max(0, ward.hp - dmg);
+      fxFloatText(ward.r, ward.c, '-' + dmg, '#FFB627');
+      const el = document.querySelector('.ward-body');
+      if(el){ el.classList.remove('ward-hit'); void el.offsetWidth; el.classList.add('ward-hit'); }
+      if(ward.hp === 0){
+        ward.respawn = WARD_RESPAWN_TURNS;
         triggerBoardShake(6);
         sfxCollapse();
-        log('A weak node shatters! Gravemaw reels — ' + (liveNodes() === 0
-          ? 'the body is fully exposed.'
-          : liveNodes() + ' node(s) still shielding it.'));
+        log('The Brood Warden comes apart — Gravemaw is exposed.');
       } else {
-        log('Node hit for ' + dmg + '. (' + node.hp + ' / ' + NODE_MAX_HP + ')');
+        log('The Warden takes ' + dmg + '. (' + ward.hp + ' / ' + WARD_MAX_HP + ')');
       }
       return;
     }
-    const gated = liveNodes() > 0 ? Math.round(dmg * BODY_DR) : dmg;
-    boss.hp -= gated;
-    if(liveNodes() > 0 && gated < dmg){
-      log('Armoured hide absorbs most of it — ' + gated + ' through, ' + (dmg - gated) + ' turned aside.');
-    }
+    boss.hp -= dmg;
   }
 
   function tickNodes(){
-    nodes.forEach(n => {
-      if(n.hp > 0) return;
-      n.respawn--;
-      if(n.respawn <= 0){ n.hp = n.maxHp; log('A shattered node knits itself back together.'); }
-    });
+    if(!ward || ward.hp > 0) return;
+    ward.respawn--;
+    if(ward.respawn > 0) return;
+    // never reform on top of a tank -- that would either trap it or delete it
+    for(const t of playerTanks){ if(t.alive && isWard(t.r, t.c)){ ward.respawn = 1; return; } }
+    ward.hp = ward.maxHp;
+    log('The Brood Warden drags itself back together.');
   }
 
   // 2. Corruption. It creeps out from the maw one ring at a time and never
@@ -2316,7 +2330,7 @@
     render();
   }
 
-  const TANK_PROJECTILE_COLOR = { light:'#2DE1FC', medium:'#FFB627', heavy:'#FF5C5C', guardian:'#FF5CB6', medic:'#34D399', raider:'#A78BFA', sniper:'#C7D96B', warden:'#6BA8FF', marshal:'#E8B84B' };
+  const TANK_PROJECTILE_COLOR = { light:'#2DE1FC', medium:'#FFB627', heavy:'#FF5C5C', guardian:'#FF5CB6', medic:'#34D399', raider:'#A78BFA', sniper:'#C7D96B', warden:'#6BA8FF', marshal:'#E8B84B', revenant:'#7CFF4D' };
 
   function quickAttack(uid){
     if(turn !== 'player' || gameOver) return;
@@ -2544,6 +2558,31 @@
 
   // One drawing across the nine middle tiles: jaw, gullet, ribs and four
   // tendrils reaching for the corners the squad spawns in.
+  // A hunched brood-guard: the same lineage as the maw, a quarter the size,
+  // planted between the squad and its parent.
+  function wardBodyHtml(){
+    if(!ward) return '';
+    const down = ward.hp <= 0;
+    const style = 'grid-area:' + (ward.r + 1) + '/' + (ward.c + 1) + '/span 2/span 2;';
+    const pct = Math.max(0, Math.round(ward.hp / ward.maxHp * 100));
+    return '<div class="ward-body' + (down ? ' ward-down' : '') + '" style="' + style + '">'
+      + '<svg viewBox="-16 -16 152 152" preserveAspectRatio="xMidYMid meet" aria-hidden="true">'
+        + '<g stroke="#3F8F28" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.9">'
+          + '<path d="M34 40 Q8 26 -10 34"/><path d="M86 40 Q112 26 130 34"/>'
+          + '<path d="M34 84 Q8 100 -10 94"/><path d="M86 84 Q112 100 130 94"/>'
+        + '</g>'
+        + '<path d="M60 14 L92 32 L96 74 L60 106 L24 74 L28 32 Z" fill="#12220E" stroke="#7CFF4D" stroke-width="3"/>'
+        + '<ellipse cx="60" cy="62" rx="20" ry="15" fill="#0B1A08" stroke="#4FD62A" stroke-width="2"/>'
+        + '<g fill="#C8FFA8">'
+          + '<path d="M44 55 L49 62 L54 55 Z"/><path d="M56 54 L61 62 L66 54 Z"/><path d="M68 55 L73 62 L78 55 Z"/>'
+          + '<path d="M44 69 L49 62 L54 69 Z"/><path d="M56 70 L61 62 L66 70 Z"/><path d="M68 69 L73 62 L78 69 Z"/>'
+        + '</g>'
+        + '<circle cx="48" cy="34" r="4" fill="#FFE55C"/><circle cx="72" cy="34" r="4" fill="#FFE55C"/>'
+      + '</svg>'
+      + '<b class="ward-hp">' + (down ? 'back in ' + ward.respawn : pct + '%') + '</b>'
+    + '</div>';
+  }
+
   function mawBodyHtml(){
     const hpPct = Math.max(0, boss.hp / boss.maxHp);
     const open = 0.55 + 0.45 * (1 - hpPct);          // it gapes wider as it dies
@@ -2612,22 +2651,20 @@
     document.getElementById('boss-hp-text').textContent = formatHp(Math.max(0,boss.hp)) + ' / ' + formatHp(boss.maxHp);
     document.getElementById('boss-phase-tag').textContent = 'Phase ' + phase;
     const nb = document.getElementById('node-bars');
-    if(nb){
-      const shield = liveNodes() > 0;
+    if(nb && ward){
+      const shield = wardAlive();
+      const pct = Math.max(0, ward.hp / ward.maxHp * 100);
       nb.innerHTML = '<div class="nb-head">' +
-          (shield ? '<b>Armoured</b> — body takes ' + Math.round(BODY_DR * 100) + '%'
-                  : '<b class="open">Exposed</b> — body takes full damage') +
+          (shield ? '<b>Shielded</b> — kill the Warden to reach the body'
+                  : '<b class="open">Exposed</b> — the body takes full damage') +
         '</div>' +
-        nodes.map((n, i) => {
-          const pct = Math.max(0, n.hp / n.maxHp * 100);
-          return '<div class="nb-row' + (n.hp > 0 ? '' : ' down') + '">' +
-            '<span class="nb-name">Node ' + (i + 1) + '</span>' +
-            '<span class="nb-track"><i style="width:' + pct + '%"></i></span>' +
-            '<span class="nb-val">' + (n.hp > 0
-                ? '<b>' + n.hp + '</b><em> / ' + n.maxHp + '</em>'
-                : 'back in ' + n.respawn) + '</span>' +
-          '</div>';
-        }).join('');
+        '<div class="nb-row' + (shield ? '' : ' down') + '">' +
+          '<span class="nb-name">Warden</span>' +
+          '<span class="nb-track"><i style="width:' + pct + '%"></i></span>' +
+          '<span class="nb-val">' + (shield
+              ? '<b>' + ward.hp + '</b><em> / ' + ward.maxHp + '</em>'
+              : 'back in ' + ward.respawn) + '</span>' +
+        '</div>';
     }
 
     const exposedTag = document.getElementById('boss-exposed-tag');
@@ -2708,21 +2745,14 @@
         // rot is a class so terrain and telegraphs still show through it, and a
         // node is an overlay with its own health bar.
         if(isCorrupt(r, c)) cls += ' corrupt';
-        if(inNodeReach(r, c)) cls += ' node-reach';
-        const nd = nodeAt(r, c);
-        let nodeHtml = '';
-        if(nd){
-          const alive = nd.hp > 0;
-          const pct = Math.round(nd.hp / nd.maxHp * 100);
-          nodeHtml = '<i class="node' + (alive ? '' : ' node-dead') + '" style="--nhp:' + pct + '">'
-            + (alive ? '<s>' + nd.hp + '</s>' : '<u>' + nd.respawn + '</u>')
-            + '</i>';
-          cls += alive ? ' has-node' : ' has-node-dead';
-        }
+        // The Warden is drawn once across its whole block, like the maw, rather
+        // than as four separate tile overlays.
+        const nodeHtml = '';
         html += '<div class="' + cls + '" style="grid-area:' + (r+1) + '/' + (c+1) + ';' + tileStyle + '" data-r="' + r + '" data-c="' + c + '" ' + onclick + '>' + nodeHtml + content + '</div>';
       }
     }
     html += mawBodyHtml();
+    html += wardBodyHtml();
     boardEl.innerHTML = html;
 
     // roster
